@@ -1,0 +1,303 @@
+.IM_main_div table, .IM_main_div table::before, .IM_main_div table::after{
+	box-sizing: border-box;
+}
+
+.IM_main_div div{
+	box-sizing: initial;
+}
+
+.IM_main_div h2 {
+	color: #2c879b;
+	font-size : 100%;
+}
+
+.IM_error_message {
+	color : red;
+}
+
+#IM_legend {
+	font-size : 14px;
+	overflow-y: auto;
+	overflow-x : initial;
+}
+
+#IM_legend img {
+	max-width : none;
+}
+
+.IM_main_div th, .IM_main_div td {
+	padding : 0
+}
+
+.IM_symbol_table {
+	border:0px;
+	border-collapse: collapse;
+	border-spacing: 0px;
+	table-layout: auto;
+	margin: 0;
+}
+
+.IM_symbol_table td, .symbolTable img { 
+	padding:0px; 
+	border-width:0px; 
+	margin-left:0px;
+	margin-right:-1px; 
+	margin-top:0px;
+	margin-bottom: -3px;
+	line-height : 0;
+}
+
+#IM_legend .focused > td {
+	font-weight : bold;
+	color : #009999;
+}
+
+.chosen-container {
+	font-size: 0.9rem; 
+}
+
+.collapseSymbol span {
+	width : 19px;
+	height: 19px;
+	display: block;
+	border-radius: 1em;
+	background-color: white;
+	color : gray;
+	font-weight: bold;
+	text-align: center !important;
+	font-family: Arial;
+	border : 0;
+}
+
+#IM_Syn_Map_Selection_chosen .chosen-drop {
+	border-bottom: 0;
+	border-top: 1px solid #aaa;
+	top: auto;
+	bottom: 40px;
+}
+
+.addComment{
+outline: none;	
+}
+
+.qcheck{
+    color: gray;  
+}
+
+.q-span{
+
+    top: -12px;
+    margin-left: 4px;
+}
+
+ .q-stack{
+ 	font-size: 11pt !important;
+  color: lightgrey;
+ }
+
+.quantifyButton{
+	position: relative;
+	border-radius: 50%;
+    behavior: url(PIE.htc);
+    width: 16px;
+    height: 16px;
+    padding: 2px;
+    border: 2px solid #666;
+    text-align: center;
+    font: 14px sans-serif;
+    font-weight: bold;
+    margin-top: -2px;
+     -webkit-touch-callout: none; 
+    -webkit-user-select: none;
+    -khtml-user-select: none; 
+    -moz-user-select: none; 
+     -ms-user-select: none;
+     user-select: none; 
+}
+
+.quantifyButton:hover{
+	color: black;
+	opacity: 1.0;
+	cursor: pointer;
+	border: 2px solid #333;
+}
+
+.quantifyButton:hover .fa-times-circle-o{
+	color:#333;
+}
+
+.quantifyButton:hover .zplus1{
+
+color:black;
+
+}
+
+.greensymbol{
+
+  color:green;
+}
+
+ .q-stack1{
+z-index: 1;
+font-size:9pt!important;
+}
+
+#listcontainer{
+  bottom: 0px;
+  /*position: absolute;*/
+  margin-bottom:20px;
+}
+
+.canvas_list{
+  position: absolute;
+  padding: 0;
+  list-style: none;
+  margin: 0;
+  display: none;
+  bottom: 35px;
+}
+
+.canvas_list > li > canvas {
+ /*border : 2px solid grey;*/
+ border-radius: 2px;
+
+}
+
+.canvas_list > li{
+ height: 35px;
+ margin-bottom:5px;
+}
+
+.canvastext:hover{
+
+cursor: pointer;
+
+}
+
+
+#activediv > canvas {
+ /*border : 2px solid;*/
+ border-radius: 2px;
+}
+
+
+.hoverdiv{
+    border-radius: 2px;
+    background: black;
+    opacity: 0.5;
+    margin-top: -37px;
+    display: none;
+    position: absolute;
+    width: 256px;
+    height: 35px;
+}
+
+.canvastext{
+    border-radius: 2px;
+    text-align: center;
+    z-index: 1;
+    margin-top: -37px;
+    display: none;
+    position: absolute;
+    width: 258px;
+    height: 20px;
+    color: white;
+    padding-top: 10px;
+    font-family: sans-serif;
+    font-size: 10pt;
+    text-transform: uppercase;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;                                       
+}
+
+.canvas_icon{
+    position: absolute;
+    right: -13px;
+    color: white;
+    margin-top: 8px;
+    font-size: 17pt !important;
+} 
+
+.editsymbol{
+    opacity: 0.9;
+    z-index: 3;
+    margin-top: -30px;
+    left: 5px;
+    color: white !important;
+    font-size: 10pt !important;
+    position: absolute;
+}
+
+.editsymbol:hover{
+cursor: pointer;
+opacity: 1.0;
+}
+
+.editsymbolbg{
+
+    z-index: 2;
+    position: absolute;
+    left: 5px;
+    margin-top: -30px;
+    color: black;
+    font-size: 10pt !important;
+    opacity: 1.0;
+}
+
+.exchangeparent{
+  height: 35px;
+
+}
+
+.colpickparent{
+
+    position: absolute;
+    top: -200px;
+    height: 200px;
+    width: 200px;
+}
+
+.colpicktriangle{
+    display: none;
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-left: 0px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 12px solid #444;
+    top: -12px;
+}
+
+.cp-color-picker{
+    margin-top: -170px;
+    margin-left: 37px;
+    left:0px !important;
+    top:0px !important;
+  }
+
+  #colorbarlegend_left{
+    left: -1px;
+  }
+
+  #colorbarlegend_right{
+    right: 0px;
+  }
+
+  .colorbarlegenditem {
+
+    color: white;
+    font-size: 14px;
+    position: absolute;
+    top: -18px;
+    z-index: -1;
+
+  }
+  
+#tagComponent input {
+	margin-bottom : 0.3em;
+	margin-right : 0.4em;
+}

@@ -1,0 +1,253 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"POT-Creation-Date: 2016-12-16 16:22+0100\n"
+"PO-Revision-Date: 2016-12-16 16:23+0100\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.8.8\n"
+"X-Poedit-Basepath: ..\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Poedit-KeywordsList: _e;__\n"
+"X-Poedit-SearchPath-0: src/php\n"
+"X-Poedit-SearchPath-1: plugin.php\n"
+
+#: src/php/ajax-calls.php:456 src/php/ajax-calls.php:466
+msgid "Slug does not exist!"
+msgstr ""
+
+#: src/php/ajax-calls.php:470
+msgid ""
+"Only a slug with a given (default) database can be used. Please edit the "
+"slug in the SQLToHtml options and add a data base!"
+msgstr ""
+
+#: src/php/gui-elements.php:40
+msgid "No table given!"
+msgstr "Keine Tabelle angegeben!"
+
+#: src/php/gui-elements.php:43
+msgid "No primary key given!"
+msgstr "Kein Primärschlüssel angegeben!"
+
+#: src/php/gui-elements.php:46
+msgid "No columns given!"
+msgstr "Keine Spalten angegeben!"
+
+#: src/php/gui-elements.php:49
+msgid "No id given!"
+msgstr "Keine ID angegeben!"
+
+#: src/php/gui-elements.php:58 src/php/gui-elements.php:319
+msgid "Add new value"
+msgstr "Neuen Wert hinzufügen"
+
+#: src/php/gui-elements.php:270
+msgid "Insert"
+msgstr "Einfügen"
+
+#: src/php/gui-elements.php:270
+msgid "Update"
+msgstr ""
+
+#: src/php/gui-elements.php:414
+msgid "Show data"
+msgstr "Daten anzeigen"
+
+#: src/php/gui-elements.php:439
+msgid "Synoptic map"
+msgstr "Synoptische Karte"
+
+#: src/php/gui-elements.php:450 src/php/gui-elements.php:547
+msgid "Save selection as synoptic map"
+msgstr "Auswahl als synoptische Karte speichern"
+
+#: src/php/gui-elements.php:464
+msgid "Comment"
+msgstr "Kommentar"
+
+#: src/php/gui-elements.php:487
+msgid "Edit comment"
+msgstr "Kommentar bearbeiten"
+
+#: src/php/gui-elements.php:488 src/php/gui-elements.php:579
+msgid "Save"
+msgstr "Speichern"
+
+#: src/php/gui-elements.php:552
+msgid "Name"
+msgstr "Name"
+
+#: src/php/gui-elements.php:560
+msgid "Description"
+msgstr "Beschreibung"
+
+#: src/php/gui-elements.php:569
+msgid "Save only active elements"
+msgstr "Nur aktive Elemente speichern"
+
+#: src/php/gui-elements.php:571
+msgid "Save all elements"
+msgstr "Alle Elemente speichern"
+
+#: src/php/gui-elements.php:575
+msgid "Apply for release"
+msgstr "Freigabe beantragen"
+
+#: src/php/initializer.php:253
+msgid "Grouping"
+msgstr "Gruppierung"
+
+#: src/php/initializer.php:254
+msgid "Sorting"
+msgstr "Sortierung"
+
+#: src/php/initializer.php:255
+msgid "alphabetical"
+msgstr "alphabetisch"
+
+#: src/php/initializer.php:256
+msgid "ascending"
+msgstr "aufsteigend"
+
+#: src/php/initializer.php:257
+msgid "descending"
+msgstr "absteigend"
+
+#: src/php/initializer.php:258
+msgid "according to the number of instances"
+msgstr "nach Häufigkeit"
+
+#: src/php/initializer.php:259
+msgid "No elements selected!"
+msgstr "Keine Elemente ausgewählt!"
+
+#: src/php/initializer.php:260
+msgid "Please enter a name!"
+msgstr "Bitte einen Namen eingeben!"
+
+#: src/php/initializer.php:261
+msgid "A map by that name already exists. Please choose another name!"
+msgstr ""
+"Eine Karte mit diesem Namen existiert bereits. Bitte geben Sie einen anderen "
+"Namen ein!"
+
+#: src/php/initializer.php:262
+msgid "You have saved the map successfully!"
+msgstr "Karte erfolgreich gespeichert!"
+
+#: src/php/initializer.php:263
+msgid "Saving not possible!"
+msgstr "Speichern nicht möglich!"
+
+#: src/php/initializer.php:264
+msgid "There are not enough symbols to show the current selection!"
+msgstr ""
+"Es sind nicht genügend Symbole vorhanden, um die aktuelle Auswahl anzuzeigen!"
+
+#: src/php/initializer.php:265
+msgid "There is no data!"
+msgstr "Keine Daten vorhanden"
+
+#: src/php/initializer.php:266
+msgid ""
+"This comment is not available in English. Please select another language!"
+msgstr ""
+"Dieser Kommentar steht auf Deutsch nicht zur Verfügung. Bitte eine andere "
+"Sprache wählen!"
+
+#: src/php/initializer.php:267
+msgid "Please save the current changes first!"
+msgstr "Bitte zuerst die aktuellen Änderungen speichern!"
+
+#: src/php/initializer.php:268
+msgid ""
+"If a synoptic map should be shown to all users, you have to ask for its "
+"release. All other maps remain personal and can only be used by the person "
+"who created it."
+msgstr ""
+"Wenn eine synoptische Karte für alle Benutzer angezeigt werden soll, muss "
+"eine Freigabe beantragt werden. Alle anderen Karten bleiben privat und "
+"können nur vom jeweiligen Ersteller genutzt werden."
+
+#: src/php/initializer.php:269
+msgid "Enter new value!"
+msgstr "Neuen Wert eingeben!"
+
+#: src/php/initializer.php:270
+msgid "Value added!"
+msgstr "Wert hinzugefügt!"
+
+#: src/php/initializer.php:271
+msgid "Print List"
+msgstr "Liste drucken"
+
+#: src/php/initializer.php:272
+msgid "Select List Type"
+msgstr "Wählen Sie einen Listentyp: "
+
+#: src/php/initializer.php:273
+msgid "Options"
+msgstr "Optionen"
+
+#: src/php/initializer.php:274
+msgid "Select category"
+msgstr ""
+
+#: src/php/initializer.php:275
+msgid "Add new data"
+msgstr ""
+
+#: src/php/initializer.php:276
+msgid "Select all"
+msgstr "Alle auswählen"
+
+#: src/php/initializer.php:277
+msgid "No grouping"
+msgstr "keine"
+
+#: src/php/initializer.php:310
+msgid "Options Interactive Map"
+msgstr "Optionen Interaktive Karte"
+
+#: src/php/initializer.php:310
+msgid "Interactive Map"
+msgstr "Interaktive Karte"
+
+#: src/php/initializer.php:331 src/php/initializer.php:344
+msgid "Error"
+msgstr ""
+
+#: src/php/initializer.php:337
+msgid ""
+"Comments and synoptic maps will be copied into the new data base. Any "
+"changes within the example data will be lost. Continue?"
+msgstr ""
+
+#: src/php/initializer.php:347
+msgid "Finished!"
+msgstr ""
+
+#: src/php/initializer.php:356
+msgid "Use example data"
+msgstr ""
+
+#: src/php/initializer.php:361
+msgid "Data base"
+msgstr ""
+
+#: src/php/initializer.php:366
+msgid "Default Wordpress data base"
+msgstr ""
+
+#: src/php/initializer.php:377
+msgid "The data base connections can be created with the SQLtoHTML plugin."
+msgstr ""
+
+#: src/php/initializer.php:381
+msgid "Please install sqlToHtml plugin to use stored data base connections"
+msgstr ""

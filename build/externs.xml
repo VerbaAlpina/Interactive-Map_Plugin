@@ -1,0 +1,6 @@
+<externs dir="${basedir}/build/externs">
+	<file name="jquery-1.9.js"/>
+	<file name="wordpress.js"/>
+	<file name="libs.js"/>
+	<file name="google_maps_api_v3.js"/>
+</externs>

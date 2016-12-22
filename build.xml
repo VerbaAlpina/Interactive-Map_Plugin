@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<!DOCTYPE project [
+	<!ENTITY externs SYSTEM "build/externs.xml">
+	<!ENTITY sources SYSTEM "build/sources.xml">
+	<!ENTITY exports SYSTEM "build/exports.xml">
+]>
+
+<project name="im_plugin" basedir="." default="compile">
+	<property name="jscomp.debug" value="${debugMode}" />
+	<condition property="jscomp.debug" value="false">
+	   	<not>  
+	      	<isset property="debugMode"/>
+	  	 </not>
+	</condition>
+
+  <taskdef name="jscomp" classname="com.google.javascript.jscomp.ant.CompileTask"
+           classpath="build/compiler.jar"/>
+
+  <target name="compile">
+
+	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6" output="compiled/interactive_map_compiled.js">
+
+		<!--<warning group="reportUnknownTypes" level="WARNING" />-->
+		<!--  prettyPrint="true"-->
+		
+		&externs;
+		&sources;
+		&exports;
+    </jscomp>
+
+  </target>
+
+</project>

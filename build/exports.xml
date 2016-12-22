@@ -1,0 +1,3 @@
+<sources dir="${basedir}/src/js">
+	<file name="exports.js" />
+</sources>
