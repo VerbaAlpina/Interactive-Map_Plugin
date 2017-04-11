@@ -434,7 +434,8 @@ function im_main_div_class (){
 	return 'IM_main_div';
 }
 
-function im_create_synoptic_map_div ($width, $readonly = false){
+function im_create_synoptic_map_div ($width, $readonly = false, $extra_content = ''){
+	echo '<div id="IM_Syn_Map_Cotainer">';
 	$add_data = array(
 		'placeholder' => __('Synoptic map', 'interactive-map'),
 		'width' => $width
@@ -450,6 +451,7 @@ function im_create_synoptic_map_div ($width, $readonly = false){
 		<input type="button" class="button button-primary" id="IM_Save_Syn_Map_Button" style="width: <?php echo $width;?>;" value="<?php _e('Save selection as synoptic map', 'interactive-map');?> ">
 		<?php
 	}
+	echo $extra_content . '</div>';
 }
 
 

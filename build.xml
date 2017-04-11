@@ -18,7 +18,7 @@
 
   <target name="compile">
 
-	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6" output="compiled/interactive_map_compiled.js">
+	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6_STRICT" output="compiled/interactive_map_compiled.js">
 
 		<!--<warning group="reportUnknownTypes" level="WARNING" />-->
 		<!--  prettyPrint="true"-->

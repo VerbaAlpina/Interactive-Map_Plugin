@@ -163,7 +163,12 @@ function im_ajax_handler_users (){
 				
 				echo $map_id;
 			}
-			break;
+		break;
+			
+		case 'edit_mode':
+			if(current_user_can_for_blog(1, 'im_edit_map_data'))
+				echo IM_Initializer::$instance->edit_data();
+		break;
 	}
 	die;
 }
@@ -227,11 +232,12 @@ class IM_Result {
 	 * @param string $geo_data Geo data in WKT format
 	 * @param array<string, string|number> $quant_info optional
 	 * 		Enables quantification for this element.
+	 * 
 	 * 		The parameter has to be an array that contains a mapping from category ids to element ids.
 	 * 		In general, this is only meaningfull if the MapElement is a point symbol and the given category
 	 * 		only contains polygons.
 	 */
-	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, $quant_info = NULL){
+	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, IM_Quantitfy_Info $quant_info = NULL){
 		if(!array_key_exists($sub_id, $this->element_data)){
 			$this->element_data[$sub_id] = array ();
 			$this->contains_point_symbols[$sub_id] = false;
@@ -258,7 +264,7 @@ class IM_Result {
 			}
 		}	
 		
-		$this->element_data[$sub_id][] = array ($element_info->getData(), $geo_data, $quant_info);
+		$this->element_data[$sub_id][] = array ($element_info->getData(), $geo_data, ($quant_info? $quant_info->getAjaxData(): NULL));
 	}
 	
 	function setDebugData($str){
@@ -270,7 +276,7 @@ class IM_Result {
 			return;
 		
 		foreach ($arr as $sub_id){
-			$this->element_data[$sub_id] = count($this->element_data[$sub_id]);
+			unset($this->element_data[$sub_id]);
 		}
 	}
 	//TODO comment the comment filter
@@ -317,34 +323,27 @@ class IM_Result {
 		$num_polygon_sub_categories = 0;
 		$num_line_string_sub_categories = 0;
 		foreach ($this->element_data as $sub_id => $data){
-		
-			if(is_int($data)){
-				$result_data[$sub_id] = $data;
+			//Find out the overlay type of the result for visualization. As soon as there are two types of overlays it is treated like a point symbol.
+			if($this->contains_point_symbols[$sub_id]){
+				$overlay_type = 0; //Point
+				$num_point_sub_categories++;
 			}
 			else {
-					
-				//Find out the overlay type of the result for visualization. As soon as there are two types of overlays it is treated like a point symbol.
-				if($this->contains_point_symbols[$sub_id]){
-					$overlay_type = 0; //Point
-					$num_point_sub_categories++;
+				if($this->contains_line_strings[$sub_id] && !$this->contains_polygons[$sub_id]){
+					$overlay_type = 2; //Line string
+					$num_line_string_sub_categories++;
+				}
+				else if ($this->contains_polygons[$sub_id] && !$this->contains_line_strings[$sub_id]){
+					$overlay_type = 1; //Polygon
+					$num_polygon_sub_categories++;
 				}
 				else {
-					if($this->contains_line_strings[$sub_id] && !$this->contains_polygons[$sub_id]){
-						$overlay_type = 2; //Line string
-						$num_line_string_sub_categories++;
-					}
-					else if ($this->contains_polygons[$sub_id] && !$this->contains_line_strings[$sub_id]){
-						$overlay_type = 1; //Polygon
-						$num_polygon_sub_categories++;
-					}
-					else {
-						$overlay_type = 0; //Point as default
-						$num_point_sub_categories++;
-					}
+					$overlay_type = 0; //Point as default
+					$num_point_sub_categories++;
 				}
-				
-				$result_data[$sub_id] = array ($overlay_type, $data);
 			}
+			
+			$result_data[$sub_id] = array ($overlay_type, $data);
 		}
 		
 		$num_types_per_category = array($num_point_sub_categories, $num_polygon_sub_categories, $num_line_string_sub_categories);
@@ -374,6 +373,43 @@ class IM_Error_Result extends IM_Result {
 	
 	function createResultString (){
 		return 'Error: ' . $this->error_msg;
+	}
+}
+
+interface IM_Quantitfy_Info {
+	function getAjaxData ();
+}
+
+/**
+ * Contains a mapping from category ids to element ids
+ *
+ */
+class IM_Point_Quantify_Info implements IM_Quantitfy_Info {
+	private $mapping = array();
+	
+	function addCategoryIndex ($category, $index){
+		$this->mapping[$category] = $index;
+	}
+	
+	function getAjaxData (){
+		return array('POINT', $this->mapping);
+	}
+	
+}
+
+/**
+ * Contains the index for the polygon
+ *
+ */
+class IM_Polygon_Quantify_Info implements IM_Quantitfy_Info {
+	private $index;
+	
+	function __construct ($index){
+		$this->index = $index;
+	}
+	
+	function getAjaxData (){
+		return array('POLYGON', $this->index);
 	}
 }
 
@@ -416,8 +452,30 @@ class IM_SimpleElementInfoWindowData extends IM_ElementInfoWindowData {
 		$this->data = array ('name' => $name, 'description' => $description);
 	}
 	
+	public function getName(){
+		return $this->data['name'];
+	}
+	
 	protected function getTypeSpecificData (){
 	 	return $this->data;
+	}
+}
+
+class IM_EditableElementInfoWindowData extends IM_ElementInfoWindowData {
+	private $data;
+
+	function __construct ($id, $fields){
+		parent::__construct('editable');
+		$this->data = $fields;
+		$this->data['id'] = $id;
+	}
+
+	public function getName(){
+		return '';
+	}
+
+	protected function getTypeSpecificData (){
+		return $this->data;
 	}
 }
 

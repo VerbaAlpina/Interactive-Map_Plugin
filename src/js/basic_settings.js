@@ -105,3 +105,11 @@ var colorScheme = new ColorScheme(
     [new Feature("shape", shapes)], 
     [new Feature("color", colors, false, 3), new Feature("letter", letters)], 
     [new Feature("border_color", colors)], colors);
+
+/**
+ * @type{number}
+ * @const
+ * 
+ * For efficiency reasons only a certain size of multi symbols is allowed, so that it's bounds can be precomputed
+ */
+var multiSymbolTableSize = 40;

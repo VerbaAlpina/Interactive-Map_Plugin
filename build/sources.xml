@@ -1,4 +1,6 @@
 <sources dir="${basedir}">
+	<file name="src/js/basic_settings.js" />
+	
 	<file name="src/js/core/map.js" />
 	<file name="src/js/core/legend.js" />
 	<file name="src/js/core/symbol-clusterer.js" />
@@ -11,14 +13,14 @@
 	<file name="src/js/core/gui-elements.js" />
 	<file name="src/js/core/list-builder.js" />
 	<file name="src/js/core/list-manager.js" />
-	
-	<file name="src/js/basic_settings.js" />
+	<file name="src/js/core/map-interface.js" />
 	
 	<file name="src/js/classes/filter-components/grouping.js" />
 	<file name="src/js/classes/filter-components/sorting.js" />
 	<file name="src/js/classes/filter-components/flex_search.js" />
 	<file name="src/js/classes/filter-components/tag.js" />
 	<file name="src/js/classes/info-windows/simple.js" />
+	<file name="src/js/classes/info-windows/editable.js" />
 	<file name="src/js/classes/info-windows/mergeable-table.js" />
 	<file name="src/js/classes/info-windows/generic.js" />
 	<file name="src/js/classes/sort-types/alphabet.js" />
@@ -28,7 +30,12 @@
 	<file name="src/js/classes/list-printers/csv-list-printer.js" />
 	<file name="src/js/classes/list-builders/simple.js" />
 	<file name="src/js/classes/edit-field-types/string.js" />
+	<file name="src/js/classes/map-interfaces/google-maps.js" />
+	<file name="src/js/classes/undo-operations/marker-moved.js" />
+	<file name="src/js/classes/undo-operations/marker-split.js" />
+	<file name="src/js/classes/undo-operations/overlay-added.js" />
+	<file name="src/js/classes/undo-operations/data-changed.js" />
 	
 	<file name="lib/js/js-info-bubble-gh-pages/src/infobubble.js" />
-	<file name="lib/js/js-rich-marker-gh-pages/src/richmarker.js" />
+	<file name="lib/js/contextmenuGM.js/ContextMenu.js" />
 </sources>

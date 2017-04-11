@@ -3,9 +3,11 @@
  * @struct
  * @implements {InfoWindowContent}
  * 
+ * @param {number} categoryID
+ * @param {OverlayType} overlayType
  * @param {Object<string, string>} data
  */
-function SimpleInfoWindowContent (data){
+function SimpleInfoWindowContent (categoryID, overlayType, data){
 	/**
 	 * @type{Object<string,string>}
 	 */
@@ -21,7 +23,7 @@ function SimpleInfoWindowContent (data){
 	 * 
 	 * @return {string}
 	 */
-	this.getHtmlString = function (){
+	this.getHtml = function (){
 		return this.contentString;
 	};
 	
@@ -40,22 +42,22 @@ function SimpleInfoWindowContent (data){
 	/**
 	 * @override
 	 * 
-	 * @param {InfoBubble} infoWindow
+	 * @param {Element} content
 	 *
 	 * @return {undefined} 
 	 */
-	this.onOpen = function (infoWindow){
+	this.onOpen = function (content){
 		
 	}
 	
 	/**
 	 * @override
 	 * 
-	 * @param {InfoBubble} infoWindow
+	 * @param {Element} content
 	 *
 	 * @return {undefined} 
 	 */
-	this.onClose = function (infoWindow){
+	this.onClose = function (content){
 		
 	}
 	
@@ -66,5 +68,14 @@ function SimpleInfoWindowContent (data){
 	 */
 	this.getData = function () {
 		return [this.data];
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @return {string}
+	 */
+	this.getName = function (){
+		return this.data["name"];
 	};
 }

@@ -17,7 +17,7 @@
 			$text_color = ImageColorAllocate($symbol, 255, 255, 255);
 		}
 		else {
-			$text_color = ImageColorAllocate($symbol, 1, 1, 1); //don't use 0,0,0; with that the anti aliasing can't be turned off
+			$text_color = ImageColorAllocate($symbol, 0, 0, 0); //don't use 0,0,0; with that the anti aliasing can't be turned off
 		}
 	}
 	$border_color = ImageColorAllocate($symbol, $col_b[0], $col_b[1], $col_b[2]);
@@ -114,7 +114,7 @@
 		$box = imagettfbbox($font_size, 0, $font, $_REQUEST['letter']);
 		$width = abs($box[4] - $box[0]);
 		$height = abs($box[5] - $box[1]);
-		$text_x = ceil($size / 2) - floor($width / 2);
+		$text_x = ceil($size / 2) - ceil($width / 2);
 		switch($shape){
 			case 'triangle':
 			case 'house':

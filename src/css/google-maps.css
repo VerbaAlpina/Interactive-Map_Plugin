@@ -1,0 +1,17 @@
+.IM_GM_symbol_table {
+	border:0px;
+	border-collapse: collapse;
+	border-spacing: 0px;
+	table-layout: auto;
+	margin: 0;
+}
+
+.IM_GM_symbol_table td, .symbolTable img { 
+	padding:0px; 
+	border-width:0px; 
+	margin-left:0px;
+	margin-right:-1px; 
+	margin-top:0px;
+	margin-bottom: -3px;
+	line-height : 0;
+}

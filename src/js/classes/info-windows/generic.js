@@ -116,7 +116,7 @@
              * 
              * @return {string}
              */
-            this.getHtmlString = function (){
+            this.getHtml = function (){
                 return (
                     "<div class='genericInfoWindow'>"
                     +"<h2>"+this.title+"</h2>"
@@ -144,21 +144,21 @@
             /**
         	 * @override
         	 * 
-        	 * @param {InfoBubble} infoWindow
+        	 * @param {Element} content
         	 * 
         	 * @return {undefined} 
         	 */
-        	this.onClose = function (infoWindow){
+        	this.onClose = function (content){
         	}
         	
         	/**
         	 * @override
         	 * 
-        	 * @param {InfoBubble} infoWindow
+        	 * @param {Element} content
         	 * 
         	 * @return {undefined} 
         	 */
-        	this.onOpen = function (infoWindow){
+        	this.onOpen = function (content){
         	}
         	
         	/**
@@ -169,6 +169,15 @@
         	this.getData = function () {
         		return [this.information];
         	};
+        	
+        	/**
+        	 * @override
+        	 * 
+        	 * @return {string}
+        	 */
+        	this.getName = function (){
+        		return "";
+        	}
 
             this.tableTemplate = tableTemplate;
 

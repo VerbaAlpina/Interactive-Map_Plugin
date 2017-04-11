@@ -42,11 +42,13 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	/**
 	 * @param {OverlayInfo} info
 	 * @param {LegendElement} owner
+	 * @param {string} id
+	 * @param {boolean} movable
 	 * 
-	 * @return {undefined}
+	 * @return {MapSymbol|google.maps.Data.Feature}
 	 * 
 	 */
-	this.addOverlay = function(info, owner) {
+	this.addOverlay = function(info, owner, id, movable) {
 		if(info.geomData instanceof google.maps.Data.Point){
 			var /** number */ lat = info.geomData.get().lat();
 			var /** number */ lng = info.geomData.get().lng();
@@ -55,28 +57,39 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			
 			var /** number */ len = arr.length;
 			for (var /** number */ i = 0; i < len; i++){
-				var /** number */ distSquared = getDistanceOnGoogleMapSquared(arr[i].getMarker().getPosition().lat(), arr[i].getMarker().getPosition().lng(), lat, lng);
-				if(distSquared < thresholdSquared){
+				var /** google.maps.LatLng*/ markerPos = arr[i].getMarker().getPosition();
+				var /** number */ distSquared = getDistanceOnGoogleMapSquared(markerPos.lat(), markerPos.lng(), lat, lng);
+				var /** number */ thSquared = thresholdSquared;
+				
+				if(optionManager.inEditMode()){
+					//Combine only exactly matching markers in edit mode regardless of the threshold
+					thSquared = 0;
+				}
+				
+				if(distSquared <= thSquared){
 					arr[i].appendSymbol(info, owner);
-					break;
+					return arr[i];
 				}
 			}
-			if(i == len){
-				var /** MapSymbol */ mapSymbolNew = new MapSymbol(createNewSingleMarker (info.geomData.get(), owner.symbolStandard), [info.infoWindowContent], [owner]);
-				arr.push(mapSymbolNew);
-			    mapSymbolNew.getMarker().setMap(map);	
-			}
+			var /** !MapSymbol */ mapSymbolNew = new MapSymbol([info.infoWindowContent], [owner]);
+			var /** google.maps.LatLng */ pos = info.geomData.get();
+			var /** Object */ newMarker = mapInterface.createMarker(pos.lat(), pos.lng(), owner.symbolStandard, movable, mapSymbolNew);
+			mapSymbolNew.setMarker(newMarker);
+			
+			arr.push(mapSymbolNew);
+		    mapInterface.showMarker(newMarker);
+		    return mapSymbolNew;
 		}
 		else {
 			var /** Object */ options = {"geometry" : info.geomData};
 			var /** google.maps.Data.Feature */ feature = new google.maps.Data.Feature (options);
-			owner.googleFeatures.push(feature);
+			owner.googleFeatures[id] = feature;
 
 			var /** MapShape */ mapShapeNew = new MapShape(feature, info.infoWindowContent, owner);
 			feature.setProperty("mapShape", mapShapeNew);
 			
 			otherOverlays.push(mapShapeNew);
-			map.data.add(feature);
+			return map.data.add(feature);
 		}
 	};
 	
@@ -113,19 +126,48 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	};
 	
 	/**
-	 * @param {LegendElement} owner
-	 * @param {boolean} highlight
+	 * @param {MapSymbol} mapSymbol
 	 * 
-	 * @return {undefined} 
+	 * @return {boolean}
 	 */
-	this.highlightSymbols = function (owner, highlight) {
-		highlightSymbolsFromArray(outside, owner, highlight);
-		
-		var len = markerIndex.length;
-		var len2 = markerIndex[0].length;
-		for(var /** number */ i = 0; i < len; i++){
-			for (var /** number */ j = 0; j < len2; j++){
-				highlightSymbolsFromArray(markerIndex[i][j], owner, highlight);
+	this.removeSingleMapSymbol = function (mapSymbol){
+		if(this.removeSingleSymbolFromArray(outside, mapSymbol)){
+			return true;
+		}
+		else {
+			var len = markerIndex.length;
+			var len2 = markerIndex[0].length;
+			for(var /** number */ i = 0; i < len; i++){
+				for (var /** number */ j = 0; j < len2; j++){
+					if(this.removeSingleSymbolFromArray(markerIndex[i][j], mapSymbol)){
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * @private
+	 * @param {Array<MapSymbol>} arr
+	 * @param {MapSymbol} mapSymbol
+	 */
+	this.removeSingleSymbolFromArray = function (arr, mapSymbol){
+		for (var /** number */ i = arr.length - 1; i >= 0; i--){
+			var /** MapSymbol */ currentElement = arr[i];
+			var len_owners = currentElement.owners.length;
+			if(currentElement == mapSymbol){
+				if(len_owners == 1){
+					if(currentElement.infoWindow != null)
+						mapInterface.destroyInfoWindow(currentElement.infoWindow);
+					mapInterface.destroyOverlay(currentElement.marker);
+					arr.splice(i,1);
+				}
+				else {
+					currentElement.reduceSymbol(j);
+					len_owners--;
+				}
 			}
 		}
 	};
@@ -144,13 +186,14 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			var owners = currentElement.owners;
 			var len_owners = owners.length;
 			for (var /** number */ j = len_owners - 1; j >= 0; j--){
+				if(len_owners > 1){
+					var test = true;
+				}
 				if(owners[j] == owner){
 					if(len_owners == 1){
-						//Remove InfoWindow from DOM
-						currentElement.destroyInfoWindow();
-						//Remove marker from map
-						currentElement.marker.setMap(null);
-						//Remove array reference
+						if(currentElement.infoWindow != null)
+							mapInterface.destroyInfoWindow(currentElement.infoWindow);
+						mapInterface.destroyOverlay(currentElement.marker);
 						arr.splice(i,1);
 					}
 					else {
@@ -161,59 +204,6 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			}
 		}
 	}
-	
-	/**
-	 *
-	 * @param {Array<MapSymbol>} arr
-	 * @param {LegendElement} owner
-	 * @param {boolean} highlight
-	 * 
-	 * @return {undefined}
-	 *  
-	 */
-	function highlightSymbolsFromArray (arr, owner, highlight){
-		for (var /** number */ i = arr.length - 1; i >= 0; i--){
-			arr[i].highlight(owner, highlight);
-		}
-	}
-	
-//	//TODO change the following two function into one changePolygonAttribute function
-//	/**
-//	* @param {LegendElement} owner
-//	* @param {number} opacity
-//	*
-//	* @return {undefined}
-//	*/
-//	this.changeOverlayOpacity = function (owner, opacity){
-//		for (var /** number */ i = 0; i < owner.overlayInfos.length; i++){
-//			var geo = owner.overlayInfos[i].geomData;
-//			if(!(geo instanceof google.maps.LatLng))
-//				if(geo instanceof Array)
-//					for (var j = 0; j < geo.length; j++)
-//						geo[j].setOptions({"fillOpacity" : opacity});
-//				else
-//					geo.setOptions({"fillOpacity" : opacity});
-//		}
-//	};
-	
-//	/**
-//	* @param {LegendElement} owner
-//	* @param {number} strokeWeight
-//	*
-//	* @return {undefined}
-//	*/
-//	this.changeOverlayStrokeWeight = function (owner, strokeWeight){
-//		for (var /** number */ i = 0; i < owner.overlayInfos.length; i++){
-//			var geo = owner.overlayInfos[i].geomData;
-//			if(!(geo instanceof google.maps.LatLng))
-//				if(geo instanceof Array)
-//					for (var j = 0; j < geo.length; j++)
-//						geo[j].setOptions({"strokeWeight" : strokeWeight});
-//				else
-//					geo.setOptions({"strokeWeight" : strokeWeight});
-//		}
-//	};
-	
 	
 	/**
 	 * @param {number} lat
@@ -262,9 +252,19 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	};
 
 	/**
-	 * @type{Array<google.maps.Data.Feature>}
+	 * @type{Object<string, google.maps.Data.Feature>}
 	 */
-	this.polygrp = new Array();	
+	this.polygrp;
+	
+	/**
+	 * @type{number}
+	 */
+	this.max_markers_in_one_poly;
+	
+	/**
+	 * @type{number}
+	 */
+	this.overall_markers;
 
 	/**
 	 * @param {LegendElement|MultiLegendElement} element
@@ -287,30 +287,29 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 		}
 
 		var linear_mapping = false; // true: colors will be calculated as percentage of total marker amount not max.
-		//**get number of legend elemnts with polygons
+		//**get number of legend elements with polygons
 
 
 		var /** LegendElement|MultiLegendElement */ owner = element;
-		this.polygrp = new Array();
+		this.polygrp = {};
 	
 		if(owner instanceof MultiLegendElement){
 			var /** number */ numSub = owner.getNumSubElements();
-			 for(var j = 0; j < numSub; j++){
-				 var subowner = owner.getSubElement(j);
-				 for(var k = 0; k < subowner.googleFeatures.length; k++){
-					this.polygrp.push(subowner.googleFeatures[k]);
-			 }	
-		  }
+			for(var j = 0; j < numSub; j++){
+				var subowner = owner.getSubElement(j);
+				for(var id in subowner.googleFeatures){
+					this.polygrp[id] = subowner.googleFeatures[id];
+				}	
+			}
 		}
-		else{
-			for(var j = 0; j < owner.googleFeatures.length; j++){
-				this.polygrp.push(owner.googleFeatures[j]);
+		else {
+			for(var id in owner.googleFeatures){
+				this.polygrp[id] = owner.googleFeatures[id];
 			}
 		}
 	
 		// //** Get all active markers
 		var /** Array<OverlayInfo>*/ activeMapSymbols = [];
-		var /** number */ overall_markers = 0; // not used
 		var /** boolean */ fastquantify = true;
 		var /** string */ ekey = element.key;
 
@@ -320,24 +319,23 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			for(var j = 0; j < markers.length; j++){
 
 				if(markers[j].geomData instanceof google.maps.Data.Point){
-				  activeMapSymbols.push(markers[j]);
-
-					  if(markers[j].quantifyInfo[ekey] == null){
-						  fastquantify = false;
-					  }
+					activeMapSymbols.push(markers[j]);
+					if(markers[j].quantifyInfo[ekey] == null){
+						fastquantify = false;
+					}
 				 }
 			}
 		}
-	
+		
 		this.displayMarkers(false);
-		this.polygrp.overall_markers = activeMapSymbols.length;
+		this.overall_markers = activeMapSymbols.length;
 
 		if(element.quantify || update){
-			for (var /** number */ j = 0; j < this.polygrp.length; j++){
-				this.polygrp[j].markercount = 0;
+			for (var id in this.polygrp){
+				this.polygrp[id].markercount = 0;
 			}
 
-			this.polygrp.max_markers_in_one_poly=0;	
+			this.max_markers_in_one_poly = 0;
 
 			if (fastquantify){
 				for (var /** number */ i = 0; i < activeMapSymbols.length; i++){
@@ -346,47 +344,48 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 					if(idx != -1){
 						try {
 							this.polygrp[idx].markercount++;
-							if (this.polygrp[idx].markercount > this.polygrp.max_markers_in_one_poly){
-								this.polygrp.max_markers_in_one_poly = this.polygrp[idx].markercount;
+							if (this.polygrp[idx].markercount > this.max_markers_in_one_poly){
+								this.max_markers_in_one_poly = this.polygrp[idx].markercount;
 							}
 						}
 						catch (e){
-							console.log(idx);
+							// console.log(idx);
 						}
 		 			
 					}
 				}
 			}
 			else {
-				var gPolygons = [];
+				var /** Object<string, google.maps.Polygon> */ gPolygons = {};
 				//** create google polygon objects before marker inside polygon test (small performance increase)
 
-				for (var /** number */ i = 0; i < this.polygrp.length; i++){
-					gPolygons.push(getPolygonFromDataPolygon(this.polygrp[i].getGeometry()));
+				for (var id in this.polygrp){
+					gPolygons[id] = getPolygonFromDataPolygon(this.polygrp[id].getGeometry());
 				}
 
 				//** Determine how many markers are inside each polygon and polygon grp 
 				for (var /** number */ i = 0; i < activeMapSymbols.length; i++){
 					var latlng = activeMapSymbols[i].geomData.get();
 				
-					for (var /** number */ j = 0; j < this.polygrp.length; j++){
-						var poly = gPolygons[j];
+					for (var id in this.polygrp){
+						var poly = gPolygons[id];
 						
 						if(google.maps.geometry.poly.containsLocation(latlng, poly)){
-							this.polygrp[j].markercount++;
-							if(this.polygrp[j].markercount > this.polygrp.max_markers_in_one_poly){
-								this.polygrp.max_markers_in_one_poly = this.polygrp[j].markercount;
+							this.polygrp[id].markercount++;
+							if(this.polygrp[id].markercount > this.max_markers_in_one_poly){
+								this.max_markers_in_one_poly = this.polygrp[id].markercount;
 							}
 							break;
 						}
 					}	
 				}
-			}//else	    
-
-			jQuery('#colorbarlegend_right').text(this.polygrp.max_markers_in_one_poly);
+			}//else	 
+			
+			jQuery('#colorbarlegend_right').text(this.max_markers_in_one_poly);
 
 			//change color of polygons according to their amount of markers in relation to all markers in their polygon grp:
    		    this.changePolygonColor(false);
+   		    
 
     }//if
     else {
@@ -451,18 +450,17 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	 */
     this.changePolygonColor = function (linear_mapping){
 
-
-	   for (var /** number */ i = 0; i < this.polygrp.length; i++){
+	   for (var id in this.polygrp){
 		   
         	var /** number */ percentage = 0;	
-        	var /** google.maps.Data.Feature */ feature = this.polygrp[i];
+        	var /** google.maps.Data.Feature */ feature = this.polygrp[id];
 
-        	if(feature.markercount !==0 && feature.markercount){
+        	if(feature.markercount !== 0 && feature.markercount){
             	if(linear_mapping){
-            		percentage = feature.markercount / this.polygrp.overall_markers;
+            		percentage = feature.markercount / this.overall_markers;
             	}	
             	else {
-            		percentage = feature.markercount / this.polygrp.max_markers_in_one_poly;
+            		percentage = feature.markercount / this.max_markers_in_one_poly;
             	}		   
             }	
        
@@ -480,7 +478,7 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	        var /** number*/ a = color_arr[3];
 
 	        var color = "rgb(" + r + "," + g + "," + b + ")";
-
+	        
 	        if(a<255){ //color in gradient is opaque => change polygon alpha
 
 	        	var /** number*/ alpha = Math.round((a/255)*10)/10;
@@ -609,27 +607,6 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	};
 }
 
-/**
- * @param {google.maps.LatLng} position
- * @param {string} symbol
- * 
- * @return {google.maps.Marker} 
- */
-function createNewSingleMarker (position, symbol){
-	 return new google.maps.Marker({
-		position : position,
-		icon : {
-			url : symbol,
-			origin: new google.maps.Point(0, 0),
-			anchor: new google.maps.Point(symbolSize / 2, symbolSize/2) //TODO change her for custom symbol sizes
-		}
-	});
-
-
-}
-
-
-
 /** 
  * @constructor
  * @struct
@@ -665,7 +642,7 @@ function MapShape (feature, infoWindowContent, owner){
 	this.openInfoWindow = function (event){
 		if(this.infoWindow == null){
 			this.infoWindow = new google.maps.InfoWindow({
-				content : this.infoWindowContent.getHtmlString() //TODO translate
+				content : this.infoWindowContent.getHtml() //TODO translate
 			});	
 		}
 
@@ -700,140 +677,85 @@ function MapShape (feature, infoWindowContent, owner){
  * @constructor
  * @struct
  * 
- * @param {google.maps.Marker|RichMarker} marker
+ * 
  * @param {Array<InfoWindowContent>} infoWindowContents 
  * @param {Array<LegendElement>} owners
  */
 
-function MapSymbol (marker, infoWindowContents, owners){
+function MapSymbol (infoWindowContents, owners){
 	
 	/** @type{Array<InfoWindowContent>} */
 	this.infoWindowContents = infoWindowContents;
 	
 	/** 
 	* @private
-	* @type {google.maps.Marker|RichMarker}
+	* @type {Object}
 	*/
-	this.marker = marker;
+	this.marker;
 	
 	/** @type{Array<LegendElement>} */
 	this.owners = owners;
 	
 	/**
-	* @return {google.maps.Marker|RichMarker}
+	* @return {Object}
 	*/
 	this.getMarker = function (){
 		return this.marker;
 	};
 	
-	/** @type {?InfoBubble} */
+	/**
+	 * @param {Object} marker
+	 * 
+	 * @return {undefined}
+	 */
+	this.setMarker = function (marker){
+		this.marker = marker;
+	}
+	
+	/** @type {?Object} */
 	this.infoWindow = null;
 	
 	/**
-	* @param {google.maps.Marker|RichMarker} newMarker
-	* @param {boolean=} rebuild
-	* 
-	* @return {undefined}
-	*/
-	this.setMarker = function (newMarker, rebuild){
-		google.maps.event.clearInstanceListeners(this.marker);
-		this.marker.setMap(null);
-		this.marker = newMarker;
-		
-		if(rebuild)
-			this.rebuildMarker();
-		
-		google.maps.event.addListener(this.marker, 'click', this.openInfoWindow.bind(this));
-		google.maps.event.addListener(this.marker, 'mouseover', this.focusOnEntryTo.bind(this));
-		google.maps.event.addListener(this.marker, 'mouseout', this.removeFocusOnEntryTo.bind(this));
-		this.marker.setMap(map);
+	 * @private
+	 * 
+	 * @return {Array<string>}
+	 */
+	this.getSymbolURLs = function (){
+		var /** Array<string> */ symbols = [];
+		for(var /** number */ i = 0; i < this.infoWindowContents.length; i++){
+			symbols[i] = this.owners[i].symbolStandard;
+		}
+		return symbols;
 	};
 	
 	/**
 	 * @param {OverlayInfo} info
 	 * @param {LegendElement} owner
+	 * @param {number=} index
 	 * 
 	 * @return {undefined} 
 	 */
-	this.appendSymbol = function (info, owner){
+	this.appendSymbol = function (info, owner, index){
 		
 		this.infoWindow = null;
 			
 		if(info.infoWindowContent.tryMerge(this, owner)){
 			return;
 		}
-		this.infoWindowContents.push(info.infoWindowContent);
 		
+		if(index === undefined){
+			this.infoWindowContents.push(info.infoWindowContent);
+			this.owners.push(owner);
+		}
+		else {
+			this.infoWindowContents.splice(index, 0, info.infoWindowContent);
+			this.owners.splice(index, 0, owner);
+		}
+			
+		this.marker = mapInterface.updateMarker(this.marker, this.getSymbolURLs(), this);
+	};
+	
 
-		this.owners.push(owner);
-		
-		// Marker
-		if(this.marker instanceof google.maps.Marker){
-			var /** RichMarker */ combinedMarker = new RichMarker({
-				position : info.geomData.get(),
-				draggable: false,
-				flat: true
-			});
-			combinedMarker.setShadow("none");
-			this.setMarker(combinedMarker, true);
-		}
-		else {
-			this.rebuildMarker ();
-		}
-	};
-	
-	/** 
-	 *
-	 * @param {LegendElement=} highlightOwner  
-	 *
-	 * @return {undefined} 
-	 */
-	this.rebuildMarker = function (highlightOwner){
-		
-		//Normal marker
-		if(this.owners.length == 1){
-			this.setMarker(createNewSingleMarker(this.marker.getPosition(), this.owners[0].symbolStandard), false);
-		}
-		//Rich marker
-		else {
-			var /** number */ len = this.owners.length;
-			var /** number */ size = sizeTable[len];
-			var /** number */ currentRow = 0;
-			
-			var /** Element */ res = document.createElement("div");
-			var /** Element */ table = document.createElement("table");
-			table["className"] = "IM_symbol_table";
-			
-			for (var /** number */ i = 0; i < size; i++){
-				var /** Element */ row = document.createElement("tr");
-				for (var /** number */ j = 0; j < size; j++){
-					var currentIndex = currentRow + j;
-					if(currentIndex >= len)
-						break;
-					else {
-						var /** string */ icon = this.owners[currentIndex] == highlightOwner ? this.owners[currentIndex].symbolHighlighted : this.owners[currentIndex].symbolStandard;
-						var /** Element */ col = document.createElement("td");
-						var /** Element */ img = document.createElement("img");
-						img["src"] = icon;
-						img["style"]["cursor"] = "pointer";
-						img.addEventListener("mouseover", function (index){
-							indexInMultiSymbol = index;
-						}.bind(this, currentIndex + 1));
-						col.appendChild(img);
-						row.appendChild(col);
-					}
-				}
-				currentRow += size;
-				table.appendChild(row);
-			}
-			res.appendChild(table);
-			
-			this.marker.setContent(res);
-			
-			this.marker.setAnchor (RichMarkerPosition.MIDDLE);
-		}
-	};
-	
 	/**
 	 * @param {number} index
 	 * 
@@ -842,84 +764,60 @@ function MapSymbol (marker, infoWindowContents, owners){
 	this.reduceSymbol = function (index){
 		this.owners.splice(index, 1);
 		if(this.infoWindow != null){
-			this.infoWindow.removeTab(index);
+			mapInterface.destroyInfoWindow(this.infoWindow);
+			this.infoWindow = null;
 		}
 		this.infoWindowContents.splice(index, 1);
-		this.rebuildMarker();
+		this.marker = mapInterface.updateMarker(this.marker, this.getSymbolURLs(), this);
 	};
 	
 	/**
-	 * @type {Array<number>} 
+	 * @param {number} index
 	 * 
-	 * Avoids computing Math.ceil(Math.sqrt(symbolsUrls.length)) all the time
-	 * 
-	 * Works for combination up to 36 symbols
-	 */
-	var sizeTable = [0,1,2,2,2,3,3,3,3,3,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,6];
-	
-	/**
-	 * @private
-	 *
 	 * @return {undefined}
 	 */
-	this.openInfoWindow = function (){
-		
+	this.openInfoWindow = function (index){
 		if(this.infoWindow == null){
-			this.infoWindow = new InfoBubble({
-			 "map" : map,
-			 "position" : this.marker.getPosition(),
-			 "minWidth" : 50
-			});
-			
-		
+			var /** Array<Element> */ contents = [];
 			for(var /** number */ i = 0; i < this.infoWindowContents.length; i++){
-				this.infoWindow.addTab('<img src="' + this.owners[i].symbolStandard + '" />', linkifyHtml(this.infoWindowContents[i].getHtmlString()));
-				this.infoWindowContents[i].onOpen(this.infoWindow);
+				var /** Element|string*/ html = this.infoWindowContents[i].getHtml();
+				if(typeof html === "string")
+					contents[i] = linkifyHtml(html);
+				else
+					contents[i] = html;
 			}
+			
+			var /** Array<string>*/ symbols;
+			if(this.owners == null){
+				symbols = [""];
+			}
+			else {
+				symbols = this.getSymbolURLs();
+			}
+			this.infoWindow = mapInterface.createInfoWindow (symbols, contents, this.infoWindowContents);
 		}
-
-		var /** MapSymbol */ thisObject = this;
-		google.maps.event.addListenerOnce(this.infoWindow, "closeclick", function (){
-			for(var /** number */ i = 0; i < thisObject.infoWindowContents.length; i++){
-				thisObject.infoWindowContents[i].onClose(thisObject.infoWindow);
-			}
-			google.maps.event.trigger(map.data, 'mouseout');
-		});
-		
-		this.infoWindow.setTabActive(indexInMultiSymbol);
-		this.infoWindow.open(map, this.marker);
-
+		mapInterface.openInfoWindow(this.marker, this.infoWindow, index);
 	};
 	
 	/**
 	 *
 	 * @return {undefined} 
 	 */
-	this.destroyInfoWindow = function (){
-		if(this.infoWindow != null){
-			//Remove dom elements
-			this.infoWindow.setMap(null);
-		}
-	};
-	
-	/**
-	 *
-	 * @return {undefined} 
-	 */
-	this.removeFocusOnEntryTo = function (){
-		this.getLegendElement().unhighlight();
+	this.removeFocus = function (){
+		legend.unhighlightAll();
 		
 		if(current_polygon && !current_polygon.getProperty('hovered') &&!current_polygon.getProperty('clicked'))
 			current_polygon.setProperty('highlighted', false);
 	};
 	
 	/**
+	 * @param {number} iconIndex
 	 * 
 	 * @return {undefined} 
 	 */
-	this.focusOnEntryTo = function (){
-		//TODO if the mouse is above several symbols, all are highlighted in the legend, so indexMultiSymbol does not work correctly!!! Remove this var!!!
-		this.getLegendElement().highlight();
+	this.focusOnEntryTo = function (iconIndex){
+		if(this.owners != null)
+			this.getLegendElement(iconIndex).highlight();
 
 		if(current_polygon && !current_polygon.getProperty('highlighted')){
 		    var poly = getPolygonFromDataPolygon(/** @type{google.maps.Data.Polygon|google.maps.Data.MultiPolygon} */ (current_polygon.getGeometry()));
@@ -928,48 +826,75 @@ function MapSymbol (marker, infoWindowContents, owners){
 				current_polygon.setProperty('highlighted',true);
 			}
 		}
-
 	};
 	
 	/** 
+	 * @param {number} index
 	 * 
 	 * @return {LegendElement|MultiLegendElement}
 	 */
-	this.getLegendElement = function (){
+	this.getLegendElement = function (index){
 		var /** LegendElement|MultiLegendElement */ legendEntry;
 		if(this.owners.length == 1)
 			legendEntry = this.owners[0];
 		else
-			legendEntry = this.owners[indexInMultiSymbol - 1];
+			legendEntry = this.owners[index];
 			
 		return legendEntry;
 	};
 	
-	google.maps.event.addListener(this.marker, 'click', this.openInfoWindow.bind(this));
-	google.maps.event.addListener(this.marker, 'mouseover', this.focusOnEntryTo.bind(this));
-	google.maps.event.addListener(this.marker, 'mouseout', this.removeFocusOnEntryTo.bind(this));
-	
 	/**
-	 * @param {LegendElement} owner
-	 * @param {boolean} b
 	 * 
 	 * @return {undefined}
 	 */
-	this.highlight = function (owner, b){
-		if(this.owners.length == 1 && this.owners[0] == owner){
-			this.marker.setIcon(/** @type{google.maps.Icon} */ ({
-				url : (b? owner.symbolHighlighted : owner.symbolStandard),
-				origin: new google.maps.Point(0, 0),
-				anchor: new google.maps.Point(symbolSize / 2, symbolSize/2) //TODO change her for custom symbol sizes
-			}));
+	this.openSplitMultiSymbol = function (){
+		var /** MapSymbol */ thisObject = this;
+		var /** Array<ContextMenuItem> */ items = [];
+		for (var i = 0; i < this.owners.length; i++){
+			var /**string*/ htmlLabel = TRANSLATIONS["SEPARATE_SYMBOL"].replace("%d", "" + (i + 1)) + ": <img src='" + this.owners[i].symbolStandard +"' /> " + this.infoWindowContents[i].getName();
+			items.push({
+				label : htmlLabel,
+				eventName : "" + i,
+				className : "IM_GM_Context_Menu_Item"
+			});
 		}
-		else {
-			if(b){
-				this.rebuildMarker(owner);
-			}	
-			else
-				this.rebuildMarker();
-		}
+		
+		var /** ContextMenu */ menu = new ContextMenu(map, {
+			menuItems : items,
+			classNames : {
+				menu : "IM_GM_Context_Menu"
+			}
+		});
+		window.setTimeout(function (){
+			menu.show(thisObject.marker.getPosition());
+			
+			this.menuListener = google.maps.event.addListenerOnce(menu, "menu_item_selected", function (latlng, eventName){
+				var /** number */ numSymbol = eventName * 1;
+				
+				//Compute LatLng for new marker (== one symbol size right of the original symbol)
+				var /**google.maps.OverlayView*/ overlay = new google.maps.OverlayView();
+				overlay.draw = function() {};
+				overlay.setMap(map);
+				var /** google.maps.Point */ latLngInPixel = overlay.getProjection().fromLatLngToDivPixel(latlng);
+				latLngInPixel.x += 2 * symbolSize;
+				var /** google.maps.LatLng */ newLatLng = overlay.getProjection().fromDivPixelToLatLng(latLngInPixel);
+				overlay.setMap(null);
+				
+				var /** google.maps.Data.Point */ newPoint = new google.maps.Data.Point(newLatLng);
+				var /** OverlayInfo */ newInfo = new OverlayInfo(thisObject.infoWindowContents[numSymbol], newPoint, null);
+				
+				var /** MapSymbol */ newSymbol = /** @type{MapSymbol} */ (symbolClusterer.addOverlay(newInfo, thisObject.owners[numSymbol], "", true));
+				
+				optionManager.addChange(new SplitMarkerOperation(thisObject, numSymbol, newInfo, thisObject.owners[numSymbol], newSymbol));
+				
+				thisObject.reduceSymbol(numSymbol);
+				
+				window.setTimeout(function (){
+					menu.setMap(null);
+				}, 10);
+			});
+		}, 10);
+		
 	};
 
 
@@ -1006,13 +931,17 @@ function OverlayInfo (infoWindowContent, geomData, quantifyInfo){
 /**
  * @interface
  *
+ * @param {number} categoryID
+ * @param {OverlayType} overlayType
  * @param {Object} data
  */
-function InfoWindowContent (data){}
+function InfoWindowContent (categoryID, overlayType, data){}
 /**
- * @return {string}
+ * @abstract
+ * 
+ * @return {string|Element}
  */
-InfoWindowContent.prototype.getHtmlString = function (){};
+InfoWindowContent.prototype.getHtml = function (){};
 
 /**
  *
@@ -1029,21 +958,30 @@ InfoWindowContent.prototype.tryMerge = function (mapSymbol, owner){};
 
 /**
  * 
- * @param {InfoBubble} infoWindow
+ * @param {Element} tabContent
+ * @param {number} tabIndex
+ * @param {Object} infoWindow
+ * @param {Object} overlay
  *
  * @return {undefined} 
  */
-InfoWindowContent.prototype.onOpen = function (infoWindow) {};
+InfoWindowContent.prototype.onOpen = function (tabContent, tabIndex, infoWindow, overlay) {};
 
 /**
- * @param {InfoBubble} infoWindow
+ * @param {Element} tabContent
  * 
  * @return {undefined} 
  */
-InfoWindowContent.prototype.onClose = function (infoWindow) {};
+InfoWindowContent.prototype.onClose = function (tabContent) {};
 
 /**
  * 
  * @return {Array<Object<string, string>>} 
  */
 InfoWindowContent.prototype.getData = function () {};
+
+/**
+ * 
+ * @return {string} 
+ */
+InfoWindowContent.prototype.getName = function () {};

@@ -55,6 +55,7 @@ function TagComponent (tags){
 			var /** Element */ cb = document.createElement("input");
 			cb["type"] = "checkbox";
 			cb["name"] = "ignore";
+			cb["className"] = "ignore"
 			cb["checked"] = "checked";
 			cb["style"]["opacity"] = ".50";
 			cb.addEventListener("change", function (){
@@ -110,7 +111,7 @@ function TagComponent (tags){
 	 */
 	this.storeData = function (data){
 		data["tags"] = {};
-		jQuery("#tagComponent input").each(function (){
+		jQuery("#tagComponent input:not(.ignore)").each(function (){
 			var /** jQuery */ e = jQuery(this);
 			var /**string*/ name = /** @type{string} */ (e.prop("name"));
 			

@@ -35,6 +35,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//Options that have to be set
 		$this->map_function = 'im_show_test_map';
 		$this->load_function = 'im_load_test_data';
+		$this->edit_function = NULL;
 		
 		//Options that can be used
 		$this->gui_languages = array ('de','en','fr', 'it', 'sl', 'rg');
@@ -127,8 +128,6 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
 		wp_register_script('im_colorpicker', IM_PLUGIN_URL . '/lib/js/colorpicker/jqColorPicker.min.js');
-	
-		
 		
 		$dependencies = array(	
 				'jquery-ui-dialog',
@@ -151,6 +150,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_script('im_example_config', IM_PLUGIN_URL . 'example_files/data-template.js', array('im_map_script'), true);
 		
 		wp_register_style('im_map_style', IM_MAIN_CSS_FILE);
+		wp_register_style('im_gm_style', IM_PLUGIN_URL . 'src/css/google-maps.css'); //TODO make this depend on MapInterface somehow
 		wp_register_style('im_easy_table_style', IM_PLUGIN_URL . 'lib/css/easy-table.css');
 	}
 
@@ -169,6 +169,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			wp_enqueue_style('im_qtip_style');
 				
 			wp_enqueue_style('im_map_style');
+			wp_enqueue_style('im_gm_style'); //TODO make this depend on MapInterface somehow
 			wp_enqueue_style('im_easy_table_style');
 			
 			wp_enqueue_style('im_font_awesome');
@@ -224,6 +225,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'Delete_M' => IM_PLUGIN_URL . '/icons/Delete_M.png',
 				'Plus' => IM_PLUGIN_URL . '/icons/Plus.png',
 				'Loading' => IM_PLUGIN_URL . '/icons/Loading.gif',
+				'Pencil' => IM_PLUGIN_URL . '/icons/pencil.svg',
+				'Commit' => IM_PLUGIN_URL . '/icons/Commit.png',
+				'Undo' => IM_PLUGIN_URL . '/icons/undo.png',
 				'Dot' => IM_PLUGIN_URL . '/icons/dot.png',
 				'symbolGenerator' => IM_PLUGIN_URL . 'src/php/createSymbol.php',
 				'gradientFile' => IM_PLUGIN_URL . '/lib/js/colorpicker/gradients.json',
@@ -274,7 +278,15 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'CHOOSE_CATEGORY' => __('Select category', 'interactive-map'),
 				'ADD_NEW_DATA' => __('Add new data', 'interactive-map'),
 				'SELECT_ALL' => __('Select all', 'interactive-map'),
-				'NO_GROUPING' => __('No grouping', 'interactive-map')
+				'NO_GROUPING' => __('No grouping', 'interactive-map'),
+				'UNDO_CHANGES' => __('Discard changes', 'interactive-map'),
+				'COMMIT_CHANGES' => __('Commit changes', 'interactive-map'),
+				'EDIT_MODE' => __('Edit mode', 'interactive-map'),
+				'SEPARATE_SYMBOL' =>__('Separate %d. marker from multi symbol'),
+				'UNDO_CHANGE' => __('Undo last operation', 'interactive-map'),
+				'LEAVE_EDIT_MODE' => __('Leave edit mode', 'interactive-map'),
+				'NO_EDITING_CATEGORY' => __('Not possible to load non-editable category in edit mode!'),
+				'FIELD_IS_EMPTY' => __('Field "%s" is not allowed to be empty!')
 		);
 		
 		$translations = apply_filters ('im_translation_list', $translations); //TODO document
@@ -303,6 +315,15 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		}
 		else {
 			return new IM_Error_Result('No loading function!');
+		}
+	}
+	
+	public function edit_data (){
+		if(is_callable($this->edit_function)){
+			return call_user_func($this->edit_function);
+		}
+		else {
+			return 'No edit function!';
 		}
 	}
 	

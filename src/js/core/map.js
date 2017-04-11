@@ -1,14 +1,13 @@
 //TODO change var-private to closure-private to allow inlining of setters etc.
 
 /**
- *
- * @type {google.maps.Map}
+ * @type {MapInterface}
  * @const
  */
-var map;
+var mapInterface = new GoogleMapsInterface ();
 
 /**
- * @type Legend
+ * @type {Legend}
  * @const
  */
 var legend;
@@ -41,11 +40,6 @@ var optionManager;
 var symbolClusterer;
 
 /**
- * @type {number}
- */
-var indexInMultiSymbol = -1;
-
-/**
  * @type {CategoryManager}
  * @const
  */
@@ -68,108 +62,31 @@ var dragging = false;
 var style_for_quantify = {};
 
 /**
- * 
- * @return{undefined}
- */
-function initGM (){
-	map = new google.maps.Map(document.getElementById("IM_googleMap"), mapData);
-
-
-	var /** Object */ highlighted = {"highlighted" : false};
-	var /** google.maps.Data.Feature */ hi_feature = new google.maps.Data.Feature(highlighted);
-
-	var /** Object */ clicked = {"clicked" : false};
-	var /** google.maps.Data.Feature */ cl_feature = new google.maps.Data.Feature(clicked);
-
-
-	var /** Object */ hovered = {"hovered" : false};
-	var /** google.maps.Data.Feature */ ho_feature = new google.maps.Data.Feature(hovered);
-
-	
-	map.data.setStyle(function (feature){
-
-	  var /** LegendElement */ owner = feature.getProperty("mapShape").owner;
-
-	  var /** string */ color =  owner.getColorString();
-      var /** number */ zindex =  owner.getIndex();
-      var /** number */ stroke_w =  1;
-      var /** number */ opacity =  0.4;
-
-
-		if (feature.getProperty('highlighted')) {
-     	 stroke_w = 2;
-     	 zindex = 10000; 
-     	 opacity =  0.6;
-    	}
-
-		return /** @type {google.maps.Data.StyleOptions} */({
-	      "fillColor" : color,
-	      "fillOpacity" : opacity,
-	      "strokeColor" : color,
-	      "strokeWeight" : stroke_w,
-	      "zIndex" : zindex
-	    });
-		//TODO remove constants
-	});
-
-	map.data.addListener ("click", function (event){
-		event.feature.getProperty("mapShape").openInfoWindow(event);
-        event.feature.setProperty("clicked", true);		
-	});
-    
-
-	map.data.addListener('mouseover', function(event) {
-		event.feature.setProperty('hovered', true);
-		event.feature.setProperty('highlighted', true);
-		current_polygon = event.feature;
-  });
-
-	map.data.addListener('mouseout', function(event) {
-		if(event != null){	
-			event.feature.setProperty('hovered', false);
-
-			if(!event.feature.getProperty('clicked') && !dragging){
-				event.feature.setProperty('highlighted',false);
-			}
-		}
-		else {
-			if(current_polygon){
-				current_polygon.setProperty('highlighted',false);
-			}
-		}
-	//case for manual trigger of mouseout in symbol_clusterer if closeclick on single symbol richmarker
-  });
-
-	map.data.addListener('mousedown', function(event) {
-		dragging = true;
-	});
-
-	map.data.addListener('mouseup', function(event) {
-		dragging = false;	
-	});
-
-	jQuery('body').on('mouseup',function(){
-		if(dragging)dragging=false;
-	})
-	
-}
-
-/**
  * @return {undefined} 
  */
 function init (){
 	
-	initGM();
+	mapInterface.init(initEvents);
 	
 	legend = new Legend();
 	symbolManager = new SymbolManager(colorScheme);
-	optionManager = new OptionManager();
+	
+	initGuiElements();
 	
 	//TODO move threshold to settings.js
 	/* The threshold used here is a "lat/lng distance" of 0.000898315284119521435127501256466 
  	 * That corresponds to 100m in north/south direction and ca. 70m in east/west direction (at the average latitude of the alpine convention)
  	 */
 	symbolClusterer = new SymbolClusterer(43.43132018706552, 4.884734173789496, 4.93608093568811, 11.586466768725804, 16, 16, 0.000898315284119521435127501256466);
+	
+	optionManager = new OptionManager();
+	
+	//Send url parameters to option manager
+	for (var option in PATH["options"]){
+		optionManager.setOption(option, PATH["options"][option]);
+	}
+	
+	optionManager.createOptionsDiv();
 	
 	 jQuery.contextMenu({
 	 	"selector" : '.addComment',
@@ -188,15 +105,79 @@ function init (){
 		"beforeActivate" : commentManager.beforeTabChange.bind(commentManager)
 	});
 	
-	initGuiElements();
-	
-	//Send url parameters to option manager
-	for (var option in PATH["options"]){
-		optionManager.setOption(option, PATH["options"][option]);
-	}
-	
 	jQuery(document).trigger("im_map_initialized"); //TODO document this, also stuff like addXY in categoryManager
-	
+}
+
+function initEvents (){
+	mapInterface.addMarkerListeners(
+		/**
+		 * @this {!MapSymbol}
+		 * 
+		 * @param {number} iconIndex
+		 */
+		function (iconIndex){ //Click
+			this.openInfoWindow(iconIndex);
+		},
+		/**
+		 * @this {!MapSymbol}
+		 */
+		function (){ //Right click
+			if(this.owners.length > 1){
+				this.openSplitMultiSymbol();
+			}
+		},
+		/**
+		 * @this {!MapSymbol|undefined}
+		 * 
+		 * @param {number} oldLat
+		 * @param {number} oldLng
+		 */
+		function (oldLat, oldLng){ //Drag
+			optionManager.addChange(new MarkerDragOperation(this, oldLat, oldLng));
+		},
+		/**
+		 * @this {!MapSymbol}
+		 * 
+		 * @param {number} iconIndex
+		 */
+		function (iconIndex){ //Mouse over
+			this.focusOnEntryTo(iconIndex);
+		},
+		/**
+		 * @this {!MapSymbol}
+		 * 
+		 */
+		function (){ //Mouse out
+			this.removeFocus();
+		}
+	);
+
+	mapInterface.addInfoWindowListeners(
+		/**
+		 * @param {Element} tabElement
+		 * @param {number} tabIndex
+		 * @param {InfoWindowContent} infoWindowContent
+		 * @param {Object} infoWindow
+		 * @param {Object} overlay
+		 */
+		function (tabElement, tabIndex, infoWindowContent, infoWindow, overlay){
+			infoWindowContent.onOpen(tabElement, tabIndex, infoWindow, overlay);
+		},
+		/**
+		 * @param {Element} tabElement
+		 * @param {InfoWindowContent} infoWindowContent
+		 */
+		function (tabElement, infoWindowContent){
+			infoWindowContent.onClose(tabElement);
+		},
+		/**
+		 * @param {Element} windowElement
+		 * @param {Array<InfoWindowContent>} infoWindowContents
+		 */
+		function (windowElement, infoWindowContents){
+			google.maps.event.trigger(map.data, 'mouseout');
+		}
+	);
 }
 
 jQuery(init);

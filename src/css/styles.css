@@ -29,24 +29,6 @@
 	padding : 0
 }
 
-.IM_symbol_table {
-	border:0px;
-	border-collapse: collapse;
-	border-spacing: 0px;
-	table-layout: auto;
-	margin: 0;
-}
-
-.IM_symbol_table td, .symbolTable img { 
-	padding:0px; 
-	border-width:0px; 
-	margin-left:0px;
-	margin-right:-1px; 
-	margin-top:0px;
-	margin-bottom: -3px;
-	line-height : 0;
-}
-
 #IM_legend .focused > td {
 	font-weight : bold;
 	color : #009999;
@@ -300,4 +282,16 @@ opacity: 1.0;
 #tagComponent input {
 	margin-bottom : 0.3em;
 	margin-right : 0.4em;
+}
+
+.IM_GM_Context_Menu {
+    background-color: white;
+    border: 1px solid gray;
+    font-size : 15px;
+}
+.IM_GM_Context_Menu_Item {
+    padding: 3px 6px;
+}
+.IM_GM_Context_Menu_Item:hover {
+    background-color: #cccccc;
 }

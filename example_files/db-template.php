@@ -1,5 +1,5 @@
 <?php
-	function im_load_test_data (){
+	function im_load_test_data ($editMode){
 		$db = IM_Initializer::$instance->database;
 		
 		switch ($_POST['category']){

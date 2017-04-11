@@ -64,6 +64,7 @@ abstract class IM_Initializer {
 	
 	public abstract function include_map ($params);
 	public abstract function load_data ();
+	public abstract function edit_data ();
 	
 	public abstract function enqueue_qtips ();
 	public abstract function enqueue_gui_elements ();

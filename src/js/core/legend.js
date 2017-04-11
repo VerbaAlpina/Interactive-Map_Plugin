@@ -85,6 +85,10 @@ function Legend() {
 		}
 		return results;
 	};
+	
+	this.unhighlightAll = function (){
+		jQuery(".focused").removeClass("focused");
+	};
 
 	/**
 	 * @return{undefined} 
@@ -98,8 +102,13 @@ function Legend() {
 		if (this.elements.length != 0) {
 			table.className = "easy-table easy-table-default";
 			for (var/** number */ i = 0; i < this.elements.length; i++) {
-				if (this.elements[i] == null)
+				var /**LegendElement|MultiLegendElement*/ element = this.elements[i];
+				if (element == null)
 					continue;
+				else if (optionManager.inEditMode() && !element.editable){
+					element.visible(false);
+					continue;
+				}
 				legendRow(this.elements, i, table);
 			}
 		}
@@ -124,7 +133,7 @@ function Legend() {
 			symbolClusterer.removeOverlays(element);
 			
 			if(element.colorIndex !== undefined){
-				if (element.overlayType == overlay_types.PointSymbol) {
+				if (element.overlayType == OverlayType.PointSymbol) {
 					symbolManager.unblockFeatureCombination(/** @type {Array<number>}*/ (element.colorIndex)[0], /** @type {Array<number>}*/ (element.colorIndex)[1]);
 				} else {
 					symbolManager.unblockColor(element.overlayType, /** @type {number}*/ (element.colorIndex));
@@ -132,7 +141,6 @@ function Legend() {
 			}
 			if(element.parent != null){
 				element.parent.filterData = storeRemovedElement(element.parent.filterData, element.key);
-				element.parent.featureCountRemovedElements[element.key] = element.googleFeatures.length;
 				
 				if(element.visible()){
 					element.parent.subElementsVisible--;
@@ -141,10 +149,6 @@ function Legend() {
 		}
 		
 		commentManager.removeComment(element.key);
-		
-		if(element instanceof LegendElement && element.parent != null){
-			this.changeIndexesForRemovedElement(element.key, element.parent);
-		}
 		
 		if(deleteFromArray){
 			var /** boolean */ finished = false;
@@ -177,82 +181,7 @@ function Legend() {
 		}
 	};
 	
-	/**
-	 * @param {LegendElement|MultiLegendElement=} onlyForLegendElement If this parameter is setted reindexing is only done for this element
-	 * 
-	 * @return {undefined}
-	 */
-	this.checkAllForReindexing = function (onlyForLegendElement){
-		for (var i = 0; i < this.elements.length; i++){
-			var /** LegendElement|MultiLegendElement */ element = this.elements[i];
-			if(element.isQuantifiably() && element instanceof MultiLegendElement){
-				var /** Array<string> */ removedElements = element.filterData["removed"];
-				if(removedElements != null){
-					for (var j = 0; j < removedElements.length; j++){
-						this.changeIndexesForRemovedElement(removedElements[j], element, onlyForLegendElement);
-					}
-				}
-			}
-		}
-	}
-	
-	/**
-	 * @param {string} key
-	 * @param {MultiLegendElement} parent
-	 * @param {LegendElement|MultiLegendElement=} onlyForLegendElement If this parameter is setted reindexing is only done for this element
-	 * 
-	 * @return {undefined}
-	 * 
-	 * Is called if one sub-element is removed => the indexes for all elements after that one have to be updated
-	 * 
-	 */
-	this.changeIndexesForRemovedElement = function (key, parent, onlyForLegendElement){
-		var /** number */ startIndex = 0;
-		var /** Array<LegendElement> */ children = parent.subElements;
-		for (var i = 0; i < children.length; i++){
-			var /** LegendElement */ currElement = children[i];
-			if(currElement.key >= key){
-				if(onlyForLegendElement)
-					this.reindexMarkers(onlyForLegendElement, parent.key, startIndex, parent.featureCountRemovedElements[key]);
-				else
-					for (var i = 0; i < this.elements.length; i++){
-						this.reindexMarkers(this.elements[i], parent.key, startIndex, parent.featureCountRemovedElements[key]);
-					}
-				break;
-			}
-			else {
-				startIndex += currElement.googleFeatures.length;
-			}
-		}
-	};
-	
-	/**
-	 * @param {LegendElement|MultiLegendElement} element
-	 * @param {string} key
-	 * @param {number} startIndex
-	 * @param {number} count
-	 * 
-	 * @return {undefined}
-	 */
-	this.reindexMarkers = function (element, key, startIndex, count){
-		var /** number */ endIndex = startIndex + count;
-		var /** Array<OverlayInfo>*/ overlayInfos = element.getOverlayInfos();
-		for (var j = 0; j < overlayInfos.length; j++){
-			var qinfo = overlayInfos[j].quantifyInfo;
-			var /** number */ index = qinfo[key];
-			if(index !== undefined){
-				if(index >= startIndex){
-					if(index >= startIndex + count){
-						qinfo[key] = index - count;
-					}
-					else {
-						qinfo[key] = -1;
-					}
-				}
-			}
-		}
-	};
-	
+
 	/**
 	 * @return {undefined} 
 	 */
@@ -312,18 +241,6 @@ function Legend() {
 	}
 
 	/**
-	 * @param {number} index
-	 * @param {boolean} highlight
-	 * 
-	 * return {undefined}
-	 */
-	this.highlightSymbols = function(index, highlight) {
-		/*if(!this.elements[index].loading && overlayInfo.length < HIGHLIGHT_THRESHOLD){
-			symbolClusterer.highlightSymbols(this.elements[index], highlight);
-		}*/ //TODO implement correctly
-	};
-
-	/**
 	 * @param {Array<LegendElement>} elements
 	 * @param {number} index
 	 * @param {Element} table
@@ -333,7 +250,7 @@ function Legend() {
 	 */
 	function legendRow(elements, index, table, mainIndex) {
 		var /** LegendElement|MultiLegendElement */ element = elements[index];
-		var /** boolean */ showControls = !element.loading;
+		var /** boolean */ showControls = !element.loading && !optionManager.inEditMode();
 		
 		var /** Element */ row = document.createElement("tr");
 		element.htmlElement = jQuery(row);
@@ -350,13 +267,6 @@ function Legend() {
 			});
 		}
 		else {
-			//TODO highlight
-			/*row.addEventListener("click", function (){
-				if(element.visible()){
-					symbolClusterer.highlightSymbols(this, true);
-				}
-			}.bind(element));*/
-			
 			if (element.parent == null){
 				row["style"]["backgroundColor"] = "lightgray";
 			}
@@ -366,11 +276,10 @@ function Legend() {
 		row["dataset"]["index"] = index;
 		if(mainIndex != null){ //Sub-Element
 			row["dataset"]["mainIndex"] = mainIndex;
-			row.addEventListener("mouseover", legend.highlightSymbols.bind(legend, index, true)); //TODO Quatsch in MultiLegendELement bzw LegendElement packen!!!
-			//TODO check if it has to be removed
 		}
 		
 		var /** Element */ col = document.createElement("td");
+		
 		if(element instanceof MultiLegendElement){
 			col["className"] = "collapseSymbol";
 			var /** Element */ span = document.createElement("span");
@@ -382,6 +291,7 @@ function Legend() {
 		}
 		else {
 			col["style"]["background-color"] = "lightgray";
+			col["style"]["padding"] = "8px 0";
 		}
 		row.appendChild(col);
 		
@@ -402,18 +312,118 @@ function Legend() {
 		col = document.createElement("td");
 		appendTextPart(col, element);
 		row.appendChild(col);
+
+		col = document.createElement("td");
+		col["style"]["padding"] = "8px 0";
+
+		if(showControls && element.isQuantifiably()){
+
+	     	var /** Element */ qButton = /** @type{Element} */ (document.createElement("div"));
+	     	var /**Element */  qButtonParent  = /** @type{Element} */ (document.createElement("div"));
+	     	var /**Element */  qClickable  = /** @type{Element} */ (document.createElement("div"));
+ 	    	var /**Element */  qButtonIcon = /** @type{Element} */ (document.createElement("i"));
+ 	    	var /**Element */  qButtonIcon2 = /** @type{Element} */ (document.createElement("i"));
+ 	    	var /**Element */  qIconSpan= /** @type{Element} */ (document.createElement("span"));
+     		qButtonParent["style"]["float"] = 'right';
+
+     		if(!element.quantify){
+     			qButtonIcon.className ="fa fa-times-circle-o qcheck q-stack1 fa-stack-1x"; 
+     		}
+     		else{
+     			qButtonIcon.className ="fa fa-check-circle-o qcheck q-stack1 greensymbol fa-stack-1x";
+     		}
+
+     		if(element.loading_quantify){
+     			qButtonIcon.className="qcheck q-stack1 fa-stack-1x fa fa-cog fa-spin";
+
+     		}
+
+     		qButtonIcon2.className ="fa fa-circle qcheck q-stack fa-stack-1x"; 
+     		qIconSpan.className ="q-span fa-stack";
+     		qButton.title = "Quantify";
+			qButton["style"]["vertical_align"] = 'middle';
+			qButton["style"]["opacity"] = '0.6';
+			qButton.innerHTML = "Q";
+			qButton.className = "quantifyButton";
+			qButton["id"] = "qbutton_"+element.key;
+
+			jQuery(qButton).on('click',function(event){  //second listener for clicks while loading
+			     event.stopPropagation();
+			     event.preventDefault();
+			});
+
+			if(!element.loading_quantify){ 
+				jQuery(qButton).one( "click", function(event) {
+
+					hideAllOtherPolygonGrps(element);
+					if(!element.visible())element.visible(true,false);
+
+					event.stopPropagation();
+					event.preventDefault();
+
+					//only do things if quantify is not running on other element
+					if(jQuery('#IM_legend').find('.fa-cog').length == 0 && element.visible() && !element.loading_quantify){
+	
+						var /** jQuery */ clicked_icon = jQuery(this).find('.q-stack1');
+						var /** LegendElement|MultiLegendElement|boolean} */ checkQuant = symbolClusterer.checkQuantify();
+			   
+						element.loading_quantify = true;
+						legend.update();
+
+						setTimeout(function() {
+							symbolClusterer.quantify(element, false, function(){ // quantify callback
+								setTimeout(function() {
+									element.loading_quantify = false;
+									legend.update();
+									if(!checkQuant || checkQuant == element)
+										symbolClusterer.toggleQuantifyMode();
+								}, 100);
+							});
+						}, 200);
+					}	 
+				});
+			}
+
+			qButtonParent.appendChild(qButton);
+			qButton.appendChild(qIconSpan);
+			qIconSpan.appendChild(qButtonIcon);
+		    qIconSpan.appendChild(qButtonIcon2);
+			col.appendChild(qButtonParent);	
+		}
+
+	    row.appendChild(col);
 		
 		col = document.createElement("td");
 		if(showControls){
 			var /** Element */ cb = document.createElement("input");
 			if((element.quantify && element.isQuantifiably())||element.loading_quantify)cb['disabled']="disabled";
 
-			cb.type = "checkbox";
-			var /** function () */ cbFun;
-			cb.addEventListener ("click", function (event){
-				element.visible(this.checked, true);
-				if(symbolClusterer.checkQuantify() && element.overlayType == overlay_types.PointSymbol)
-					symbolClusterer.reQuantify();
+			if(symbolClusterer.checkQuantify())
+			{	
+	
+			if(element instanceof MultiLegendElement){
+				var /** number */ numSub = element.getNumSubElements();
+				for(var j = 0; j < numSub; j++){
+					var subelement_l = element.getSubElement(j);
+					if(subelement_l.overlayType == OverlayType.Polygon){
+						cb['disabled']="disabled";
+					}
+				}
+			}
+			else {
+				if(element.overlayType == OverlayType.Polygon){
+					cb['disabled']="disabled";
+				}
+			}	
+
+		}
+
+		cb.type = "checkbox";
+		var /** function () */ cbFun;
+		cb.addEventListener ("click", function (event){
+			element.visible(this.checked, true);
+			if(symbolClusterer.checkQuantify() && element.containsPointSymbols())
+				symbolClusterer.reQuantify();
 				event.stopPropagation();
 			});
 			cb.checked = element.visible();
@@ -445,7 +455,7 @@ function Legend() {
 				
 				legend.removeElement(element, true);
 				
-				if((qelement && element.overlayType == overlay_types.PointSymbol) || (qelement == element.parent)){
+				if((qelement && element.overlayType == OverlayType.PointSymbol) || (qelement == element.parent)){
 					symbolClusterer.reQuantify();
 				}
 				
@@ -470,6 +480,39 @@ function Legend() {
 			}
 		}
 	}
+
+
+	/**
+	 * @param {!LegendElement|MultiLegendElement} element
+	 * 
+	 * @return {undefined}
+	 */
+	function hideAllOtherPolygonGrps(element){
+		for(var i = 0; i < legend.getLength(); i++){
+			var /**LegendElement|MultiLegendElement*/ element_l = legend.getElement(i);
+
+			if(element !== element_l)	{
+				var type = element_l.overlayType;
+		
+				if(element_l instanceof MultiLegendElement){
+					var /** number */ numSub = element_l.getNumSubElements();
+					for(var j = 0; j < numSub; j++){
+						var /**LegendElement*/ subelement_l = element_l.getSubElement(j);
+						if(subelement_l.overlayType == OverlayType.Polygon){
+							element_l.visible(false, true);	
+						}
+					}
+				}
+				else {
+					if(type == OverlayType.Polygon){
+						element_l.visible(false, true);
+					}
+				}
+			}
+		}
+	}
+
+
 
 	/**
 	 *
@@ -499,6 +542,8 @@ function Legend() {
 				spanStart.appendChild(document.createTextNode((i > 0? " + ": "") + categoryManager.getCategoryName(element.category) + " "));
 				spanMiddle.appendChild(document.createTextNode(categoryManager.getElementName(element.category, keys[i]) + " "));
 			}
+
+			
 			
 			divElement.appendChild(spanStart);
 			divElement.appendChild(spanMiddle);
@@ -522,77 +567,7 @@ function Legend() {
 			divElement.appendChild(document.createTextNode(categoryManager.getCountString(element.category, numRecords)));
 		}
 
-		if(element.isQuantifiably()){
-
-		     	var /** Element */ qButton = /** @type{Element} */ (document.createElement("div"));
-		     	var /**Element */  qButtonParent  = /** @type{Element} */ (document.createElement("div"));
-		     	var /**Element */  qClickable  = /** @type{Element} */ (document.createElement("div"));
-     	    	var /**Element */  qButtonIcon = /** @type{Element} */ (document.createElement("i"));
-	 	    	var /**Element */  qButtonIcon2 = /** @type{Element} */ (document.createElement("i"));
-	 	    	var /**Element */  qIconSpan= /** @type{Element} */ (document.createElement("span"));
-	     		qButtonParent["style"]["float"] = 'right';
-
-	     		if(!element.quantify){
-	     			qButtonIcon.className ="fa fa-times-circle-o qcheck q-stack1 fa-stack-1x"; 
-	     		}
-	     		else{
-	     			qButtonIcon.className ="fa fa-check-circle-o qcheck q-stack1 greensymbol fa-stack-1x";
-	     		}
-
-	     		if(element.loading_quantify){
-	     			qButtonIcon.className="qcheck q-stack1 fa-stack-1x fa fa-cog fa-spin";
-
-	     		}
-
-	     		qButtonIcon2.className ="fa fa-circle qcheck q-stack fa-stack-1x"; 
-	     		qIconSpan.className ="q-span fa-stack";
-	     		qButton.title = "Quantify";
-				qButton["style"]["vertical_align"] = 'middle';
-				qButton["style"]["opacity"] = '0.6';
-				qButton.innerHTML = "Q";
-				qButton.className = "quantifyButton";
-				qButton["id"] = "qbutton_"+element.key;
-
-				jQuery(qButton).on('click',function(event){  //second listener for clicks while loading
-				     event.stopPropagation();
-				     event.preventDefault();
-				});
-
-				if(!element.loading_quantify){ 
-					jQuery(qButton).one( "click", function(event) {
-
-						event.stopPropagation();
-						event.preventDefault();
-
-						//only do things if quantify is not running on other element
-						if(jQuery('#IM_legend').find('.fa-cog').length == 0 && element.visible() && !element.loading_quantify){
-		
-							var /** jQuery */ clicked_icon = jQuery(this).find('.q-stack1');
-							var /** LegendElement|MultiLegendElement|boolean} */ checkQuant = symbolClusterer.checkQuantify();
-				   
-							element.loading_quantify = true;
-							legend.update();
-
-							setTimeout(function() {
-								symbolClusterer.quantify(element, false, function(){ // quantify callback
-									setTimeout(function() {
-										element.loading_quantify = false;
-										legend.update();
-										if(!checkQuant || checkQuant == element)
-											symbolClusterer.toggleQuantifyMode();
-									}, 100);
-								});
-							}, 200);
-						}	 
-					});
-				}
-
-				qButtonParent.appendChild(qButton);
-				qButton.appendChild(qIconSpan);
-				qIconSpan.appendChild(qButtonIcon);
-			    qIconSpan.appendChild(qButtonIcon2);
-				divElement.appendChild(qButtonParent);	
-		}
+	
 		
 //		if(showSliders && element instanceof LegendElement && element.overlayType == overlay_types.Polygon){ //TODO only polygon here
 //			var /** Element */ slider = document.createElement("input");
@@ -721,7 +696,6 @@ function Legend() {
 		elementCallback = function (){
 			counter++;
 			if (counter == legendLength){
-				legend.checkAllForReindexing();
 				if(checkQuant)
 					symbolClusterer.reQuantify();
 					
@@ -809,8 +783,8 @@ function LegendElement(category, key) {
 	/** @type {Object<string, ?>} */
 	this.filterData;
 
-	/** @type{number} */
-	this.overlayType = -1;
+	/** @type{OverlayType} */
+	this.overlayType;
 
 	/** @type{boolean} */
 	this.loading = true;
@@ -820,6 +794,27 @@ function LegendElement(category, key) {
 	 * @private
 	 */
 	this.quantify = false;
+	
+	/**
+	 * @private
+	 * @type{boolean}
+	 */
+	this.editable = categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key)
+		|| categoryManager.categoryAllowsGeoDataEditingForElement(this.category, this.key);
+	
+	/**
+	 * @return {boolean}
+	 */
+	this.isEditable = function (){
+		return this.editable;
+	};
+	
+	/**
+	 * @return {boolean}
+	 */
+	this.containsPointSymbols = function (){
+		return this.overlayType == OverlayType.PointSymbol;
+	}
 
 	/**
 	* @type{boolean}
@@ -837,8 +832,8 @@ function LegendElement(category, key) {
 	this.overlayInfos = new Array();
 
 	//Is only filled for polygons
-	/** @type{Array<google.maps.Data.Feature>}*/
-	this.googleFeatures = new Array();
+	/** @type{Object<string, google.maps.Data.Feature>}*/
+	this.googleFeatures = {};
 	
 	/** @type {jQuery} */
 	this.htmlElement = null;
@@ -863,16 +858,16 @@ function LegendElement(category, key) {
 		if(visible != isVisible) {
 			isVisible = visible;
 			if(visible){
-			
-				if(this.overlayType == overlay_types.Polygon){
-					for (i = 0; i < this.googleFeatures.length; i++){
-						map.data.add(this.googleFeatures[i]);
+				if(this.overlayType == OverlayType.Polygon){
+					for (var id in this.googleFeatures){
+						map.data.add(this.googleFeatures[id]);
 					}
 				}
 				else{
+					var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
 					var /** number */ len = this.overlayInfos.length;
 					for (i = 0; i < len; i++){
-						symbolClusterer.addOverlay(this.overlayInfos[i], this);
+						symbolClusterer.addOverlay(this.overlayInfos[i], this, "", movable);
 					}
 				}						
 				if(this.parent != null){
@@ -881,9 +876,9 @@ function LegendElement(category, key) {
 				}
 			}
 			else {
-				if(this.overlayType==overlay_types.Polygon){
-					for (i = 0; i < this.googleFeatures.length; i++){
-						map.data.remove(this.googleFeatures[i]);
+				if(this.overlayType == OverlayType.Polygon){
+					for (var id in this.googleFeatures){
+						map.data.remove(this.googleFeatures[id]);
 					}
 				}
 				else {
@@ -939,7 +934,7 @@ function LegendElement(category, key) {
 	 * @return {undefined}
 	 */
 	this.removeGoogleFeatures = function (){
-		this.googleFeatures = new Array();
+		this.googleFeatures = {};
 	};
 	
 	/**
@@ -965,20 +960,6 @@ function LegendElement(category, key) {
 	};
 	
 	/**
-	 * @return {undefined} 
-	 */
-	this.unhighlight = function (){
-		if(this.htmlElement != null){
-			this.htmlElement.removeClass("focused");
-			this.blur();
-		}
-		if(this.parent != null && this.parent.htmlElement != null){
-			this.parent.htmlElement.removeClass("focused");
-			this.parent.blur();
-		}
-	};
-	
-	/**
 	* @return {Array<string>}
 	*/
 	this.getSubElementIds = function (){
@@ -995,7 +976,7 @@ function LegendElement(category, key) {
 		//TODO identical in MultiLE and LE => maybe move to a super class?
 		this.loading = true;
 		this.removeOverlayInfo();
-		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback, false);
+		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
 	
 	/** 
@@ -1010,7 +991,7 @@ function LegendElement(category, key) {
 	 * @return {string}
 	 */
 	this.getColorString = function (){
-		if(this.overlayType == overlay_types.PointSymbol){
+		if(this.overlayType == OverlayType.PointSymbol){
 			return symbolManager.getColorStringForSymbol(/** @type{Array<number>} */ (this.colorIndex));
 		}
 		else {
@@ -1030,7 +1011,7 @@ function LegendElement(category, key) {
 	 * @return {boolean}
 	 */
 	this.isQuantifiably = function (){
-		return this.overlayType == overlay_types.Polygon && this.parent == null;
+		return this.overlayType == OverlayType.Polygon && this.parent == null;
 	};
 }
 
@@ -1088,11 +1069,6 @@ function MultiLegendElement(category, key) {
 	/** @type {Object<string, ?>} */
 	this.filterData;
 	
-	/**
-	 * @type {!Object<string, number>}
-	 */
-	this.featureCountRemovedElements = {};
-	
 	/** @type{number} */
 	this.overlayType = -1;
 
@@ -1128,6 +1104,18 @@ function MultiLegendElement(category, key) {
 	};
 	
 	/**
+	 * @return {boolean}
+	 */
+	this.containsPointSymbols = function (){
+		for (var i = 0; i < this.subElements.length; i++){
+			if(this.subElements[i].containsPointSymbols()){
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	/**
 	 *  @param {LegendElement} element
 	 *  
 	 *  @return {undefined}
@@ -1142,7 +1130,7 @@ function MultiLegendElement(category, key) {
 	 */
 	this.removeGoogleFeatures = function (){
 		for (var i = 0; i < this.subElements.length; i++){
-			this.subElements[i].googleFeatures = new Array();
+			this.subElements[i].googleFeatures = {};
 		}
 	};
 	
@@ -1281,7 +1269,7 @@ function MultiLegendElement(category, key) {
 	this.reloadSymbols = function (callback, filterData){
 		this.loading = true;
 		this.removeOverlayInfo();
-		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback, false);
+		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
 	
 	/** 
@@ -1320,7 +1308,7 @@ function MultiLegendElement(category, key) {
 	 */
 	this.isQuantifiably = function (){
 		for (var i = 0; i < this.subElements.length; i++){
-			if(this.subElements[i].overlayType == overlay_types.Polygon)
+			if(this.subElements[i].overlayType == OverlayType.Polygon)
 				return true;
 		}
 		return false;

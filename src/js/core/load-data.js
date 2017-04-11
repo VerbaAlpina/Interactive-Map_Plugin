@@ -42,9 +42,9 @@ function CategoryManager (){
 	/**
 	 * 
 	 * @private
-	 * @type {Object<string, function(new:InfoWindowContent, Object<string, ?>)>} 
+	 * @type {Object<string, function(new:InfoWindowContent, number, OverlayType, Object<string, ?>)>} 
 	 */
-	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent};
+	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent};
 	
 	/**
 	 *  @private
@@ -53,7 +53,9 @@ function CategoryManager (){
 	this.categories = {};
 	this.categories["-1"] = new CategoryInformation (-1,"?","",""); //Pseudo category for using every element as a sub-category
 	this.categories["-2"] = new CategoryInformation (-2,"!","",""); //Pseudo category for no sub-categories
-	this.categories["-3"] = new CategoryInformation (-2,"#","",""); //Pseudo category for tags as sub-categories
+	this.categories["-3"] = new CategoryInformation (-3,"#","",""); //Pseudo category for tags as sub-categories
+	//TODO name here
+	this.categories["-4"] = new CategoryInformation (-4,"$","distinct",""); //Pseudo category for distinctly colored neigbours
 	
 	/**
 	 * @param {CategoryInformation} info
@@ -217,7 +219,7 @@ function CategoryManager (){
 	this.getOverlayTypes = function (categoryID){
 		var /** CategoryInformation */ category = this.categories[categoryID];
 		if(category.editConfiguration){
-			return Object.keys(category.editConfiguration.fields);
+			return category.editConfiguration.getGoogleTypesForNewOverlays();
 		}
 		return [];
 	};
@@ -233,11 +235,17 @@ function CategoryManager (){
 	 * @return {undefined} 
 	 */
 	this.showFilterScreen = function (element, categoryID, filterComponents){
+			
 		var /** string */ value = this.getCategoryPrefix(categoryID) + /** @type{function():string} */ (element.data("getSelectedValue"))();
-		
-		/** @type {function():undefined} */ (element.data("reset"))();
 
-		if(value == 0){
+		/** @type {function():undefined} */ (element.data("reset"))();
+		
+		if(value == 0 || optionManager.inEditMode() && legend.getMainElement(categoryID, value))
+			return;
+
+		
+		if(optionManager.inEditMode() && !this.categoryAllowsFieldDataEditingForElement(categoryID, value) && !this.categoryAllowsGeoDataEditingForElement(categoryID, value)){
+			alert(TRANSLATIONS["NO_EDITING_CATEGORY"]);
 			return;
 		}
 		
@@ -271,7 +279,6 @@ function CategoryManager (){
 						if(newElements[i] != null)
 							filterComponents[i].storeData(filterData, newElements[i], categoryID, value);
 					}
-					
 					thisObject.loadData (categoryID, value, filterData);
 				});
 	
@@ -321,19 +328,10 @@ function CategoryManager (){
 			map.setCenter(new google.maps.LatLng(mapInfos["Center_Lat"], mapInfos["Center_Lng"]));
 			map.setZoom(mapInfos["Zoom"] * 1);
 			
-			//Legend
-			var /** number */ elementCounter = 0;
 			var /** number */ numElements = data[1].length;
-			var /** function () */ elementCallback = function (){
-				elementCounter++;
-				if(elementCounter == numElements){
-					legend.checkAllForReindexing();
-				}
-			};
-			
 			for (var /** number */ i = 0; i < numElements; i++){
 				var currElement = data[1][i];
-				categoryManager.loadData(currElement["category"] * 1, currElement["key"], currElement["filter"], currElement["fixedColors"], elementCallback, false);
+				categoryManager.loadData(currElement["category"] * 1, currElement["key"], currElement["filter"], currElement["fixedColors"]);
 			}
 		});
 	};
@@ -345,11 +343,11 @@ function CategoryManager (){
 	 * @param {Object<string, ?>=} filterData
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
 	 * @param {function ()=} callback
-	 * @param {boolean=} checkReindexing
 	 */
-	this.loadData = function (category, key, filterData, fixedColors, callback, checkReindexing) {
-		if(checkReindexing === undefined)
-			checkReindexing = true;
+	this.loadData = function (category, key, filterData, fixedColors, callback) {
+		if(optionManager.inEditMode() && !categoryManager.categoryAllowsFieldDataEditingForElement(category, key)
+				&& !categoryManager.categoryAllowsGeoDataEditingForElement(category, key))
+			return;
 		
 		var/** MultiLegendElement|LegendElement */ element = legend.getMainElement(category, key);
 		
@@ -359,7 +357,7 @@ function CategoryManager (){
 			legend.removeElement(element, true);
 			element = null;
 		}
-			
+
 		var /** Object<string, *> */ ajaxData = {
 			'key' : key
 		};
@@ -375,6 +373,10 @@ function CategoryManager (){
 		if(fixedColors != null && element != null){
 			//No need to reload the comments if only the symbols for the map are reloaded
 			ajaxData['noComments'] = true;
+		}
+		
+		if(optionManager.inEditMode()){
+			ajaxData['editMode'] = true;
 		}
 		
 		var /** boolean */ newLegendElementCreated = false;
@@ -413,19 +415,16 @@ function CategoryManager (){
 			}
 
 			if(singular){
-				thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), fixedColors, !newLegendElementCreated, checkReindexing);
+				thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), fixedColors, !newLegendElementCreated);
 			}
 			else {
-				thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), /** @type{Object<string, ?>}*/ (filterData), fixedColors, !newLegendElementCreated, checkReindexing);
+				thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), /** @type{Object<string, ?>}*/ (filterData), fixedColors, !newLegendElementCreated);
 			}
 			
 			if(filterData != undefined){
 				element.filterData = filterData;
 				//TODO check if the filter has to be updated if data is already defined
 			}
-			
-			if(checkReindexing)
-				legend.checkAllForReindexing(element);
 			
 			if(callback)
 				callback();
@@ -503,11 +502,10 @@ function CategoryManager (){
 	 * @param {LegendElement} element
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
 	 * @param {boolean=} reload
-	 * @param {boolean=} checkReindexing
 	 * 
 	 * @return {undefined}
 	 */
-	this.createSingularLegendEntry = function (result, element, fixedColors, reload, checkReindexing){
+	this.createSingularLegendEntry = function (result, element, fixedColors, reload){
 
 		//Get color index
 		var /** number|Array<number> */ colorIndex;
@@ -526,7 +524,7 @@ function CategoryManager (){
 		}	
 		
 		if(!reload){
-			if(element.overlayType == overlay_types.PointSymbol){
+			if(element.overlayType == OverlayType.PointSymbol){
 				element.symbolStandard = symbolManager.createSymbolURL(/** @type{Array<number>}*/ (colorIndex));
 				element.symbolHighlighted = symbolManager.createSymbolURL(symbolManager.createHighlightedIndex(/** @type{Array<number>}*/ (colorIndex)));
 			}
@@ -547,6 +545,8 @@ function CategoryManager (){
 		
 		var /** number */ length = dataArray.length;
 		
+		var /** boolean */ overlaysMovable = optionManager.inEditMode() && this.categoryAllowsGeoDataEditingForElement(element.category, element.key, element.overlayType);
+		
 		for (var/** number */ i = 0; i < length; i++) {
 			var /** Object */ currentShape = dataArray[i];
 			
@@ -562,21 +562,33 @@ function CategoryManager (){
 			if(constr == undefined){
 				throw "InfoWindow type not found!";
 			}
-			var/** OverlayInfo */ overlayInfo = new OverlayInfo(new constr(currentShape[0]), geoObject, currentShape[2]);
+			
+			var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[2];
+			var /** string */ polygonQuantifyInfo = "";
+			var /** Object<string, number>*/ pointQuantifyInfo = null;
+			if(quantifyInfo != null){
+				if(quantifyInfo[0] == "POINT"){
+					pointQuantifyInfo = /** @type{Object<string, number>}*/ (quantifyInfo[1]);
+				}
+				else {
+					polygonQuantifyInfo = /** @type{string}*/ (quantifyInfo[1]);
+				}
+			}
+			
+			var/** OverlayInfo */ overlayInfo = new OverlayInfo(
+				new constr(element.category, element.overlayType, currentShape[0]), geoObject, pointQuantifyInfo);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
-				symbolClusterer.addOverlay(overlayInfo, element);
+				symbolClusterer.addOverlay(overlayInfo, element, polygonQuantifyInfo, overlaysMovable);
 			}
-
-
 		}
 		
 		for (var /** string */ ckey in result[COMMENTS]){
 			commentManager.addComment(ckey, result[COMMENTS][ckey]);
 		}
 		
-		if(checkReindexing && symbolClusterer.checkQuantify())
+		if(symbolClusterer.checkQuantify())
 			symbolClusterer.reQuantify();
 		
 		element.loading = false;
@@ -598,17 +610,17 @@ function CategoryManager (){
 		var /** number|Array<number> */ index;
 		
 		if(colorIndex == null){ //"Normal" data loading
-			if(categoryNumber[overlay_types.PointSymbol] > 0){
+			if(categoryNumber[OverlayType.PointSymbol] > 0){
 				index = symbolManager.blockFeatureCombinations(1, true)[0];
-				element.overlayType = overlay_types.PointSymbol;
+				element.overlayType = OverlayType.PointSymbol;
 			}
-			else if (categoryNumber[overlay_types.Polygon] > 0){
-				index = symbolManager.blockColor(overlay_types.Polygon);
-				element.overlayType = overlay_types.Polygon;
+			else if (categoryNumber[OverlayType.Polygon] > 0){
+				index = symbolManager.blockColor(OverlayType.Polygon);
+				element.overlayType = OverlayType.Polygon;
 			}
 			else {
-				index = symbolManager.blockColor(overlay_types.LineString);
-				element.overlayType = overlay_types.LineString;
+				index = symbolManager.blockColor(OverlayType.LineString);
+				element.overlayType = OverlayType.LineString;
 			}
 		}
 		else {
@@ -617,14 +629,14 @@ function CategoryManager (){
 			}					
 			else { //Synoptic map
 				index = symbolManager.blockExplicitSingularIndex(colorIndex);
-				if(categoryNumber[overlay_types.PointSymbol] > 0){
-					element.overlayType = overlay_types.PointSymbol;
+				if(categoryNumber[OverlayType.PointSymbol] > 0){
+					element.overlayType = OverlayType.PointSymbol;
 				}
-				else if (categoryNumber[overlay_types.Polygon] > 0){
-					element.overlayType = overlay_types.Polygon;
+				else if (categoryNumber[OverlayType.Polygon] > 0){
+					element.overlayType = OverlayType.Polygon;
 				}
 				else {
-					element.overlayType = overlay_types.LineString;
+					element.overlayType = OverlayType.LineString;
 				}
 			}
 				
@@ -642,10 +654,9 @@ function CategoryManager (){
 	 * @param {Object<string, ?>} filterData
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
 	 * @param {boolean=} reload
-	 * @param {boolean=} checkReindexing
 	 * 
 	 */
-	this.createMultiLegendEntry = function (result, element, filterData, fixedColors, reload, checkReindexing){
+	this.createMultiLegendEntry = function (result, element, filterData, fixedColors, reload){
 		
 		//Store sub-element visibilities
 		var /** Object<string,boolean> */ visibilities = {};
@@ -659,13 +670,6 @@ function CategoryManager (){
 		
 		var /** number */ length = Object.keys(result[DATA]).length;
 		if (length > 0) {
-			
-			for (var /** string */ id in result[DATA]){
-				if(!isNaN(result[DATA][id])){
-					element.featureCountRemovedElements[id] = result[DATA][id];
-					delete(result[DATA][id]);
-				}
-			}
 			
 			//Sort the keys according to the given sorter
 			var /**Sorter|undefined */ sorter = categoryManager.getSorter(element.category);
@@ -688,8 +692,8 @@ function CategoryManager (){
 			}
 			for (var ki = 0; ki < numSubElements; ki++){
 				
-				id = sortedKeys[ki];
-				var /** number */ overlayType =  result[DATA][id][0];
+				var /** string */ id = sortedKeys[ki];
+				var /** OverlayType */ overlayType =  result[DATA][id][0];
 				
 				var /** LegendElement */ currentElement = new LegendElement(filterData["subElementCategory"], id);
 
@@ -698,7 +702,7 @@ function CategoryManager (){
 
 					if(currentIndex != undefined){
 						currentElement.colorIndex = symbolManager.blockExplicitIndex(fixedColors[id]);
-						if(overlayType == overlay_types.PointSymbol){
+						if(overlayType == OverlayType.PointSymbol){
 							mainIndex = currentIndex[features_classes.main];
 						}
 						numOverlayTypes[overlayType]--;
@@ -717,18 +721,20 @@ function CategoryManager (){
 			var /**Array<Array<Array<number>>|Array<number>> */ indexes = [];
 			
 			try{
-				indexes[overlay_types.PointSymbol] = symbolManager.blockFeatureCombinations(numOverlayTypes[overlay_types.PointSymbol], false, mainIndex);
-				if(mainIndex == undefined && indexes[overlay_types.PointSymbol].length > 0){
-					mainIndex = indexes[overlay_types.PointSymbol][0][features_classes.main];
+				indexes[OverlayType.PointSymbol] = symbolManager.blockFeatureCombinations(numOverlayTypes[OverlayType.PointSymbol], false, mainIndex);
+				if(mainIndex == undefined && indexes[OverlayType.PointSymbol].length > 0){
+					mainIndex = indexes[OverlayType.PointSymbol][0][features_classes.main];
 				};
-				indexes[overlay_types.Polygon] = symbolManager.blockColors(overlay_types.Polygon, numOverlayTypes[overlay_types.Polygon]);
-				indexes[overlay_types.LineString] = symbolManager.blockColors(overlay_types.LineString, numOverlayTypes[overlay_types.LineString]);
+				indexes[OverlayType.Polygon] = symbolManager.blockColors(OverlayType.Polygon, numOverlayTypes[OverlayType.Polygon]);
+				indexes[OverlayType.LineString] = symbolManager.blockColors(OverlayType.LineString, numOverlayTypes[OverlayType.LineString]);
 			}
 			catch (e){
 				alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + length + ")");
 				legend.removeElement(element, true);
 				return;
 			}
+			
+			var /** boolean */ overlaysMovable = optionManager.inEditMode() && this.categoryAllowsGeoDataEditingForElement(element.category, element.key, overlayType);
 			
 			//Iterate over the sub-legend-entries again to add the map overlays and set the rest of the color indexes
 			numOverlayTypes.fill(0);
@@ -744,7 +750,7 @@ function CategoryManager (){
 				}
 				
 				//Create Symbols
-				if(overlayType == overlay_types.PointSymbol){
+				if(overlayType == OverlayType.PointSymbol){
 					currentElement.symbolStandard = symbolManager.createSymbolURL(/** @type{Array<number>} */ (currentElement.colorIndex));
 					currentElement.symbolHighlighted = symbolManager.createSymbolURL(symbolManager.createHighlightedIndex(/** @type{Array<number>} */ (currentElement.colorIndex)));
 				}
@@ -772,7 +778,20 @@ function CategoryManager (){
 					if(constr == undefined){
 						throw "InfoWindow type not found!";
 					}
-					var/** OverlayInfo */ overlayInfo = new OverlayInfo(new constr(currentShape[0]), geoObject, currentShape[2]);
+					
+					var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[2];
+					var /** string */ polygonQuantifyInfo = "";
+					var /** Object<string, number>*/ pointQuantifyInfo = null;
+					if(quantifyInfo != null){
+						if(quantifyInfo[0] == "POINT"){
+							pointQuantifyInfo = /** @type{Object<string, number>} */ (quantifyInfo[1]);
+						}
+						else {
+							polygonQuantifyInfo = /** @type{string}*/ (quantifyInfo[1]);
+						}
+					}
+					
+					var/** OverlayInfo */ overlayInfo = new OverlayInfo(new constr(currentElement.category, currentElement.overlayType, currentShape[0]), geoObject, pointQuantifyInfo);
 					currentElement.overlayInfos.push(overlayInfo);
 					
 					if(filterData["subElementCategory"] == -1){ //Pseudo category
@@ -780,7 +799,7 @@ function CategoryManager (){
 					}
 					
 					if (addToMap && overlayInfo.geomData != null){
-						symbolClusterer.addOverlay(overlayInfo, currentElement);
+						symbolClusterer.addOverlay(overlayInfo, currentElement, polygonQuantifyInfo, overlaysMovable);
 					}
 
 				 	
@@ -798,7 +817,7 @@ function CategoryManager (){
 				commentManager.addComment(ckey, result[COMMENTS][ckey]);
 			}
 			
-		   if(checkReindexing && symbolClusterer.checkQuantify())
+		   if(symbolClusterer.checkQuantify())
 			   symbolClusterer.reQuantify();	
 		   
 			element.loading = false;
@@ -832,7 +851,7 @@ function CategoryManager (){
 	
 	/**
 	 * @param {string} elementType Short name of the InfoWindowContent class as returned by the PHP code
-	 * @param {function(new:InfoWindowContent, Object<string, ?>)} constr Constructor function of the InfoWindowConten class
+	 * @param {function(new:InfoWindowContent, number, OverlayType, Object<string, ?>)} constr Constructor function of the InfoWindowConten class
 	 * 
 	 * @return {undefined}
 	 */
@@ -854,24 +873,49 @@ function CategoryManager (){
 	
 	/**
 	 * @param {number} categoryID
+	 * @param {OverlayType=} overlayType
 	 * 
-	 * @return {boolean}
+	 * @return {Array<boolean>|boolean}
 	 */
-	this.categoryAllowsNewElements = function (categoryID){
+	this.categoryAllowsNewElements = function (categoryID, overlayType){
 		var /** CategoryInformation */ category = this.categories[categoryID];
-		return category.editConfiguration != undefined && category.editConfiguration.canAddNewOverlays;
+		return category.editConfiguration != undefined && category.editConfiguration.canAddNewOverlays(overlayType);
 	};
 	
 	/**
 	 * @param {number} categoryID
-	 * @param {string} overlayType
+	 * @param {string} elementID
+	 * @param {OverlayType=} overlayType
+	 * 
+	 * @return {boolean}
+	 */
+	this.categoryAllowsFieldDataEditingForElement = function (categoryID, elementID, overlayType){
+		var /** CategoryInformation */ category = this.categories[categoryID];
+		return category.editConfiguration != undefined && category.editConfiguration.canEditFieldData(elementID, overlayType);
+	};
+	
+	/**
+	 * @param {number} categoryID
+	 * @param {string} elementID
+	 * @param {OverlayType=} overlayType
+	 * 
+	 * @return {boolean}
+	 */
+	this.categoryAllowsGeoDataEditingForElement = function (categoryID, elementID, overlayType){
+		var /** CategoryInformation */ category = this.categories[categoryID];
+		return category.editConfiguration != undefined && category.editConfiguration.canEditGeoData(elementID, overlayType);
+	};
+	
+	/**
+	 * @param {number} categoryID
+	 * @param {number} overlayType
 	 * 
 	 * @return {Array<FieldInformation>}
 	 */
 	this.getEditFields = function (categoryID, overlayType){
 		var /** CategoryInformation */ category = this.categories[categoryID];
 		if(category.editConfiguration){
-			return category.editConfiguration.fields[overlayType];
+			return category.editConfiguration.getEditFields(overlayType);
 		}
 		return [];
 	};
