@@ -21,12 +21,12 @@ function AlphabetSorter (){
 	 * 
 	 * @param {Array<string>} keyArray The sub-element keys
 	 * @param {Object<string,?>} data The original data array as returned from the server.
-	 * @param {Object<string,?>} filterData The complete filter data for the element.
+	 * @param {number} subElementCategory
 	 * 
 	 * @return{undefined}
 	 */
-	this.initFields = function (keyArray, data, filterData){
-		this.nameMapping = Sorter.createNameMapping(keyArray, filterData);
+	this.initFields = function (keyArray, data, subElementCategory){
+		this.nameMapping = Sorter.createNameMapping(keyArray, subElementCategory);
 	};
 	
 	/**

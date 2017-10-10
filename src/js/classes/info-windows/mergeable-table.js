@@ -12,7 +12,7 @@ function MergeableTableInfoWindow(data){
 
     this.title = data.title;
 
-    this.getHtml = function(){
+    this.getHtml = function(index){
         var result = "<div class='tableInfoWindowWrapper'>";
         // Iterate over all elements in the merged info window table
         for(var key in this.tokens){

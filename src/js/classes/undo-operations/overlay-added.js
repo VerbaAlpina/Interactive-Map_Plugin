@@ -40,9 +40,11 @@ function OverlayAddedOperation (overlay, categoryID, overlayType, infoWindow){
 	/**
 	 * @override
 	 * 
+	 * @param {boolean} undoAll
+	 * 
 	 * @return {undefined}
 	 */
-	this.undo = function (){
+	this.undo = function (undoAll){
 		mapInterface.centerOnOverlay(this.overlay);
 		mapInterface.destroyOverlay(this.overlay)
 		if(this.infoWindow != undefined)
@@ -63,12 +65,12 @@ function OverlayAddedOperation (overlay, categoryID, overlayType, infoWindow){
 		}
 		
 		return [{
-			operation : "overlayAdded",
-			id : this.overlayID,
-			category : this.categoryID,
-			type : this.overlayType,
-			geoData : mapInterface.getWKTStringForOverlay(this.overlay),
-			valuesNew : data
+			"operation" : "overlayAdded",
+			"id" : this.overlayID,
+			"category" : this.categoryID,
+			"type" : this.overlayType,
+			"geoData" : mapInterface.getWKTStringForOverlay(this.overlay),
+			"valuesNew" : data
 		}];
 	};
 }

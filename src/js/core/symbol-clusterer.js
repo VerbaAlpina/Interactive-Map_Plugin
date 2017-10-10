@@ -42,14 +42,14 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	/**
 	 * @param {OverlayInfo} info
 	 * @param {LegendElement} owner
-	 * @param {string} id
 	 * @param {boolean} movable
 	 * 
-	 * @return {MapSymbol|google.maps.Data.Feature}
+	 * @return {MapSymbol|Array<google.maps.Data.Feature>}
 	 * 
 	 */
-	this.addOverlay = function(info, owner, id, movable) {
+	this.addOverlay = function(info, owner, movable) {
 		if(info.geomData instanceof google.maps.Data.Point){
+
 			var /** number */ lat = info.geomData.get().lat();
 			var /** number */ lng = info.geomData.get().lng();
 			
@@ -71,9 +71,14 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 					return arr[i];
 				}
 			}
-			var /** !MapSymbol */ mapSymbolNew = new MapSymbol([info.infoWindowContent], [owner]);
+			var /** !MapSymbol */ mapSymbolNew = new MapSymbol(info.infoWindowContents, owner, info.markingColorIndex);
 			var /** google.maps.LatLng */ pos = info.geomData.get();
-			var /** Object */ newMarker = mapInterface.createMarker(pos.lat(), pos.lng(), owner.symbolStandard, movable, mapSymbolNew);
+			var /** number */ numSymbols = info.infoWindowContents.length;
+			var /** number */ size = (numSymbols == 1? symbolSize: symbolManager.getLogSizeForCount(numSymbols));
+			
+			var /** {index: Array<number>, markingSize: number}*/ cindex = this.computeColorIndex(owner, info.markingColorIndex);
+			var /** number */ totalSize = size + 2 * cindex.markingSize;
+			var /** Object */ newMarker = mapInterface.createMarker(pos.lat(), pos.lng(), symbolManager.createSymbolURL(cindex.index, totalSize, cindex.markingSize), totalSize, movable, mapSymbolNew);
 			mapSymbolNew.setMarker(newMarker);
 			
 			arr.push(mapSymbolNew);
@@ -81,15 +86,24 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 		    return mapSymbolNew;
 		}
 		else {
+			var /** string */ id = /** @type{string}*/ (info.quantifyInfo);
 			var /** Object */ options = {"geometry" : info.geomData};
-			var /** google.maps.Data.Feature */ feature = new google.maps.Data.Feature (options);
-			owner.googleFeatures[id] = feature;
-
-			var /** MapShape */ mapShapeNew = new MapShape(feature, info.infoWindowContent, owner);
-			feature.setProperty("mapShape", mapShapeNew);
+			var /** Array<google.maps.Data.Feature> */ result = [];
 			
-			otherOverlays.push(mapShapeNew);
-			return map.data.add(feature);
+			
+			for (var s = 0; s < info.infoWindowContents.length; s++){
+				var /** google.maps.Data.Feature */ feature = new google.maps.Data.Feature (options);
+				owner.googleFeatures[id] = feature;
+
+				var /** MapShape */ mapShapeNew = new MapShape(feature, info.infoWindowContents[s], owner);
+				feature.setProperty("mapShape", mapShapeNew);
+				feature.setProperty("id", id);
+				
+				otherOverlays.push(mapShapeNew);
+				result.push(map.data.add(feature));
+			}
+			
+			return result;
 		}
 	};
 	
@@ -122,6 +136,30 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 				//Remove array reference
 				otherOverlays.splice(i,1);
 			}
+		}
+	};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {LegendElement} owner
+	 * @param {number} markingColorIndex
+	 * 
+	 * @return {{index: Array<number>, markingSize: number}}
+	 */
+	this.computeColorIndex = function (owner, markingColorIndex){
+		var /** Array<number> */ ownerIndex = /** @type{Array<number>}*/ (owner.colorIndex);
+		var /** Array<number> */ result = [];
+		result[features_classes.main] = ownerIndex[features_classes.main];
+		result[features_classes.sub] = ownerIndex[features_classes.sub];
+		
+		if(markingColorIndex === -1){
+			result[features_classes.add] = ownerIndex[features_classes.add];
+			return {index: result, markingSize : 0};
+		}	
+		else {
+			result[features_classes.add] = markingColorIndex;
+			return {index: result, markingSize: markingSize};
 		}
 	};
 	
@@ -165,7 +203,7 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 					arr.splice(i,1);
 				}
 				else {
-					currentElement.reduceSymbol(j);
+					currentElement.reduceSymbol(i, 1);
 					len_owners--;
 				}
 			}
@@ -185,21 +223,25 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			var /** MapSymbol */ currentElement = arr[i];
 			var owners = currentElement.owners;
 			var len_owners = owners.length;
-			for (var /** number */ j = len_owners - 1; j >= 0; j--){
-				if(len_owners > 1){
-					var test = true;
-				}
+			for (var /** number */ j = 0; j < len_owners; j++){
 				if(owners[j] == owner){
-					if(len_owners == 1){
+					//All symbols with the same owner has to be in a row, so look for the index of the last element with the same owner
+					for (var k = j + 1; k < len_owners; k++){
+						if(owners[k] != owners[j])
+							break;
+					}
+					var /** number */ numSymbols = k - j;
+					
+					if(len_owners == numSymbols){
 						if(currentElement.infoWindow != null)
 							mapInterface.destroyInfoWindow(currentElement.infoWindow);
 						mapInterface.destroyOverlay(currentElement.marker);
 						arr.splice(i,1);
 					}
 					else {
-						currentElement.reduceSymbol(j);
-						len_owners--;
+						currentElement.reduceSymbol(j, numSymbols);
 					}
+					break;
 				}
 			}
 		}
@@ -307,6 +349,52 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 				this.polygrp[id] = owner.googleFeatures[id];
 			}
 		}
+
+     // HEXBUILDER //	
+
+   var hexbuilder = false;
+
+   if(hexbuilder){
+
+	element.setQuantify(false);
+	
+	var target_length = Object.keys(this.polygrp).length;
+
+	var hex_options = {
+
+		target_number:target_length,
+		map:map, 
+		polygongrp: "testfile.wkt",  //either a set of polygons or hexagons(wkt) if hexagons => reload mode if polygons => buildmode
+		hex_opacity: 0.6,						
+		alternate_build: false, 				  // uses non-grid based algorithm to build hex overlay
+		loaded_centers: "centers_NUTS_3.txt",  // if centers are needed otherwise than in reference mode
+		reference_polygons:null,  				 // polygoncenters in .txt needs to be null for edit-overlay-mode
+		legend_element:owner,					 // the legendelement, used to retrieve current colors
+		manualcountrymode:false,				 //allows manual correction of country assignement
+		reloadresultincountrymode:null			//a country assignement as json
+	}
+
+
+	//POLYGRPS:
+
+	// polygongrp: owner  => BUILD MODE
+	//"hexagone_NUTS3_manual.wkt"
+	//"hexagone_Gemeinden_manuell.wkt"
+
+
+	//REFERNCE_POLYGONS;
+
+
+
+ 	var hbuilder = new hexgonBuilder(hex_options);
+
+  
+		// HEXBUILDER //
+		
+     }
+
+		else{
+
 	
 		// //** Get all active markers
 		var /** Array<OverlayInfo>*/ activeMapSymbols = [];
@@ -320,7 +408,7 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 
 				if(markers[j].geomData instanceof google.maps.Data.Point){
 					activeMapSymbols.push(markers[j]);
-					if(markers[j].quantifyInfo[ekey] == null){
+					if(markers[j].getQuantifyInfo(ekey) == null){
 						fastquantify = false;
 					}
 				 }
@@ -340,10 +428,10 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 			if (fastquantify){
 				for (var /** number */ i = 0; i < activeMapSymbols.length; i++){
 					var marker = activeMapSymbols[i];
-					var idx = marker.quantifyInfo[ekey];
+					var idx = marker.getQuantifyInfo(ekey);
 					if(idx != -1){
 						try {
-							this.polygrp[idx].markercount++;
+							this.polygrp[idx].markercount += marker.infoWindowContents.length;
 							if (this.polygrp[idx].markercount > this.max_markers_in_one_poly){
 								this.max_markers_in_one_poly = this.polygrp[idx].markercount;
 							}
@@ -392,9 +480,11 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	  	this.displayMarkers(true);
     }
 
+
     if(typeof callback == "function")
     	callback(); 
-    
+    	
+      }
 	};
 
 
@@ -425,19 +515,29 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	 */
 	this.toggleQuantifyMode = function (){
 		var /** jQuery */ l_container = jQuery('#listcontainer');
+
+		var state = optionManager.getOptionState('polymode');
 		
 		if(l_container.css('display') == "none"){
-		   	var /** number */ left = (jQuery('#IM_googleMap').width() / 2.0) - 128;
+		   	var /** number */ left = (jQuery(mapDomElement).width() / 2.0) - 128;
 		   	l_container.css('left',left);
 		   	l_container.fadeIn('fast', function(){
 		   		map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
-		   		map.setOptions({styles: style_for_quantify});
+
+	   			if(state=="phy") map.setOptions({styles: style_for_quantify});
+	   			if(state=="hex") map.setOptions({styles: style_for_hex_quantify});
+
+		   		
 		   	});
 	   	}
    		else {
    			l_container.fadeOut('fast', function(){
 				map.setMapTypeId(google.maps.MapTypeId.TERRAIN);
-   		  		map.setOptions({styles: {}});
+
+				if(state=="phy") mapInterface.resetStyle();
+			    if(state=="hex") map.setOptions({"styles": noLabelStyle});
+
+   		  
    			});
    		}
 	};
@@ -464,7 +564,9 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
             	}		   
             }	
        
-    		var /** number */ idx = Math.floor(255 * percentage);
+    		var /** number */ idx = Math.ceil(255 * percentage);
+    		if(idx>255)idx = 255;
+
     		var /** Element */ canvas  = document.querySelector("#activediv canvas");
     		var /** CanvasRenderingContext2D */ ctx = canvas.getContext('2d');
 
@@ -478,28 +580,48 @@ function SymbolClusterer(viewportLat, viewportLng, viewportHeight, viewportWidth
 	        var /** number*/ a = color_arr[3];
 
 	        var color = "rgb(" + r + "," + g + "," + b + ")";
-	        
-	        if(a<255){ //color in gradient is opaque => change polygon alpha
 
-	        	var /** number*/ alpha = Math.round((a/255)*10)/10;
-	        	map.data.overrideStyle(feature,{
-        		fillColor: color,
-        		strokeColor: color,
-        		fillOpacity: alpha,
-        		strokeOpacity:alpha
-	            });		
-	        }
+        	var state = optionManager.getOptionState('polymode');
 
-	        else{
+        	var stroke_color;
+	       	var opacity;
+	       	var zindex = 2;
 
+	       	if(state=="phy"){
+	       		opacity=0.5;
+	       		stroke_color = color;
+	       	}
+	       	if(state=="hex"){
+	       		opacity=1.0;
+
+		        stroke_color = "ghostwhite";
+	       	    var activecanvas  = jQuery('#activediv canvas').attr('id');
+	       	    
+	       	    if(activecanvas =="barcanvas_0")stroke_color="black";	    
+	       	    if(activecanvas =="barcanvas_5")stroke_color="black";
+   	    	    if(activecanvas == "barcanvas_3")  {stroke_color = "rgb(180,180,180)";
+   	    		
+   	    		   
+	       	    }
+
+       	    	if(idx==0){
+       	    		stroke_color="rgba(20,20,20,0.75)"; 
+       	    		zindex= 1;
+       	    	}
+	       	}
+
+
+   	 
+	
         		map.data.overrideStyle(feature,{
         		fillColor: color,
-        		strokeColor: color,
-    			fillOpacity: 0.4,
-        		strokeOpacity:0.4
+        		strokeColor: stroke_color,
+    			fillOpacity:  opacity,
+        		strokeOpacity: opacity,
+    			zIndex:zindex
 	            });
 
-	        }	
+	       
 	      			
 	   	}
 
@@ -640,11 +762,17 @@ function MapShape (feature, infoWindowContent, owner){
 	 * @return {undefined} 
 	 */
 	this.openInfoWindow = function (event){
-		if(this.infoWindow == null){
+		
+		var /** string */ id = /** @type{string} */ (this.feature.getProperty("id"));
+		
 			this.infoWindow = new google.maps.InfoWindow({
-				content : this.infoWindowContent.getHtml() //TODO translate
+				content : "<div id='mapShape" + id + "'>" + this.infoWindowContent.getHtml(0) + "</div>" //TODO translate
 			});	
-		}
+		
+		
+		var /** @type{InfoWindowContent} */ infoWinContent = this.infoWindowContent;
+		var /** google.maps.InfoWindow */ infoWin = this.infoWindow;
+		var /** google.maps.Data.Feature */ feature = this.feature;
 
 		google.maps.event.addListener(this.infoWindow, 'closeclick', function(){
 			event.feature.setProperty("clicked", false);
@@ -652,6 +780,12 @@ function MapShape (feature, infoWindowContent, owner){
 			if(!event.feature.getProperty("hovered")){
 			    event.feature.setProperty("highlighted", false);
 			}
+			
+			infoWinContent.onClose(document.getElementById("mapShape" + id));
+		});
+		
+		google.maps.event.addListener(this.infoWindow, 'domready', function(e){
+			infoWinContent.onOpen(document.getElementById("mapShape" + id), 0, infoWin, feature);
 		});
 
 		this.infoWindow.setPosition(event.latLng);
@@ -679,13 +813,14 @@ function MapShape (feature, infoWindowContent, owner){
  * 
  * 
  * @param {Array<InfoWindowContent>} infoWindowContents 
- * @param {Array<LegendElement>} owners
+ * @param {LegendElement} owner
+ * @param {number} markingColorIndex
  */
 
-function MapSymbol (infoWindowContents, owners){
+function MapSymbol (infoWindowContents, owner, markingColorIndex){
 	
 	/** @type{Array<InfoWindowContent>} */
-	this.infoWindowContents = infoWindowContents;
+	this.infoWindowContents = [];
 	
 	/** 
 	* @private
@@ -693,8 +828,71 @@ function MapSymbol (infoWindowContents, owners){
 	*/
 	this.marker;
 	
-	/** @type{Array<LegendElement>} */
-	this.owners = owners;
+	/** 
+	 * @private
+	 * @type{Array<LegendElement>} 
+	 * 
+	 */
+	this.owners = [];
+	
+	/**
+	 * @private
+	 * @type {Array<number>}
+	 *
+	 */
+	this.markingColors = [];
+	
+	/**
+	 * @private
+	 * 
+	 * @param {InfoWindowContent} infoWindow
+	 * @param {LegendElement} owner
+	 * @param {number} markingColorIndex
+	 * @param {number=} index
+	 * 
+	 * @return {boolean}
+	 */
+	this.appendInfoWindow = function (infoWindow, owner, markingColorIndex, index){
+		if(infoWindow.tryMerge(this, owner))
+			return false;
+		
+		if(index === undefined){
+			this.infoWindowContents.push(infoWindow);
+			this.owners.push(owner);
+			this.markingColors.push(markingColorIndex);
+		}
+		else {
+			this.infoWindowContents.splice(index, 0, infoWindow);
+			this.owners.splice(index, 0, owner);
+			this.markingColors.splice(index, 0, markingColorIndex);
+		}
+
+		this.changeOwnerCount(owner, markingColorIndex, 1);
+
+		return true;
+	};
+	
+	/**
+	 * @return {number}
+	 */
+	this.getNumOwners = function (){
+		if(this.owners == null)
+			return -1;
+		
+		return this.owners.length;
+	}
+	
+	/**
+	 * @param {number} index
+	 * 
+	 * @return {LegendElement}
+	 */
+	this.getOwner = function (index){
+		if(this.owners == null)
+			return null;
+		
+		return this.owners[index];
+	}
 	
 	/**
 	* @return {Object}
@@ -718,14 +916,82 @@ function MapSymbol (infoWindowContents, owners){
 	/**
 	 * @private
 	 * 
-	 * @return {Array<string>}
+	 * @return {Array<{url : string, size: number}>}
 	 */
 	this.getSymbolURLs = function (){
-		var /** Array<string> */ symbols = [];
-		for(var /** number */ i = 0; i < this.infoWindowContents.length; i++){
-			symbols[i] = this.owners[i].symbolStandard;
+		var /** Array<{url : string, size: number}> */ symbols = [];
+		var /** Map */ keyMap = new Map();
+
+		for(var /** number */ i = 0; i < this.owners.length; i++){
+			var /** LegendElement */ owner = this.owners[i];
+			var /** string */ key = this.getOwnerKey(owner, this.markingColors[i]);
+			var /** number */ count = this.ownerCount[key];
+			
+			var /** {index: Array<number>, markingSize: number}*/ cindex = symbolClusterer.computeColorIndex(owner, this.markingColors[i]);
+			var /** number */ totalSize;
+			if(count <= maxIdenticalIcons){
+				totalSize = symbolSize + 2 * cindex.markingSize;
+				symbols.push({url : (owner == null? "": symbolManager.createSymbolURL(cindex.index, totalSize, cindex.markingSize)), size : totalSize});
+			}
+			else {
+				if(!keyMap.has(key)){
+					var /** number */ size = symbolManager.getLogSizeForCount(count);
+					totalSize = size + 2 * cindex.markingSize;
+					symbols.push({url : (owner == null? "" : symbolManager.createSymbolURL(cindex.index, totalSize, cindex.markingSize)), size: totalSize});
+					keyMap.set(key, true);
+				}
+			}
 		}
 		return symbols;
+	};
+	
+	/**
+	 * @type {Object<string, number>}
+	 */
+	this.ownerCount = {};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {LegendElement} owner
+	 * @param {number} markingColorIndex
+	 * 
+	 * @return {string}
+	 */
+	this.getOwnerKey = function (owner, markingColorIndex){
+		if(owner == null)
+			return "null";
+		
+		if(owner.parent == null){
+			return owner.key + "&" + markingColorIndex;
+		}
+		else {
+			return owner.parent.key + "|" + owner.key + "&" + markingColorIndex;
+		}
+	};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {LegendElement} owner
+	 * @param {number} markingColorIndex
+	 * @param {number} inc
+	 * 
+	 * @return {undefined}
+	 */
+	this.changeOwnerCount = function (owner, markingColorIndex, inc){
+		var /** string */ key = this.getOwnerKey(owner, markingColorIndex);
+
+		if(this.ownerCount[key] === undefined){
+			this.ownerCount[key] = inc;
+		}
+		else {
+			this.ownerCount[key] += inc;
+			
+			if(this.ownerCount[key] === 0){
+				delete this.ownerCount[key];
+			}
+		}
 	};
 	
 	/**
@@ -737,66 +1003,97 @@ function MapSymbol (infoWindowContents, owners){
 	 */
 	this.appendSymbol = function (info, owner, index){
 		
-		this.infoWindow = null;
-			
-		if(info.infoWindowContent.tryMerge(this, owner)){
-			return;
-		}
-		
-		if(index === undefined){
-			this.infoWindowContents.push(info.infoWindowContent);
-			this.owners.push(owner);
-		}
-		else {
-			this.infoWindowContents.splice(index, 0, info.infoWindowContent);
-			this.owners.splice(index, 0, owner);
-		}
-			
-		this.marker = mapInterface.updateMarker(this.marker, this.getSymbolURLs(), this);
-	};
-	
-
-	/**
-	 * @param {number} index
-	 * 
-	 * @return {undefined}
-	 */
-	this.reduceSymbol = function (index){
-		this.owners.splice(index, 1);
 		if(this.infoWindow != null){
 			mapInterface.destroyInfoWindow(this.infoWindow);
 			this.infoWindow = null;
 		}
-		this.infoWindowContents.splice(index, 1);
+		
+		var /** boolean */ updateSymbol = false;
+		for (var i = 0; i < info.infoWindowContents.length; i++){
+			updateSymbol = this.appendInfoWindow(info.infoWindowContents[i], owner, info.markingColorIndex, (index === undefined? undefined: index++)) || updateSymbol;
+		}
+		
+		if(updateSymbol)
+			this.marker = mapInterface.updateMarker(this.marker, this.getSymbolURLs(), this);
+	};
+	
+
+	/**
+	 * @param {number} indexStart
+	 * @param {number} numElements
+	 * 
+	 * @return {undefined}
+	 */
+	this.reduceSymbol = function (indexStart, numElements){
+		for (var i = 0; i < numElements; i++){
+			this.changeOwnerCount(this.owners[indexStart + i], this.markingColors[indexStart + i], -1);
+		}
+		
+		this.owners.splice(indexStart, numElements);
+		if(this.infoWindow != null){
+			mapInterface.destroyInfoWindow(this.infoWindow);
+			this.infoWindow = null;
+		}
+		this.infoWindowContents.splice(indexStart, numElements);
+		this.markingColors.splice(indexStart, numElements);
 		this.marker = mapInterface.updateMarker(this.marker, this.getSymbolURLs(), this);
 	};
 	
 	/**
-	 * @param {number} index
+	 * @param {number} iconIndex
 	 * 
 	 * @return {undefined}
 	 */
-	this.openInfoWindow = function (index){
+	this.openInfoWindow = function (iconIndex){
 		if(this.infoWindow == null){
 			var /** Array<Element> */ contents = [];
+			var /** number */ contentIndex = -1;
+			var /** number */ innerIndex = -1;
+			var /** string */ lastOwnerKey = "";
+			
 			for(var /** number */ i = 0; i < this.infoWindowContents.length; i++){
-				var /** Element|string*/ html = this.infoWindowContents[i].getHtml();
+
+				var /** string */ currentKey = this.getOwnerKey(this.owners[i], this.markingColors[i]);
+				if(currentKey != lastOwnerKey || this.ownerCount[currentKey] <= maxIdenticalIcons){
+					contentIndex++;
+					innerIndex = 0;
+				}
+				else {
+					innerIndex++;
+				}
+
+				var /** Element|string*/ html = this.infoWindowContents[i].getHtml(innerIndex);
+				
 				if(typeof html === "string")
-					contents[i] = linkifyHtml(html);
+					if (contents[contentIndex] == undefined)
+						contents[contentIndex] = linkifyHtml(html);
+					else
+						contents[contentIndex] += "<br/><hr style='width: 100%; height: 3px; margin: 0 auto;'><br />" + linkifyHtml(html);
 				else
-					contents[i] = html;
+					if (contents[contentIndex] == undefined){
+						var /**Element*/ newElement = document.createElement("div");
+						newElement.appendChild(html);
+						contents[contentIndex] = newElement;
+					}	
+					else { 
+						contents[contentIndex].appendChild(document.createElement("br"));
+						contents[contentIndex].appendChild(document.createElement("br"));
+						contents[contentIndex].appendChild(html);
+					}
+				
+				lastOwnerKey = currentKey;
 			}
 			
-			var /** Array<string>*/ symbols;
+			var /** Array<{url: string, size: number}>*/ symbols;
 			if(this.owners == null){
-				symbols = [""];
+				symbols = [{url: "", size : symbolSize}];
 			}
 			else {
 				symbols = this.getSymbolURLs();
 			}
-			this.infoWindow = mapInterface.createInfoWindow (symbols, contents, this.infoWindowContents);
+			this.infoWindow = mapInterface.createInfoWindow (symbols, contents, this);
 		}
-		mapInterface.openInfoWindow(this.marker, this.infoWindow, index);
+		mapInterface.openInfoWindow(this.marker, this.infoWindow, iconIndex);
 	};
 	
 	/**
@@ -829,19 +1126,42 @@ function MapSymbol (infoWindowContents, owners){
 	};
 	
 	/** 
-	 * @param {number} index
+	 * @param {number} iconIndex Icon index on the map
 	 * 
 	 * @return {LegendElement|MultiLegendElement}
 	 */
-	this.getLegendElement = function (index){
+	this.getLegendElement = function (iconIndex){
 		var /** LegendElement|MultiLegendElement */ legendEntry;
 		if(this.owners.length == 1)
 			legendEntry = this.owners[0];
-		else
-			legendEntry = this.owners[index];
+		else {	
+			legendEntry = this.owners[this.iconIndexToOwnerIndex(iconIndex)];
+		}	
 			
 		return legendEntry;
 	};
+	
+	/**
+	 * 
+	 * @param {number} iconIndex
+	 * 
+	 * @return {number}
+	 */
+	this.iconIndexToOwnerIndex = function (iconIndex){
+		//Calculate owner index from symbol index (owners > maxIdenticalIcons are clustered in one symbol):
+		var /** number */ ownerIndex = -1;
+		while (ownerIndex < iconIndex){
+			ownerIndex++;
+			var /** string */ key = this.getOwnerKey(this.owners[ownerIndex], this.markingColors[ownerIndex]);
+			var /** number */ ownerCount = this.ownerCount[key];
+			
+			if(ownerCount > maxIdenticalIcons){
+				ownerIndex += (ownerCount - 1);
+				iconIndex += (ownerCount - 1);
+			}
+		}
+		return ownerIndex;
+	}
 	
 	/**
 	 * 
@@ -881,13 +1201,13 @@ function MapSymbol (infoWindowContents, owners){
 				overlay.setMap(null);
 				
 				var /** google.maps.Data.Point */ newPoint = new google.maps.Data.Point(newLatLng);
-				var /** OverlayInfo */ newInfo = new OverlayInfo(thisObject.infoWindowContents[numSymbol], newPoint, null);
+				var /** OverlayInfo */ newInfo = new OverlayInfo([thisObject.infoWindowContents[numSymbol]], newPoint, null, -1);
 				
-				var /** MapSymbol */ newSymbol = /** @type{MapSymbol} */ (symbolClusterer.addOverlay(newInfo, thisObject.owners[numSymbol], "", true));
+				var /** MapSymbol */ newSymbol = /** @type{MapSymbol} */ (symbolClusterer.addOverlay(newInfo, thisObject.owners[numSymbol], true));
 				
 				optionManager.addChange(new SplitMarkerOperation(thisObject, numSymbol, newInfo, thisObject.owners[numSymbol], newSymbol));
 				
-				thisObject.reduceSymbol(numSymbol);
+				thisObject.reduceSymbol(numSymbol, 1);
 				
 				window.setTimeout(function (){
 					menu.setMap(null);
@@ -897,23 +1217,27 @@ function MapSymbol (infoWindowContents, owners){
 		
 	};
 
+	for (var i = 0; i < infoWindowContents.length; i++){
+		this.appendInfoWindow(infoWindowContents[i], owner, markingColorIndex);
+	}
 
 }
 
 /**
  * @constructor
  * 
- * @param {InfoWindowContent} infoWindowContent
+ * @param {Array<InfoWindowContent>} infoWindowContents
  * @param {google.maps.Data.Geometry} geomData
- * @param {Object<string, number>} quantifyInfo
+ * @param {Object<string, number>|string} quantifyInfo
+ * @param {number} markingColorIndex
  *  
  */
-function OverlayInfo (infoWindowContent, geomData, quantifyInfo){
+function OverlayInfo (infoWindowContents, geomData, quantifyInfo, markingColorIndex){
 
 	/** 
-	 * @type {InfoWindowContent}
+	 * @type {Array<InfoWindowContent>}
 	 */
-	this.infoWindowContent = infoWindowContent;
+	this.infoWindowContents = infoWindowContents;
 	
 	/** 
 	 * @type {google.maps.Data.Geometry}
@@ -921,27 +1245,65 @@ function OverlayInfo (infoWindowContent, geomData, quantifyInfo){
 	this.geomData = geomData;
 	
 	/**
-	 * @type {Object<string, number>}
+	 * @private
+	 * @type {Object<string, number>|string}
 	 */
-	this.quantifyInfo = [];
-	if(quantifyInfo != null)
+	this.quantifyInfo;
+	
+	if(quantifyInfo == null){
+		if(geomData instanceof google.maps.Data.Point){
+			this.quantifyInfo = [];
+		}
+		else {
+			this.quantifyInfo = "NoID" + OverlayInfo.currentId++; //Create costum id if no id is returned by the server
+		}
+	}
+	else {
 		this.quantifyInfo = quantifyInfo;
+	}
+	
+	/**
+	 * @param{string} key
+	 */
+	this.getQuantifyInfo = function (key){
+		//TODO find a better solution or move to VA somehow
+		var /** number */ posPipe = key.indexOf("|");
+		if(posPipe !== -1){
+			return this.quantifyInfo[key.substring(0, posPipe)];
+		}
+		return this.quantifyInfo[key];
+	};
+	
+	/**
+	 * @type {number}
+	 */
+	this.markingColorIndex = markingColorIndex;
 }
+
+/**
+ * @private
+ * @type{number}
+ * Used for polygons which are not given an id by the server
+ */
+OverlayInfo.currentId = 0;
 
 /**
  * @interface
  *
  * @param {number} categoryID
+ * @param {string} elementID
  * @param {OverlayType} overlayType
  * @param {Object} data
  */
-function InfoWindowContent (categoryID, overlayType, data){}
+function InfoWindowContent (categoryID, elementID, overlayType, data){}
 /**
  * @abstract
  * 
+ * @param {number} index This gives the index inside one info window tab, if multiple contents are appended
+ * 
  * @return {string|Element}
  */
-InfoWindowContent.prototype.getHtml = function (){};
+InfoWindowContent.prototype.getHtml = function (index){};
 
 /**
  *

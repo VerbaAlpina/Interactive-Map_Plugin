@@ -904,7 +904,7 @@ jQuery.get = function(url, data, success, dataType) {};
 
 /**
  * @param {number=} index
- * @return {(Element|Array<Element>)}
+ * @return {(Array<Element>)}
  * @nosideeffects
  */
 jQuery.prototype.get = function(index) {};

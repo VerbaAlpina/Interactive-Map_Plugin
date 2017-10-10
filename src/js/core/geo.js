@@ -13,6 +13,28 @@ function parsePoint(string) {
 }
 
 /**
+ * Removes unneccesary whitespaces
+ * 
+ * @param {string} string 
+ * 
+ * @return {string}
+ */
+
+function geoDataToStrictFormat (string) {
+	string = string.trim();
+	
+	string = string.replace(/, /g, ",");
+	string = string.replace(/\) /g, ")");
+	string = string.replace(/\( /g, "(");
+	string = string.replace(/([A-Z]*) \(/g, "$1(");
+	
+	return string;
+}
+
+/**
+ * Can only be used for strings that are exactly formated as those from the data base,
+ * that is to say without any unneccesary whitespaces
+ * 
  * @param {string} string 
  * 
  * @return {google.maps.Data.Geometry}

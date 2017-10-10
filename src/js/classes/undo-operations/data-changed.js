@@ -77,10 +77,13 @@ function OverlayDataChangedOperation (overlayID, categoryID, overlayType, overla
 	/**
 	 * @override
 	 * 
+	 * @param {boolean} undoAll
+	 * 
 	 * @return {undefined}
 	 */
-	this.undo = function (){
-		mapInterface.openInfoWindow(this.overlay, this.infoWindow, this.tabIndex);
+	this.undo = function (undoAll){
+		if(!undoAll)
+			mapInterface.openInfoWindow(this.overlay, this.infoWindow, this.tabIndex);
 		this.type.setValue(element, oldValue);
 	};
 	
@@ -97,12 +100,12 @@ function OverlayDataChangedOperation (overlayID, categoryID, overlayType, overla
 		oldVals[this.name] = this.oldValue;
 		
 		return [{
-			operation : "dataChanged",
-			id : this.overlayID,
-			category : this.categoryID,
-			type : this.overlayType,
-			valuesOld : oldVals,
-			valuesNew : newVals
+			"operation" : "dataChanged",
+			"id" : this.overlayID,
+			"category" : this.categoryID,
+			"type" : this.overlayType,
+			"valuesOld" : oldVals,
+			"valuesNew" : newVals
 		}];
 	};
 }

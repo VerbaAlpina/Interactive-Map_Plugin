@@ -163,13 +163,19 @@ function CommentManager (){
 	 * @return {undefined}
 	 */
 	this.openCommentWindow = function (category, key, edit){
+		var /** CommentManager */ thisObject = this;
+		
 		canEditComment = this.showCommentMenu(category, key);
 		
 		var /** boolean */ currentLanguageActive = false;
 		currentKey = key;
 		currentLang = PATH["language"];
+
+		var m_title = jQuery('<span class="im_concept_hl">'+TRANSLATIONS["COMMENT"]+'</span><span class="im_name_hl">'+categoryManager.getCategoryName(category) + " <span>" + categoryManager.getElementName(category, key) + "</span>"+'</span>');
+
+		jQuery('#commentWindow .modal-title').empty().append(m_title);
 		
-		jQuery('#commentTitle').html(categoryManager.getCategoryName(category) + " <i>" + categoryManager.getElementName(category, key) + "</i>");
+		//jQuery('#commentTitle').html(categoryManager.getCategoryName(category) + " <i>" + categoryManager.getElementName(category, key) + "</i>");
 		
 		jQuery("#commentTabs").tabs("disable");
 		var /** !Object<string, string> */ commentTranslations = /** @type{!Object<string, string>} */ (this.getComment(key));
@@ -193,11 +199,13 @@ function CommentManager (){
 		
 		this.commentTabOpened(jQuery('#commentContent-' + currentLang), edit);
 
-		jQuery('#commentWindow').dialog({
-			"minWidth" : 700,
-			"maxHeight" : 600, //TODO remove constants
-			"beforeClose" : this.beforeClose.bind(this)
-		});
+		jQuery('#commentWindow').modal('show'); 
+
+	    jQuery('#commentWindow .close').off().on('click', function(){
+	    	if(thisObject.beforeClose.call(thisObject))
+	    		jQuery('#commentWindow').modal('hide');
+	    })
+
 	};
 	
 	/**
@@ -229,7 +237,7 @@ function CommentManager (){
 	/**
 	 * @param {string} mode
 	 * @param {string|null} content
-	 * @param {function (string)} callback
+	 * @param {function (string)=} callback
 	 */
 	function commentAjax (mode, content, callback){
 		jQuery.post(ajaxurl, {
@@ -242,12 +250,17 @@ function CommentManager (){
 			"name" : PATH["mapName"],
 			"_wpnonce" : jQuery("#_wpnonce_comments").val()},
 		function(response) {
-			callback(response);
+			if(callback)
+				callback(response);
 		});
 	}
 	
 	this.editComment = function () {
 		commentAjax("get", null, function (response){
+			if(response == "§§§LOCKED§§§"){
+				alert(TRANSLATIONS["COMMENT_LOCKED"]);
+				return;
+			}
 			commentManager.showTab(currentLang, /** @type{string} */ (JSON.parse(response)), true);
 			editMode = true;
 		});
@@ -268,7 +281,7 @@ function CommentManager (){
 			editMode = false;
 			
 			if (response == "") {
-				jQuery('#commentWindow').dialog("close");
+				jQuery('#commentWindow').modal('hide');
 				//TODO evntl. nur Sprachwechsel
 			}
 			else {
@@ -299,6 +312,7 @@ function CommentManager (){
 				else
 					this.showTab(currentLang, comm, false);
 				editMode = false;
+				commentAjax("removeLock", "");
 			}
 		}
 		
@@ -313,13 +327,18 @@ function CommentManager (){
 		return true;
 	};
 	
+	/**
+	 * @return {boolean}
+	 */
 	this.beforeClose = function (){
 		if(editMode){
 			if(confirm(TRANSLATIONS["SAVE_CHANGES"]))
 				return false;
 			editMode = false;
+			commentAjax("removeLock", "");
 		}
 		this.commentTabClosed(jQuery('#commentContent-' + currentLang), editMode);
+		return true;
 	};
 	
 	//TODO document functions (also e.g. save content calls closed with edit = true and opened with edit = false

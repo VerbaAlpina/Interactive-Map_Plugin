@@ -114,9 +114,11 @@
             /**
              * @override
              * 
+             * @param {number} index
+             * 
              * @return {string}
              */
-            this.getHtml = function (){
+            this.getHtml = function (index){
                 return (
                     "<div class='genericInfoWindow'>"
                     +"<h2>"+this.title+"</h2>"

@@ -95,7 +95,7 @@ function im_ajax_handler_users (){
 						$comment = stripslashes($_POST['content']);
 						$db->query($db->prepare(
 							"INSERT INTO im_comments (Id, Source, Author, Language, Comment) 
-							VALUES(%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE Comment = %s", 
+							VALUES(%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE Comment = %s, Locked = NULL", 
 							$_POST['key'],
 							$_POST['name'],
 							wp_get_current_user()->user_login,
@@ -114,54 +114,21 @@ function im_ajax_handler_users (){
 					break;
 					
 				case 'get':
+					$locked =  $db->get_var($db->prepare('SELECT NOW() - Locked FROM im_comments WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
+					
+					if($locked != NULL && $locked < 3600){
+						echo '§§§LOCKED§§§';
+						break;
+					}
+
+					$db->query($db->prepare('UPDATE im_comments SET Locked = NOW() WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
 					$sql = $db->prepare('SELECT Comment FROM im_comments WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']);
 					echo json_encode($db->get_var($sql));
 					break;
-			}
-		break;
-		
-		case 'save_syn_map':
-			check_ajax_referer('im_save_map', '_wpnonce', true);
-			
-			$name = $db->get_var("SELECT Name FROM im_syn_maps WHERE Name = '" . $_POST['name'] . "'");
-			if($name != NULL){
-				echo 'NAME_EXISTS';
-			}
-			else {
-				$db->insert('im_syn_maps', array (
-						'Name' => $_POST['name'],
-						'Description' => $_POST['description'],
-						'Zoom' => $_POST['zoom'],
-						'Center_Lat' => $_POST['center_lat'],
-						'Center_Lng' => $_POST['center_lng'],
-						'Author' => $_POST['author'],
-						'Released' => $_POST['release']
-				),
-						array ('%s', '%s', '%d', '%s', '%s', '%s'));
-				
-				if($db->last_error != ''){
-					echo 'Error: ' . $db->last_error;
-					die;
-				}
 					
-				$map_id = $db->insert_id;
-					
-				foreach ($_POST['data'] as $index => $value){
-					$db->insert('im_syn_maps_elements', 
-						array(
-							'Id_Syn_Map' => $map_id,
-							'Position' => $index,
-							'Data' => json_encode($value)
-						),
-						array('%d', '%d', '%s'));
-					
-					if($db->last_error != ''){
-						echo 'Error: ' . $db->last_error;
-						die;
-					}
-				}
-				
-				echo $map_id;
+				case 'removeLock':
+					$db->query($db->prepare('UPDATE im_comments SET Locked = NULL WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
+					break;
 			}
 		break;
 			
@@ -176,10 +143,11 @@ function im_ajax_handler_users (){
 function im_ajax_handler_all (){
 	     
 	$db = IM_Initializer::$instance->database;
-	check_ajax_referer('im_load_data', '_wpnonce', true);
-	
+
 	switch ($_POST['namespace']){
 		case 'load_data':
+			check_ajax_referer('im_load_data', '_wpnonce', true);
+			
 			$result = IM_Initializer::$instance->load_data();
 			
 			if(!isset($_POST['noComments']))
@@ -189,9 +157,12 @@ function im_ajax_handler_all (){
 				$result->removeSubCategories($_POST['filter']['removed']);
 			
 			echo $result->createResultString();
+			
 			break;
 		
 		case 'load_syn_map':
+			check_ajax_referer('im_load_data', '_wpnonce', true);
+			
 			$query1 = 'SELECT Zoom, Center_Lat, Center_Lng FROM im_syn_maps WHERE Id_Syn_Map = ' . $_POST['key'];
 			$query2 = 'SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = ' . $_POST['key'] . ' ORDER BY Position ASC';
 			$map_main_data = $db->get_row($query1, 0);
@@ -206,6 +177,60 @@ function im_ajax_handler_all (){
 				echo 'NO_MAP';
 			}
 			break;
+			
+		case 'save_syn_map':
+			check_ajax_referer('im_save_map', '_wpnonce', true);
+			
+			$anonymous = $_POST['name'] == 'Anonymous';
+			
+			if(!$anonymous && !is_user_logged_in()){
+				return;
+			}
+		
+			$name = NULL;
+			if(!$anonymous)
+				$name = $db->get_var("SELECT Name FROM im_syn_maps WHERE Name = '" . $_POST['name'] . "'");
+			
+			if($name != NULL){
+				echo 'NAME_EXISTS';
+			}
+			else {
+				$db->insert('im_syn_maps', array (
+						'Name' => $_POST['name'],
+						'Description' => $_POST['description'],
+						'Zoom' => $_POST['zoom'],
+						'Center_Lat' => $_POST['center_lat'],
+						'Center_Lng' => $_POST['center_lng'],
+						'Author' => $_POST['author'],
+						'Released' => $_POST['release']
+				),
+						array ('%s', '%s', '%d', '%s', '%s', '%s'));
+		
+				if($db->last_error != ''){
+					echo 'Error: ' . $db->last_error;
+					die;
+				}
+					
+				$map_id = $db->insert_id;
+					
+				foreach ($_POST['data'] as $index => $value){
+					$db->insert('im_syn_maps_elements',
+							array(
+									'Id_Syn_Map' => $map_id,
+									'Position' => $index,
+									'Data' => json_encode($value)
+							),
+							array('%d', '%d', '%s'));
+						
+					if($db->last_error != ''){
+						echo 'Error: ' . $db->last_error;
+						die;
+					}
+				}
+		
+				echo $map_id;
+			}
+		break;
 	}
 	die;
 }
@@ -230,6 +255,7 @@ class IM_Result {
 	 * @param string $sub_id Id for the subcategory or -1 if no sub-category is given
 	 * @param ElementInfoWindowData $element_info Data which is used to create the popup window for this element
 	 * @param string $geo_data Geo data in WKT format
+	 * @param array<number> bounding_box Topleft and bottomright corner of the bounding box [x1,y1,x2,y2]. Ignored for point symbols
 	 * @param array<string, string|number> $quant_info optional
 	 * 		Enables quantification for this element.
 	 * 
@@ -237,13 +263,13 @@ class IM_Result {
 	 * 		In general, this is only meaningfull if the MapElement is a point symbol and the given category
 	 * 		only contains polygons.
 	 */
-	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, IM_Quantitfy_Info $quant_info = NULL){
+	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, $bounding_box, IM_Quantitfy_Info $quant_info = NULL, $marking_color = -1){
 		if(!array_key_exists($sub_id, $this->element_data)){
 			$this->element_data[$sub_id] = array ();
 			$this->contains_point_symbols[$sub_id] = false;
 			$this->contains_polygons[$sub_id] = false;
 			$this->contains_line_strings[$sub_id] = false;
-		}	
+		}
 			
 		if(!$this->contains_point_symbols[$sub_id]){
 			if(strpos($geo_data, 'POINT') === 0){
@@ -258,13 +284,66 @@ class IM_Result {
 				
 				if(!$this->contains_line_strings[$sub_id]){
 					if(strpos($geo_data, 'LINESTRING') === 0 || strpos($geo_data, 'MULTILINESTRING') === 0){
-						$this->contains_polygons[$sub_id] = true;
+						$this->contains_line_strings[$sub_id] = true;
 					}
 				}
 			}
 		}	
 		
-		$this->element_data[$sub_id][] = array ($element_info->getData(), $geo_data, ($quant_info? $quant_info->getAjaxData(): NULL));
+		$this->element_data[$sub_id][] = array ([$element_info->getData()], $geo_data, $bounding_box, ($quant_info? $quant_info->getAjaxData(): NULL), $marking_color);
+	}
+	
+	/**
+	 * Same as addMapElement, but an array of elments with the same position can be added. This speeds up
+	 * computation on the client side, since:
+	 * 		a) Point distance computations can be avoided for those elements
+	 * 		b) Especially for many points that have the same position the client can compute the resulting symbol much faster,
+	 * 		   since it processes the data points sequentially without any buffer
+	 * 
+	 * @param string $sub_id Id for the subcategory or -1 if no sub-category is given
+	 * @param ElementInfoWindowData $element_info Data which is used to create the popup window for this element
+	 * @param string $geo_data Geo data in WKT format
+	 * @param array<number> bounding_box Topleft and bottomright corner of the bounding box [x1,y1,x2,y2]. Ignored for point symbols
+	 * @param array<string, string|number> $quant_info optional
+	 * 		Enables quantification for this element.
+	 *
+	 * 		The parameter has to be an array that contains a mapping from category ids to element ids.
+	 * 		In general, this is only meaningfull if the MapElement is a point symbol and the given category
+	 * 		only contains polygons.
+	 */
+	function addMapElements ($sub_id, array $element_infos, $geo_data, $bounding_box, IM_Quantitfy_Info $quant_info = NULL, $marking_color = -1){
+		if(!array_key_exists($sub_id, $this->element_data)){
+			$this->element_data[$sub_id] = array ();
+			$this->contains_point_symbols[$sub_id] = false;
+			$this->contains_polygons[$sub_id] = false;
+			$this->contains_line_strings[$sub_id] = false;
+		}
+			
+		if(!$this->contains_point_symbols[$sub_id]){
+			if(strpos($geo_data, 'POINT') === 0){
+				$this->contains_point_symbols[$sub_id] = true;
+			}
+			else {
+				if(!$this->contains_polygons[$sub_id]){
+					if(strpos($geo_data, 'POLYGON') === 0 || strpos($geo_data, 'MULTIPOLYGON') === 0){
+						$this->contains_polygons[$sub_id] = true;
+					}
+				}
+	
+				if(!$this->contains_line_strings[$sub_id]){
+					if(strpos($geo_data, 'LINESTRING') === 0 || strpos($geo_data, 'MULTILINESTRING') === 0){
+						$this->contains_line_strings[$sub_id] = true;
+					}
+				}
+			}
+		}
+		
+		$data = array();
+		foreach($element_infos as $info){
+			$data[] = $info->getData();
+		}
+	
+		$this->element_data[$sub_id][] = array ($data, $geo_data, $bounding_box, ($quant_info? $quant_info->getAjaxData(): NULL), $marking_color);
 	}
 	
 	function setDebugData($str){
@@ -461,6 +540,23 @@ class IM_SimpleElementInfoWindowData extends IM_ElementInfoWindowData {
 	}
 }
 
+class IM_PolygonInfoWindowData extends IM_ElementInfoWindowData {
+	private $data;
+
+	function __construct ($name, $description, $id){
+		parent::__construct('polygon');
+		$this->data = array ('name' => $name, 'description' => $description, 'id_polygon' => $id);
+	}
+
+	public function getName(){
+		return $this->data['name'];
+	}
+
+	protected function getTypeSpecificData (){
+		return $this->data;
+	}
+}
+
 class IM_EditableElementInfoWindowData extends IM_ElementInfoWindowData {
 	private $data;
 
@@ -480,10 +576,17 @@ class IM_EditableElementInfoWindowData extends IM_ElementInfoWindowData {
 }
 
 /**
- * Returns a string with %d's for integer list
+ * Returns a string with %d's for an integer list
  */
 function im_key_placeholder_list ($arr){
 	return '(' . implode(',', array_fill(0, count($arr), '%d')) . ')';
+}
+
+/**
+ * Returns a string with %s's for a string list
+ */
+function im_string_placeholder_list ($arr){
+	return '(' . implode(',', array_fill(0, count($arr), '%s')) . ')';
 }
 
 /**

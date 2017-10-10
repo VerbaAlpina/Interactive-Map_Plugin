@@ -45,9 +45,11 @@ function SplitMarkerOperation (originalSymbol, index, infoSplittedSymbol, ownerS
 	/**
 	 * @override
 	 * 
+	 * @param {boolean} undoAll
+	 * 
 	 * @return {undefined}
 	 */
-	this.undo = function (){
+	this.undo = function (undoAll){
 		mapInterface.centerOnOverlay(originalSymbol.getMarker());
 		this.originalSymbol.appendSymbol(this.infoSplittedSymbol, this.ownerSplittedSymbol, this.index);
 		symbolClusterer.removeSingleMapSymbol(newSymbol);
@@ -60,11 +62,11 @@ function SplitMarkerOperation (originalSymbol, index, infoSplittedSymbol, ownerS
 	 */
 	this.getCommitInformation = function (){
 		return [{
-			operation : "markerMoved",
-			id : /** @type{EditableInfoWindowContent} */ (this.newSymbol.infoWindowContents[0]).markerID,
-			category : this.ownerSplittedSymbol.category,
-			newPosition : mapInterface.getWKTStringForOverlay(this.newSymbol.getMarker()),
-			oldPosition : this.oldPosition
+			"operation" : "markerMoved",
+			"id" : /** @type{EditableInfoWindowContent} */ (this.newSymbol.infoWindowContents[0]).markerID,
+			"category" : this.ownerSplittedSymbol.category,
+			"newPosition" : mapInterface.getWKTStringForOverlay(this.newSymbol.getMarker()),
+			"oldPosition" : this.oldPosition
 		}];
 	};
 }

@@ -25,13 +25,13 @@ function RecordNumberSorter (){
 	 * 
 	 * @param {Array<string>} keyArray The sub-element keys
 	 * @param {Object<string,?>} data The original data array as returned from the server.
-	 * @param {Object<string,?>} filterData The complete filter data for the element.
+	 * @param {number} subElementCategory
 	 * 
 	 * @return{undefined}
 	 */
-	this.initFields = function (keyArray, data, filterData){
+	this.initFields = function (keyArray, data, subElementCategory){
 		this.countMapping = Sorter.createCountMapping(keyArray, data);
-		this.nameMapping = Sorter.createNameMapping(keyArray, filterData);
+		this.nameMapping = Sorter.createNameMapping(keyArray, subElementCategory);
 	};
 	
 	/**

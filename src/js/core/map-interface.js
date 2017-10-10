@@ -2,6 +2,7 @@
  * @struct
  * @interface
  * 
+ * 
  * @template MarkerType
  * @template LinestringType
  * @template PolygonType
@@ -15,10 +16,12 @@ function MapInterface (){}
  * 
  * 
  * @param {function ()} callback
+ * @param {Element} mapDiv
+ * @param {{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}} polygonOptions
  * 
  * @return {undefined}
  */
-MapInterface.prototype.init = function (callback){};
+MapInterface.prototype.init = function (mapDiv, callback, polygonOptions){};
 
 /**
  * @abstract
@@ -26,18 +29,19 @@ MapInterface.prototype.init = function (callback){};
  * @param {number} lat
  * @param {number} lng
  * @param {string} icon
+ * @param {number} size
  * @param {boolean} movable
  * @param {!MapSymbol} mapSymbol Reference to the symbol representation in the IM logic. Needed for event listener.
  * 
  * @return {MarkerType}
  */
-MapInterface.prototype.createMarker = function (lat, lng, icon, movable, mapSymbol){};
+MapInterface.prototype.createMarker = function (lat, lng, icon, size, movable, mapSymbol){};
 
 /**
  * @abstract
  * 
  * @param {MarkerType} marker
- * @param {Array<string>} icons
+ * @param {Array<{url: string, size: number}>} icons
  * @param {!MapSymbol} mapSymbol
  * 
  * @return {MarkerType}
@@ -102,13 +106,13 @@ MapInterface.prototype.addMarkerListeners = function (clickFun, rightClickFun, d
 /**
  * @abstract
  * 
- * @param {Array<string>} symbols
- * @param {Array<Element>} elements
- * @param {Array<InfoWindowContent>} infoWindowContents
+ * @param {Array<{url: string, size: number}>} symbols
+ * @param {Array<Element|string>} elements
+ * @param {MapSymbol} mapSymbol
  * 
  * @return {InfoWindowType}
  */
-MapInterface.prototype.createInfoWindow = function (symbols, elements, infoWindowContents){};
+MapInterface.prototype.createInfoWindow = function (symbols, elements, mapSymbol){};
 
 /**
  * @abstract
@@ -144,9 +148,9 @@ MapInterface.prototype.destroyInfoWindow = function (infoWindow){};
 /**
  * @abstract
  * 
- * @param{function(Element, number, InfoWindowContent, InfoWindowType, (MarkerType|LinestringType|PolygonType))} tabOpenedFun
- * @param{function(Element, InfoWindowContent)} tabClosedFun
- * @param{function(Element, Array<InfoWindowContent>)} windowClosedFun
+ * @param{function(Element, number, MapSymbol, InfoWindowType, (MarkerType|LinestringType|PolygonType))} tabOpenedFun
+ * @param{function(Element, number, MapSymbol)} tabClosedFun
+ * @param{function(Element, MapSymbol)} windowClosedFun
  * 
  * @return {undefined}
  */
@@ -212,8 +216,30 @@ MapInterface.prototype.centerOnOverlay = function (overlay){};
 /**
 * @abstract
 * 
- * @param {(MarkerType|LinestringType|PolygonType)} overlay
+* @param {(MarkerType|LinestringType|PolygonType)} overlay
 * 
 * @return {string}
 */
 MapInterface.prototype.getWKTStringForOverlay = function (overlay){};
+
+/**
+* @abstract
+* 
+* 
+* @return {undefined}
+*/
+
+MapInterface.prototype.resetStyle = function (){};
+
+/**
+* @abstract
+* 
+* @param {number} lat1
+* @param {number} lng1
+* @param {number} lat2
+* @param {number} lng2
+* 
+* @return {undefined}
+*/
+
+MapInterface.prototype.zoomToBounds = function (lat1, lng1, lat2, lng2){};

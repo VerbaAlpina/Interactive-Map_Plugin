@@ -10,6 +10,7 @@ categoryManager["registerCategory"] = categoryManager.registerCategory;
 categoryManager["addAjaxData"] = categoryManager.addAjaxData;
 categoryManager["addElementName"] = categoryManager.addElementName;
 categoryManager["addInfoWindowContentConstructor"] = categoryManager.addInfoWindowContentConstructor;
+categoryManager["produceMapURL"] = categoryManager.produceMapURL;
 window["CategoryInformation"] = CategoryInformation;
 
 //InfoWindows

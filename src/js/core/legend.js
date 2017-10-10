@@ -13,6 +13,12 @@ function Legend() {
 	this.elements = new Array();
 	
 	/**
+	 * @type{number}
+	 * @private
+	 */
+	this.numLoading = 0;
+	
+	/**
 	 *  @return {number}
 	 */
 	this.getLength = function (){
@@ -86,8 +92,36 @@ function Legend() {
 		return results;
 	};
 	
+	/**
+	 * @return {undefined}
+	 */
 	this.unhighlightAll = function (){
 		jQuery(".focused").removeClass("focused");
+	};
+	
+	/**
+	 * @param {number} category
+	 * 
+	 * @return {undefined}
+	 */
+	this.removeElementsByCategory = function (category){
+		for (var i = 0; i < this.elements.length; i++){
+			var /** LegendElement|MultiLegendElement */ currentElement = this.elements[i];
+			if(currentElement instanceof LegendElement){
+				if (currentElement.category == category){
+					this.removeElement(currentElement, true);
+				}
+			}
+			else {
+				for (var j = 0; j < currentElement.subElements.length; j++){
+					var /** LegendElement */ currentSubElement = currentElement.subElements[j];
+					if (currentElement.category == category){
+						this.removeElement(currentElement, true);
+						break;
+					}
+				}
+			}
+		}
 	};
 
 	/**
@@ -98,9 +132,12 @@ function Legend() {
 		jQuery(document).trigger("im_legend_before_rebuild", this); //TODO comment
 		
 		//Rebuild legend
+	    var /** Element */ tablecontainer = document.createElement("div");
 		var /** Element */ table = document.createElement("table");
+		var /** Element */ tablebody = document.createElement("tbody");
+		table.appendChild(tablebody);
 		if (this.elements.length != 0) {
-			table.className = "easy-table easy-table-default";
+			table.className = "legendtable";
 			for (var/** number */ i = 0; i < this.elements.length; i++) {
 				var /**LegendElement|MultiLegendElement*/ element = this.elements[i];
 				if (element == null)
@@ -109,12 +146,17 @@ function Legend() {
 					element.visible(false);
 					continue;
 				}
-				legendRow(this.elements, i, table);
+				legendRow(this.elements, i, tablebody);
 			}
 		}
-		jQuery("#IM_legend").html(table);
+
+		tablecontainer.className = "legendtablecontainer";
+		tablecontainer.appendChild(table);
+
+		jQuery("#IM_legend").html(tablecontainer);
 			
 		jQuery(document).trigger("im_legend_after_update", this); //TODO comment
+		setTableRowWidth();
 	};
 
 	/** 
@@ -124,6 +166,13 @@ function Legend() {
 	 * @return {undefined} 
 	 */
 	this.removeElement = function(element, deleteFromArray) {
+		
+		var /** LegendElement|MultiLegendElement|boolean */ qelement = symbolClusterer.checkQuantify();
+		if(qelement == element){
+			symbolClusterer.displayMarkers(true);
+			symbolClusterer.toggleQuantifyMode();
+		}
+		
 		if(element instanceof MultiLegendElement){
 			for(var /** number */ i = 0; i < element.subElements.length; i++){
 				this.removeElement(element.subElements[i], false);
@@ -178,6 +227,10 @@ function Legend() {
 				}
 			}
 			this.update();
+		}
+		
+		if((qelement && element.overlayType == OverlayType.PointSymbol) || (qelement == element.parent && deleteFromArray)){
+			symbolClusterer.reQuantify();
 		}
 	};
 	
@@ -256,22 +309,27 @@ function Legend() {
 		element.htmlElement = jQuery(row);
 		
 		if(element instanceof MultiLegendElement){
-			row["style"]["backgroundColor"] = "lightgray";
-			row["style"]["cursor"] = "pointer";
-			
+			row["className"] = "im_parent_legend_element addComment";
+		}
+		else {
+			if(element.parent == null){
+				row["className"] = "im_single_legend_element addComment";
+			}
+			else {
+				row["className"] = "im_child_legend_element addComment";
+			}
+		}
+		
+		if(element instanceof MultiLegendElement){
 			row.addEventListener ("click", function (event){
 				if((event.target || event.srcElement) instanceof HTMLInputElement)
 					return;
 				element.childrenInLegend = !element.childrenInLegend;
 				legend.update();
+
 			});
 		}
-		else {
-			if (element.parent == null){
-				row["style"]["backgroundColor"] = "lightgray";
-			}
-		}
-		row["className"] = "addComment";
+
 		row["tabIndex"] = -1;
 		row["dataset"]["index"] = index;
 		if(mainIndex != null){ //Sub-Element
@@ -283,16 +341,19 @@ function Legend() {
 		if(element instanceof MultiLegendElement){
 			col["className"] = "collapseSymbol";
 			var /** Element */ span = document.createElement("span");
-			if(element.childrenInLegend)
-				span.appendChild(document.createTextNode("-"));
-			else
-				span.appendChild(document.createTextNode("+"));
+			if(element.childrenInLegend){
+				var minus = document.createElement("i");
+		     	minus.className = "fa fa-minus-circle collapsesymbol_icon";
+				span.appendChild(minus);
+				}
+			else{
+				var plus = document.createElement("i");
+		     	plus.className = "fa fa-plus-circle collapsesymbol_icon";
+				span.appendChild(plus);
+			}
 			col.appendChild(span);
 		}
-		else {
-			col["style"]["background-color"] = "lightgray";
-			col["style"]["padding"] = "8px 0";
-		}
+		
 		row.appendChild(col);
 		
 		
@@ -314,7 +375,7 @@ function Legend() {
 		row.appendChild(col);
 
 		col = document.createElement("td");
-		col["style"]["padding"] = "8px 0";
+	
 
 		if(showControls && element.isQuantifiably()){
 
@@ -323,8 +384,10 @@ function Legend() {
 	     	var /**Element */  qClickable  = /** @type{Element} */ (document.createElement("div"));
  	    	var /**Element */  qButtonIcon = /** @type{Element} */ (document.createElement("i"));
  	    	var /**Element */  qButtonIcon2 = /** @type{Element} */ (document.createElement("i"));
+ 	    	var /**Element */  qButtonIcon3 = /** @type{Element} */ (document.createElement("i"));
  	    	var /**Element */  qIconSpan= /** @type{Element} */ (document.createElement("span"));
-     		qButtonParent["style"]["float"] = 'right';
+
+
 
      		if(!element.quantify){
      			qButtonIcon.className ="fa fa-times-circle-o qcheck q-stack1 fa-stack-1x"; 
@@ -338,6 +401,7 @@ function Legend() {
 
      		}
 
+     		qButtonIcon3.className="fa fa-circle-thin ring";
      		qButtonIcon2.className ="fa fa-circle qcheck q-stack fa-stack-1x"; 
      		qIconSpan.className ="q-span fa-stack";
      		qButton.title = "Quantify";
@@ -346,6 +410,7 @@ function Legend() {
 			qButton.innerHTML = "Q";
 			qButton.className = "quantifyButton";
 			qButton["id"] = "qbutton_"+element.key;
+			qButtonParent.className="qButtonParent";
 
 			jQuery(qButton).on('click',function(event){  //second listener for clicks while loading
 			     event.stopPropagation();
@@ -384,6 +449,7 @@ function Legend() {
 				});
 			}
 
+		    qButton.appendChild(qButtonIcon3);
 			qButtonParent.appendChild(qButton);
 			qButton.appendChild(qIconSpan);
 			qIconSpan.appendChild(qButtonIcon);
@@ -433,40 +499,26 @@ function Legend() {
 		row.appendChild(col);
 
 		col = document.createElement("td");
-		if(showControls){
-			img = /** @type{HTMLImageElement} */ (document.createElement("img"));
-			img["src"] = PATH["Delete"];
-			img["width"] = 10;
-			img["height"] = 10;
-			img["style"]["cursor"] = "auto";
-			
-			img.addEventListener ("mouseover", function (){
-				this.src = PATH["Delete_M"];
-			});
-			img.addEventListener ("mouseout", function (){
-				this.src = PATH["Delete"];
-			});
-			img.addEventListener ("click", function (event){
-				var /** LegendElement|MultiLegendElement|boolean */ qelement = symbolClusterer.checkQuantify();
-				if(qelement == element){
-					symbolClusterer.displayMarkers(true);
-					symbolClusterer.toggleQuantifyMode();
-				}
-				
+		var /** boolean */ forbidRemoving;
+		if(element instanceof LegendElement && element.parent != null){
+			forbidRemoving = categoryManager.forbidRemoving(element.parent.category, element.key);
+		}
+		else {
+			forbidRemoving = categoryManager.forbidRemoving(element.category, element.key);
+		}
+		
+		if(showControls && !forbidRemoving){
+			var delete_symbol = document.createElement("i");
+			// delete_symbol["src"] = PATH["Delete"];
+			delete_symbol.className = "fa fa-times delete_symbol"
+
+			delete_symbol.addEventListener ("click", function (event){
 				legend.removeElement(element, true);
-				
-				if((qelement && element.overlayType == OverlayType.PointSymbol) || (qelement == element.parent)){
-					symbolClusterer.reQuantify();
-				}
-				
 				event.stopPropagation();
 			});
-			col.appendChild(img);
+			col.appendChild(delete_symbol);
 		}
-		if(element instanceof LegendElement && element.parent != null){
-			col["style"]["borderRight"] = "1px solid";
-			col["style"]["borderColor"] = "lightgrey";
-		}
+
 		row.appendChild(col);
 		
 		table.appendChild(row);
@@ -527,22 +579,41 @@ function Legend() {
 		var /** Array<string> */ keys = element.key.split("+");
 		
 		var divElement = document.createElement("div");
-		
+		divElement.className = "l_span_container";
+
+
 		for(var /** number */ i = 0; i < keys.length; i++){
 			var /** !Object<string, string>|undefined */ commentTranslations = commentManager.getComment(keys[i]);
 			
 			var /**Element*/ spanStart = document.createElement("span");
 			var /**Element*/ spanMiddle = document.createElement("span");
-			spanMiddle["style"]["font-weight"] = "bold";
-			
+
 			if(element.key == -1){
 				spanStart.appendChild(document.createTextNode(categoryManager.getEmptyCategoryName(element.category)));
 			}
 			else {
-				spanStart.appendChild(document.createTextNode((i > 0? " + ": "") + categoryManager.getCategoryName(element.category) + " "));
-				spanMiddle.appendChild(document.createTextNode(categoryManager.getElementName(element.category, keys[i]) + " "));
+				var /** string */ catName;
+				if(element.category == -3 /* Tags */){
+					catName = categoryManager.getTagTranslation(element.parent.filterData["selectedTag"]);
+				}
+				else {
+					catName = categoryManager.getCategoryName(element.category, true);
+				}
+				
+				spanStart.appendChild(document.createTextNode((i > 0? " + ": "") + catName + " "));
+				var /** string */ elementName;
+				if(element.category == -1){ //All distinct
+					elementName = categoryManager.getAllDistinctElementName(keys[i], element.parent.key);
+				}
+				else if(element.category == -3){ //Tags
+					elementName = categoryManager.getTagTranslation(keys[i].substring(1));
+				}
+				else {
+					elementName = categoryManager.getElementName(element.category, keys[i]);
+				}
+				spanMiddle["style"]["font-weight"] = "bold";
+				spanMiddle.appendChild(document.createTextNode(elementName + " "));
 			}
-
 			
 			
 			divElement.appendChild(spanStart);
@@ -563,10 +634,10 @@ function Legend() {
 
 		
 		if(element instanceof LegendElement){
-			var /** number */ numRecords = element.overlayInfos.length;
+			var /** number */ numRecords = element.getNumOverlays();
 			divElement.appendChild(document.createTextNode(categoryManager.getCountString(element.category, numRecords)));
 		}
-
+		
 	
 		
 //		if(showSliders && element instanceof LegendElement && element.overlayType == overlay_types.Polygon){ //TODO only polygon here
@@ -597,6 +668,33 @@ function Legend() {
 //		}
 		
 		col.appendChild(divElement);
+		
+		if(element.filterData !== undefined && element.filterData["markings"] !== undefined){
+			var /** string */ tagName = element.filterData["markings"]["tagName"];
+			var /** Object<string,number>*/ values = element.filterData["markings"]["tagValues"];
+			var /** Element */ markDiv = document.createElement("div");
+			markDiv["style"]["fontWeight"] = "normal";
+			for (var key in values){
+				markDiv.appendChild(document.createElement("br"));
+				
+				var /** Element */ mimg = /** @type{HTMLImageElement} */ (document.createElement("img"));
+				mimg["style"]["marginLeft"] = "10px";
+				mimg["style"]["verticalAlign"] = "middle";
+				var /** number */ colIndex = element instanceof LegendElement? element.colorIndex[0]: element.mainColorIndex;
+				mimg["src"] = symbolManager.createSymbolURLForMarking(colIndex, values[key]);
+				markDiv.appendChild(mimg);
+				
+				markDiv.appendChild(document.createTextNode(" = "));
+				
+				var /** Element */ tagNameElement = document.createElement("span");
+				tagNameElement.appendChild(document.createTextNode(tagName + " "));
+				tagNameElement["style"]["font-weight"] = "bold";
+				markDiv.appendChild(tagNameElement)
+				
+				markDiv.appendChild(document.createTextNode(key));
+			}
+			col.appendChild(markDiv);
+		}	
 	}
 
 	/**
@@ -706,7 +804,6 @@ function Legend() {
 		
 		for (var /** number */ i = 0; i < legendLength; i++) {
 			var /** LegendElement|MultiLegendElement */ element = this.elements[i];
-			element.removeGoogleFeatures();
 			element.reloadSymbols(elementCallback);
 		}
 		this.update();
@@ -738,10 +835,11 @@ function Legend() {
  *
  * @param {number} category
  * @param {string} key
+ * @param {MultiLegendElement=} parent
  *
  * Concrete instance of an legend element. Contains info about markers, comments for the category, visibility status etc.
  */
-function LegendElement(category, key) {
+function LegendElement(category, key, parent) {
 	
 	/** @type {number} */
 	this.category = category;
@@ -786,9 +884,6 @@ function LegendElement(category, key) {
 	/** @type{OverlayType} */
 	this.overlayType;
 
-	/** @type{boolean} */
-	this.loading = true;
-
 	/** 
 	 * @type{boolean} 
 	 * @private
@@ -832,7 +927,7 @@ function LegendElement(category, key) {
 	this.overlayInfos = new Array();
 
 	//Is only filled for polygons
-	/** @type{Object<string, google.maps.Data.Feature>}*/
+	/** @type{!Object<string, google.maps.Data.Feature>}*/
 	this.googleFeatures = {};
 	
 	/** @type {jQuery} */
@@ -840,9 +935,50 @@ function LegendElement(category, key) {
 	
 	/** @type{MultiLegendElement} */
 	this.parent = null;
+	if(parent)
+		this.parent = parent;
+	
+	/**
+	* @type{boolean} 
+	* @private
+	*/
+	this.loading;
+	
+	/**
+	 * @param {boolean} state
+	 * 
+	 * @return {undefined}
+	 */
+	this.setLoading = function (state){
+		this.loading = state;
+		
+		if(this.parent == null){
+			if(state){
+				legend.numLoading++;
+				optionManager.enableOptions(false);
+			}
+			else {
+				legend.numLoading--;
+				if(legend.numLoading == 0)
+					optionManager.enableOptions(true);
+			}
+		}
+	};
+	this.setLoading(true);
 
 	var/** boolean */ isVisible = true;
 
+	/**
+	 * @return {number}
+	 */
+	this.getNumOverlays = function (){
+		var result = 0;
+		for (var i = 0; i < this.overlayInfos.length; i++){
+			result += this.overlayInfos[i].infoWindowContents.length;
+		}
+		return result;
+	}
+	
 	/**
 	 * @param {boolean=} visible
 	 * @param {boolean=} updateLegend
@@ -858,7 +994,7 @@ function LegendElement(category, key) {
 		if(visible != isVisible) {
 			isVisible = visible;
 			if(visible){
-				if(this.overlayType == OverlayType.Polygon){
+				if(this.overlayType == OverlayType.Polygon && Object.keys(this.googleFeatures).length !== 0){
 					for (var id in this.googleFeatures){
 						map.data.add(this.googleFeatures[id]);
 					}
@@ -867,7 +1003,7 @@ function LegendElement(category, key) {
 					var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
 					var /** number */ len = this.overlayInfos.length;
 					for (i = 0; i < len; i++){
-						symbolClusterer.addOverlay(this.overlayInfos[i], this, "", movable);
+						symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
 					}
 				}						
 				if(this.parent != null){
@@ -974,7 +1110,14 @@ function LegendElement(category, key) {
 	 */
 	this.reloadSymbols = function (callback, filterData){
 		//TODO identical in MultiLE and LE => maybe move to a super class?
-		this.loading = true;
+		if (this.loading){
+			if(callback)
+				callback();
+			return;
+		}
+	
+		this.setLoading(true);
+		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
 		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
@@ -1060,11 +1203,10 @@ function MultiLegendElement(category, key) {
 	};
 
 	/**
-	 * @type {Array<number>|number}
+	 * @type {number}
 	 *
-	 * Indexes for color scheme (point symbol) or just a color index (polygon etc.)
 	 */
-	this.colorIndex;
+	this.mainColorIndex;
 	
 	/** @type {Object<string, ?>} */
 	this.filterData;
@@ -1072,8 +1214,31 @@ function MultiLegendElement(category, key) {
 	/** @type{number} */
 	this.overlayType = -1;
 
-	/** @type{boolean} */
-	this.loading = true;
+	/**
+	* @type{boolean} 
+	* @private
+	*/
+	this.loading;
+	
+	/**
+	 * @param {boolean} state
+	 * 
+	 * @return {undefined}
+	 */
+	this.setLoading = function (state){
+		this.loading = state;
+		
+		if(state){
+			legend.numLoading++;
+			optionManager.enableOptions(false);
+		}
+		else {
+			legend.numLoading--;
+			if(legend.numLoading == 0)
+				optionManager.enableOptions(true);
+		}
+	};
+	this.setLoading(true);
 
 	/** @type{string} */
 	this.symbolStandard = "";
@@ -1267,7 +1432,14 @@ function MultiLegendElement(category, key) {
 	 * @return {undefined} 
 	 */
 	this.reloadSymbols = function (callback, filterData){
-		this.loading = true;
+		if (this.loading){
+			if(callback)
+				callback();
+			return;
+		}
+		
+		this.setLoading(true);
+		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
 		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};

@@ -15,18 +15,20 @@ function Sorter (sortTypes){
 	
 	/**
 	 * @param {Object<string, ?>} data
-	 * @param {Object<string, ?>=} filterData
+	 * @param {number} sortTypeIndex
+	 * @param {number} sortOrder
+	 * @param {number} subElementCategory
 	 * 
 	 * @return {Array<string>}
 	 */
-	this.getSortedKeys = function (data, filterData){
+	this.getSortedKeys = function (data, sortTypeIndex, sortOrder, subElementCategory){
 		
 		var /**Array<string> */ keyArray = Sorter.createKeyArray(data);
 		
-		var /** SortType */ sortType = sortTypes[filterData["sorter"]["sortType"]];
+		var /** SortType */ sortType = sortTypes[sortTypeIndex];
 		
-		sortType.sortOrder = filterData["sorter"]["sortOrder"];
-		sortType.initFields(keyArray, data, filterData);
+		sortType.sortOrder = sortOrder;
+		sortType.initFields(keyArray, data, subElementCategory);
 
 		return keyArray.sort(sortType.compareFunction.bind(sortType));
 	};
@@ -68,8 +70,11 @@ function Sorter (sortTypes){
 				jQuery(sel).toggle(true);
 			}.bind(this, "#sortOrder" + i));
 			
-			result.appendChild(radio);
-			result.appendChild(document.createTextNode(sortType.getName() + " "));
+		    var radio_span = document.createElement("span");
+			radio_span.appendChild(radio);
+			radio_span.appendChild(document.createTextNode(sortType.getName() + " "));
+			result.appendChild(radio_span);
+
 			
 			//Sort orders
 			var /** Element */ divSortOrder = document.createElement("div");
@@ -105,12 +110,28 @@ function Sorter (sortTypes){
 	
 	/**
 	 * @override 
+	 * 
+	 * @param {Object<string, ?>} data
+	 * 
+	 * @return {boolean}
 	 */
 	this.storeData = function (data){
 		var /** jQuery */ sortTypeInput = jQuery("#sortingComponent input[name=sortName]:checked");
 		var /** Object<string, number> */ sortData = {
 			"sortType" : sortTypeInput.val(),
 			"sortOrder" : jQuery("#sortingComponent input[name=sortOrder" + sortTypeInput.val() + "]:checked").val()
+		};
+		data["sorter"] = sortData;
+		return true;
+	};
+	
+	/**
+	 * @override 
+	 */
+	this.storeDefaultData = function (data){
+		var /** Object<string, number> */ sortData = {
+			"sortType" : 0,
+			"sortOrder" : this.sortTypes[0].getDefaultSortOrder()
 		};
 		data["sorter"] = sortData;
 	};
@@ -143,17 +164,21 @@ Sorter.createKeyArray = function (data){
  * A mapping from element key to element name (potentially translated in the current gui language)
  * 
  * @param {Array<string>} keyArray
- * @param {Object<string,?>} filterData
+ * @param {number} subElementCategory
  * 
  * @return {Object<string, string>} 
  */
-Sorter.createNameMapping = function (keyArray, filterData) {
+Sorter.createNameMapping = function (keyArray, subElementCategory) {
 	var /** Object<string, string> */ nameMapping = {};
-	var /** number */ subElementCategory = filterData["subElementCategory"];
 	
 	for (var i = 0; i < keyArray.length; i++){
 		var /**string */ key = keyArray[i];
-		nameMapping[key] = categoryManager.getElementName(subElementCategory, key);
+		if(subElementCategory == -3){ //Tags
+			nameMapping[key] = categoryManager.getTagTranslation(key.substring(1));
+		}
+		else {
+			nameMapping[key] = categoryManager.getElementName(subElementCategory, key);
+		}
 	}
 	
 	return nameMapping;
@@ -210,11 +235,11 @@ SortType.prototype.compareFunction = function(a, b){};
  * 
  * @param {Array<string>} keyArray The sub-element keys
  * @param {Object<string,?>} data The original data array as returned from the server.
- * @param {Object<string,?>} filterData The complete filter data for the element.
+ * @param {number} subElementCategory
  * 
  * @return{undefined}
  */
-SortType.prototype.initFields = function (keyArray, data, filterData){};
+SortType.prototype.initFields = function (keyArray, data, subElementCategory){};
 
 /**
  * The (translated) name for this sorting possibility as it is shown to the user. 
@@ -241,7 +266,6 @@ SortType.prototype.getNumSortOrders = function (){};
 SortType.prototype.getSortOrderName = function (index){};
 
 /**
- * The (translated) names for the different sorting orders. E.g. ascending and descending
  * 
  * @return {number} 
  */

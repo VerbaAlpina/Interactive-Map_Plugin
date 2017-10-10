@@ -47,23 +47,27 @@ function SimpleListBuilder(customListFieldsParam){
         if(typeof this.customListFields=="undefined"){
             this.customListFields=[];
             for(var i = 0; i<curOverlayInfos.length;i++){
-                var tokens = curOverlayInfos[i].infoWindowContent.getData();
-                for(var k = 0; k<tokens.length;k++){
-                    for(var key in tokens[k]){
-                        this.customListFields.push(key);  
-                    }
-                }
+            	for (var u = 0; u < curOverlayInfos[i].infoWindowContents.length; u++){
+            		 var tokens = curOverlayInfos[i].infoWindowContents[u].getData();
+                     for(var k = 0; k<tokens.length;k++){
+                         for(var key in tokens[k]){
+                             this.customListFields.push(key);  
+                         }
+                     }
+            	}
             }
         }
         for(var i = 0; i<curOverlayInfos.length;i++){
-            var tokens = curOverlayInfos[i].infoWindowContent.getData();
-            for(var k = 0; k<tokens.length;k++){
-                var curObj = {};
-                for(var j = 0; j<this.customListFields.length;j++){
-                    curObj[this.customListFields[j]]=tokens[k][this.customListFields[j]];
+        	for (var u = 0; u < curOverlayInfos[i].infoWindowContents.length; u++){
+        		var tokens = curOverlayInfos[i].infoWindowContents[u].getData();
+                for(var k = 0; k<tokens.length;k++){
+                    var curObj = {};
+                    for(var j = 0; j<this.customListFields.length;j++){
+                        curObj[this.customListFields[j]]=tokens[k][this.customListFields[j]];
+                    }
+                    printerInput.push(curObj);
                 }
-                printerInput.push(curObj);
-            }
+        	}
         }
         var result =[curPrinter.getType(), curPrinter.buildList(printerInput), curPrinter.isDownload(), curPrinter.downloadName()];
         printerInput = null;

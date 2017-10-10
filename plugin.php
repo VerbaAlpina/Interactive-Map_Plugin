@@ -66,10 +66,12 @@ abstract class IM_Initializer {
 	public abstract function load_data ();
 	public abstract function edit_data ();
 	
+	public abstract function enqueue_font_awesome ();
 	public abstract function enqueue_qtips ();
 	public abstract function enqueue_gui_elements ();
 	public abstract function enqueue_chosen_library ();
 	public abstract function enqueue_select2_library ();
+	//public abstract function enqueue_font_awesome ();
 }
 
 function im_install_plugin (){
@@ -96,6 +98,7 @@ function im_create_comment_table (&$db){
 				 	`Changed` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
 				 	`Language` char(2) NOT NULL,
 				 	`Comment` text NOT NULL,
+					`Locked` boolean NOT NULL,
 				 	PRIMARY KEY (Id, Language)
 				) ENGINE=InnoDB  DEFAULT CHARSET=utf8");
 }

@@ -90,7 +90,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//Scripts
 
 		//Chosen
-		wp_register_script('im_chosen', IM_PLUGIN_URL . 'lib/js/chosen/chosen.jquery.min.js');
+		wp_register_script('im_chosen', IM_PLUGIN_URL . 'lib/js/chosen/chosen.jquery.js');
 		wp_register_script('im_chosen_order', IM_PLUGIN_URL . '/lib/js/chosen-order/dist/chosen.order.jquery.min.js', array('im_chosen'));
 		wp_register_style('im_chosen_style', IM_PLUGIN_URL . 'lib/js/chosen/chosen.min.css');
 		
@@ -128,6 +128,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
 		wp_register_script('im_colorpicker', IM_PLUGIN_URL . '/lib/js/colorpicker/jqColorPicker.min.js');
+
+		//hungarian method
+		wp_register_script('im_munkres', IM_PLUGIN_URL . '/lib/js/munkres/munkres.js');
 		
 		$dependencies = array(	
 				'jquery-ui-dialog',
@@ -141,7 +144,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'im_superfishHI',
 				'im_qtip',
 				'im_colors',
-				'im_colorpicker'
+				'im_colorpicker',
+				'im_munkres'
 		);
 
 		//Main map script
@@ -183,6 +187,11 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	}
 	
 	//Is meant for external usage
+	public function enqueue_font_awesome (){
+		wp_enqueue_style('im_font_awesome');
+	}
+	
+	//Is meant for external usage
 	public function enqueue_qtips (){
 		wp_enqueue_script('im_qtip');
 		wp_enqueue_style('im_qtip_style');
@@ -213,6 +222,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 	public function localize_scripts (){
 
+		global $wp;
+		
+		
 		// This makes sure the ajax calls work in both http and https (and the nonces are always being verified)
 		if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
         	wp_localize_script('im_map_script', 'ajaxurl', admin_url( 'admin-ajax.php',"HTTPS"));
@@ -229,21 +241,27 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'Commit' => IM_PLUGIN_URL . '/icons/Commit.png',
 				'Undo' => IM_PLUGIN_URL . '/icons/undo.png',
 				'Dot' => IM_PLUGIN_URL . '/icons/dot.png',
+				'Close' => IM_PLUGIN_URL . '/icons/iw_close.gif',
 				'symbolGenerator' => IM_PLUGIN_URL . 'src/php/createSymbol.php',
 				'gradientFile' => IM_PLUGIN_URL . '/lib/js/colorpicker/gradients.json',
+				'hexagonFolder' => IM_PLUGIN_URL . 'src/js/classes/hexagon_builder/hexagon_files',
 				'mapStyleDark' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black.json',
+				'mapStyleDarkSimple' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black_simple.json',
+				'mapStyleDarkSimpleNoLabels' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black_simple_no_labels.json',
 				'userName' => wp_get_current_user()->user_login,
 				'userCanEditComments' => current_user_can_for_blog(1, 'im_edit_comments')? "1": "0",
 				'userCanEditMapData' => current_user_can_for_blog(1, 'im_edit_map_data')? "1": "0",
 				'language' => substr(get_locale(), 0, 2),
 				'mapName' => $this->name,
-				'tk' => isset($_REQUEST['tk'])? $_REQUEST['tk'] : null
+				'tk' => isset($_REQUEST['tk'])? $_REQUEST['tk'] : null,
+				'single' => isset($_REQUEST['single'])? $_REQUEST['single'] : null,
+				'tkUrl' => add_query_arg('tk', '§§§', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request )))
 		);
 		
 		//Send
 		foreach ($_REQUEST as $key => $param){
 			//Send all further parameters to the option manager
-			if($key != 'page_id' && $key != 'tk'){
+			if($key != 'page_id' && $key != 'tk' && $key != 'single'){
 				$path_array['options'][$key] = $param;
 			}
 		}
@@ -269,7 +287,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'NO_DATA' => __('There is no data!', 'interactive-map'),
 				'COMMENT_LANG_MISSING' => __('This comment is not available in English. Please select another language!', 'interactive-map'),
 				'SAVE_CHANGES' => __('Please save the current changes first!', 'interactive-map'),
-				'HELP_RELEASE' => __('If a synoptic map should be shown to all users, you have to ask for its release. All other maps remain personal and can only be used by the person who created it.'),
+				'HELP_RELEASE' => __('If a synoptic map should be shown to all users, you have to ask for its release. All other maps remain personal and can only be used by the person who created it.', 'interactive-map'),
 				'NEW_ENTRY' => __('Enter new value!', 'interactive-map'),
 				'VALUE_ADDED' => __('Value added!', 'interactive-map'),
 				'PRINT_LIST' => __('Print List', 'interactive-map'),
@@ -285,8 +303,19 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'SEPARATE_SYMBOL' =>__('Separate %d. marker from multi symbol'),
 				'UNDO_CHANGE' => __('Undo last operation', 'interactive-map'),
 				'LEAVE_EDIT_MODE' => __('Leave edit mode', 'interactive-map'),
-				'NO_EDITING_CATEGORY' => __('Not possible to load non-editable category in edit mode!'),
-				'FIELD_IS_EMPTY' => __('Field "%s" is not allowed to be empty!')
+				'NO_EDITING_CATEGORY' => __('Not possible to load non-editable category in edit mode!', 'interactive-map'),
+				'FIELD_IS_EMPTY' => __('Field "%s" is not allowed to be empty!', 'interactive-map'),
+				'ALL_DISTINCT' => __('per element', 'interactive-map'),
+				'COMMENT_LOCKED' => __('This comment is currently edited by another user!', 'interactive-map'),
+				'COMMENT' => __('Comment', 'interactive-map'),
+				'MARKING' => __('Marking', 'interactive-map'),
+				'ADD_MARKING' => __('Add marking', 'interactive-map'),
+				'SELECT_TAG' => __('Select domain', 'interactive-map'),
+				'SELECT_TAG_VAL' => __('Select value', 'interactive-map'),
+				'REMOVE' => __('Remove'),
+				'WITHOUT_TAG' => __('(without)', 'interactive-map'),
+				'FILTER_NOT_POSSIBLE' => __('This selection will return no data!', 'interactive-map'),
+				'GRADIENT_HELP' => __('English text gradient help', 'interactive-map')
 		);
 		
 		$translations = apply_filters ('im_translation_list', $translations); //TODO document

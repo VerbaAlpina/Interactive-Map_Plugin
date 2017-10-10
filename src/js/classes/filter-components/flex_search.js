@@ -40,6 +40,11 @@
         var searchRequest = QB.getRequestData();
         data["flexSearch"]=searchRequest.request;
         data["flexSearchPostId"]=self.options["postID"];
+        return true;
+    }
+    
+    this.storeDefaultData = function(data) {
+    	
     }
 
     this.afterAppending=function(element, categoryId, elementId){

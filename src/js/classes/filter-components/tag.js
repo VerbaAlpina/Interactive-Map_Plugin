@@ -29,7 +29,7 @@ function TagComponent (tags){
 			currentTags = this.tags;
 		}
 		
-		if(currentTags == null || currentTags.length == 0)
+		if(currentTags == null || Object.keys(currentTags).length === 0)
 			return null;
 		
 		var /** Element */ result = document.createElement("div");
@@ -39,18 +39,16 @@ function TagComponent (tags){
 		for (var key in currentTags){
 			var /** Array<string> */ values = currentTags[key];
 			
-			var /**string|undefined*/ translation = categoryManager.getElementName(-3, "#" + key);
-			if(translation[0] == "#"){
-				translation = translation.substring(1); //TODO Better solutation! Don't abuse getElementName!!!
-			}
+			var /**string*/ translation = categoryManager.getTagTranslation(key);
+
 			
 			var /** Element */ caption = document.createElement("h2");
-			caption.appendChild(document.createTextNode(translation? translation: key));
+			caption.appendChild(document.createTextNode(translation));
 			result.appendChild(caption);
 			
 			var /**Element*/ spanTag = document.createElement("span");
 			spanTag["style"]["color"] = "LightSlateGray";
-			spanTag["style"]["border-bottom"] = "1px solid";
+		
 			
 			var /** Element */ cb = document.createElement("input");
 			cb["type"] = "checkbox";
@@ -58,9 +56,9 @@ function TagComponent (tags){
 			cb["className"] = "ignore"
 			cb["checked"] = "checked";
 			cb["style"]["opacity"] = ".50";
-			cb.addEventListener("change", function (){
-				jQuery("#tagComponent input[name=" + key + "]").prop("checked", /** @type{boolean}*/ (jQuery(this).prop("checked")));
-			});
+			cb.addEventListener("change", function (key){
+				return function (){ jQuery("#tagComponent input[name=" + key + "]").prop("checked", /** @type{boolean}*/ (jQuery(this).prop("checked")))};
+			}(key));
 			spanTag.appendChild(cb);
 			
 			spanTag.appendChild(document.createTextNode(TRANSLATIONS["SELECT_ALL"]));
@@ -71,13 +69,7 @@ function TagComponent (tags){
 			var /**Object<string,string>*/ translatedValues = {};
 			
 			for (var i = 0; i < values.length; i++){
-				var /**string*/ translationValue =  categoryManager.getElementName(-3, "#" + values[i]);
-				if(translationValue){
-					translatedValues[values[i]] = translationValue;
-				}
-				else {
-					translatedValues[values[i]] = values[i];
-				}
+				translatedValues[values[i]] =  categoryManager.getTagTranslation(values[i]);
 			}
 			
 			values.sort(function (a,b){
@@ -107,22 +99,51 @@ function TagComponent (tags){
 	 * 
 	 * @param {Object<string, ?>} data
 	 * 
-	 * @return {undefined} 
+	 * @return {boolean} 
 	 */
 	this.storeData = function (data){
-		data["tags"] = {};
+		 var /** Object<string, Array<string>>*/ res = {};
+		 var /**boolean*/ all = true;
+		 
 		jQuery("#tagComponent input:not(.ignore)").each(function (){
 			var /** jQuery */ e = jQuery(this);
 			var /**string*/ name = /** @type{string} */ (e.prop("name"));
 			
-			if(data["tags"][name] === undefined){
-				data["tags"][name] = ["???"];
+			if(res[name] === undefined){
+				res[name] = []; //Avoids that for all tag values empty all the data is returned instead of none
 			}
 			
 			if(e.is(":checked")){
-				data["tags"][name].push(e.prop("value"));
+				res[name].push(/** @type{string}*/ (e.prop("value")));
+			}
+			else {
+				all = false;
 			}
 		});
+		
+		for (var key in res){
+			if(res[key].length == 0){
+				return false;
+			}
+		}
+		
+		if(!all) //Ignore tag filter if all possible tags are selected (speeds up server response)
+			data["tags"] = res;
+		
+		return true;
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @param {Object<string, ?>} data
+	 * @param {number} categoryId
+	 * @param {string} elementId
+	 * 
+	 * @return {undefined} 
+	 */
+	this.storeDefaultData = function (data, categoryId, elementId){
+
 	};
 	
 	/**

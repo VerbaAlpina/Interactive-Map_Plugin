@@ -106,3 +106,21 @@ jQuery.prototype.checkboxradio = function (p){};
  * @param {Object=} p
  */
 jQuery.prototype.colorPicker = function (p){};
+
+/**
+ * @param {Object|string=} p
+ */
+jQuery.prototype.modal = function (p){};
+
+
+/**
+ * @constructor               
+ */
+
+function Munkres (){};
+
+/**
+* @param {Array} cost_matrix
+* @param {Object=} options
+*/
+Munkres.prototype.compute = function(cost_matrix, options) {}

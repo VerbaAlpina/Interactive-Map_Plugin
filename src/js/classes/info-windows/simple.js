@@ -4,10 +4,11 @@
  * @implements {InfoWindowContent}
  * 
  * @param {number} categoryID
+ * @param {string} elementID
  * @param {OverlayType} overlayType
  * @param {Object<string, string>} data
  */
-function SimpleInfoWindowContent (categoryID, overlayType, data){
+function SimpleInfoWindowContent (categoryID, elementID, overlayType, data){
 	/**
 	 * @type{Object<string,string>}
 	 */
@@ -21,9 +22,11 @@ function SimpleInfoWindowContent (categoryID, overlayType, data){
 	/**
 	 * @override
 	 * 
+	 * @param {number} index
+	 * 
 	 * @return {string}
 	 */
-	this.getHtml = function (){
+	this.getHtml = function (index){
 		return this.contentString;
 	};
 	

@@ -19,7 +19,9 @@
 	<file name="src/js/classes/filter-components/sorting.js" />
 	<file name="src/js/classes/filter-components/flex_search.js" />
 	<file name="src/js/classes/filter-components/tag.js" />
+	<file name="src/js/classes/filter-components/marking.js" />
 	<file name="src/js/classes/info-windows/simple.js" />
+	<file name="src/js/classes/info-windows/polygon.js" />
 	<file name="src/js/classes/info-windows/editable.js" />
 	<file name="src/js/classes/info-windows/mergeable-table.js" />
 	<file name="src/js/classes/info-windows/generic.js" />
@@ -35,6 +37,9 @@
 	<file name="src/js/classes/undo-operations/marker-split.js" />
 	<file name="src/js/classes/undo-operations/overlay-added.js" />
 	<file name="src/js/classes/undo-operations/data-changed.js" />
+	<file name="src/js/classes/gui-options/bool.js" />
+	<file name="src/js/classes/gui-options/click.js" />
+    <file name="src/js/classes/hexagon_builder/hex_builder.js"/>
 	
 	<file name="lib/js/js-info-bubble-gh-pages/src/infobubble.js" />
 	<file name="lib/js/contextmenuGM.js/ContextMenu.js" />

@@ -4,7 +4,13 @@
  * @type {MapInterface}
  * @const
  */
-var mapInterface = new GoogleMapsInterface ();
+var mapInterface = new GoogleMapsInterface();
+
+/**
+ * @const
+ * @type {Element}
+ */
+var mapDomElement;
 
 /**
  * @type {Legend}
@@ -62,11 +68,17 @@ var dragging = false;
 var style_for_quantify = {};
 
 /**
+ * @type {Object}
+ */
+var style_for_hex_quantify = {};
+
+/**
  * @return {undefined} 
  */
 function init (){
+	mapDomElement = document.getElementById("IM_map_div");
 	
-	mapInterface.init(initEvents);
+	mapInterface.init(mapDomElement, initEvents, polygonSettings);
 	
 	legend = new Legend();
 	symbolManager = new SymbolManager(colorScheme);
@@ -106,6 +118,15 @@ function init (){
 	});
 	
 	jQuery(document).trigger("im_map_initialized"); //TODO document this, also stuff like addXY in categoryManager
+
+	if(PATH["tk"] != undefined){
+		categoryManager.loadSynopticMap(PATH["tk"] * 1);
+	}
+	else if (PATH["single"] != undefined){
+		var /** number */ catNum = categoryManager.getCategoryFromPrefix(PATH["single"][0]);
+		if(catNum != -1)
+			categoryManager.loadData(catNum, PATH["single"]);
+	}
 }
 
 function initEvents (){
@@ -122,7 +143,7 @@ function initEvents (){
 		 * @this {!MapSymbol}
 		 */
 		function (){ //Right click
-			if(this.owners.length > 1){
+			if(this.getNumOwners() > 1){
 				this.openSplitMultiSymbol();
 			}
 		},
@@ -141,14 +162,16 @@ function initEvents (){
 		 * @param {number} iconIndex
 		 */
 		function (iconIndex){ //Mouse over
-			this.focusOnEntryTo(iconIndex);
+			if(!optionManager.inEditMode())
+				this.focusOnEntryTo(iconIndex);
 		},
 		/**
 		 * @this {!MapSymbol}
 		 * 
 		 */
 		function (){ //Mouse out
-			this.removeFocus();
+			if(!optionManager.inEditMode())
+				this.removeFocus();
 		}
 	);
 
@@ -156,25 +179,26 @@ function initEvents (){
 		/**
 		 * @param {Element} tabElement
 		 * @param {number} tabIndex
-		 * @param {InfoWindowContent} infoWindowContent
+		 * @param {MapSymbol} mapSymbol
 		 * @param {Object} infoWindow
 		 * @param {Object} overlay
 		 */
-		function (tabElement, tabIndex, infoWindowContent, infoWindow, overlay){
-			infoWindowContent.onOpen(tabElement, tabIndex, infoWindow, overlay);
+		function (tabElement, tabIndex, mapSymbol, infoWindow, overlay){
+			mapSymbol.infoWindowContents[mapSymbol.iconIndexToOwnerIndex(tabIndex)].onOpen(tabElement, tabIndex, infoWindow, overlay);
 		},
 		/**
 		 * @param {Element} tabElement
-		 * @param {InfoWindowContent} infoWindowContent
+		 * @param {number} tabIndex
+		 * @param {MapSymbol} mapSymbol
 		 */
-		function (tabElement, infoWindowContent){
-			infoWindowContent.onClose(tabElement);
+		function (tabElement, tabIndex, mapSymbol){
+			mapSymbol.infoWindowContents[mapSymbol.iconIndexToOwnerIndex(tabIndex)].onClose(tabElement);
 		},
 		/**
 		 * @param {Element} windowElement
-		 * @param {Array<InfoWindowContent>} infoWindowContents
+		 * @param {MapSymbol} mapSymbol
 		 */
-		function (windowElement, infoWindowContents){
+		function (windowElement, mapSymbol){
 			google.maps.event.trigger(map.data, 'mouseout');
 		}
 	);

@@ -4,7 +4,7 @@
  * @implements FilterComponent
  * 
  * @param {!Array<number>|function(number, string):Array<number>} categoryList
- * @param {number|string=} defaultValue (category id or tag)
+ * @param {number|string|function(number, string):(number|string|undefined)=} defaultValue (category id or tag)
  * @param {Sorter=} sorter
  * @param {function(number, string, number, number):boolean=} sorterApplicable
  * 		This function is called with the main-category id, the element id, the selected sub-category id and the sorter id 
@@ -21,7 +21,7 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 	/** @type {Array<number>|function(number, string):Array<number>} */
 	this.categoryList = categoryList;
 	
-	/** @type{number|string|undefined} */
+	/** @type{number|string|undefined|function(number, string):(number|string|undefined)} */
 	this.defaultValue = defaultValue;
 	
 	/** @type {Array<{tag:string, name:string}>|function(number, string):Array<{tag:string, name:string}>} */
@@ -54,6 +54,14 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 	 */
 	this.getFilterScreenElement = function (categoryId, elementId){
 		
+		var /** string|number|undefined */ defaultValue;
+		if(typeof this.defaultValue == "function"){
+			defaultValue = this.defaultValue(categoryId, elementId);
+		}
+		else {
+			defaultValue = this.defaultValue;
+		}
+		
 		var /** Element */ result = document.createElement("div");
 		result["className"] = "filterComponent";
 		result["id"] =  "groupingComponent";
@@ -66,11 +74,15 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 		radioNoGroups["type"] = "radio";
 		radioNoGroups["name"] = "subElementCategory";
 		radioNoGroups["value"] = "-2";
-		if(this.defaultValue == undefined){
+
+		if(defaultValue == undefined){
 			radioNoGroups["checked"] = true;
 		}
-		result.appendChild(radioNoGroups);
-		result.appendChild(document.createTextNode(TRANSLATIONS["NO_GROUPING"]));
+		
+		var radio_span = document.createElement("span");
+		radio_span.appendChild(radioNoGroups);
+		radio_span.appendChild(document.createTextNode(TRANSLATIONS["NO_GROUPING"]));
+		result.appendChild(radio_span);
 		
 		var /**Array<number>|Array<string> */ categoryList;
 		if(typeof this.categoryList === "function"){
@@ -80,18 +92,23 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 			categoryList = this.categoryList;
 		}
 		
+		var /** boolean */ defaultSet = false;
+		
 		for (var i = 0; i < categoryList.length; i++){
 			var /** number */ categoryID = categoryList[i];
 			var /** Element */ radio = document.createElement("input");
 			radio["type"] = "radio";
 			radio["name"] = "subElementCategory";
 			radio["value"] = categoryID;
-			if(categoryList[i] == this.defaultValue){
+			if(categoryList[i] == defaultValue){
 				radio["checked"] = true;
+				defaultSet = true;
 			}
-			result.appendChild(radio);
-			
-			result.appendChild(document.createTextNode(categoryManager.getCategoryName(categoryID) + " "));
+
+			radio_span = document.createElement("span");
+			radio_span.appendChild(radio);
+			radio_span.appendChild(document.createTextNode(categoryManager.getCategoryName(categoryID) + " "))
+			result.appendChild(radio_span);
 		}
 		
 		var /**Array<number>|Array<string> */ tagList;
@@ -100,9 +117,9 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 		}
 		else {
 			tagList = this.tagList;
-		}
+		}		
 		
-		if(categoryList.length == 0 && (tagList == undefined || tagList.length == 0))
+		if((categoryList.length == 0 || categoryList.length == null) && (tagList == undefined || tagList.length == 0))
 			return null;
 		
 		for (i = 0; i < tagList.length; i++){
@@ -111,8 +128,9 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 			radio["type"] = "radio";
 			radio["name"] = "subElementCategory";
 			radio["value"] = tag;
-			if(tag == this.defaultValue){
+			if(tag == defaultValue){
 				radio["checked"] = true;
+				defaultSet = true;
 			}
 			result.appendChild(radio);
 			
@@ -120,11 +138,15 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 
 		}
 		
-		result.appendChild(document.createElement("br"));
+		// result.appendChild(document.createElement("br"));
 		
 		if(this.sorter != null){
-			result.appendChild(document.createElement("br"));
+			// result.appendChild(document.createElement("br"));
 			result.appendChild(this.sorter.getFilterScreenElement(categoryId, elementId));
+		}
+		
+		if(!defaultSet){
+			radioNoGroups["checked"] = true;
 		}
 		
 		return result;
@@ -135,7 +157,7 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 	 * 
 	 * @param {Object<string, ?>} data
 	 * 
-	 * @return {undefined} 
+	 * @return {boolean} 
 	 */
 	this.storeData = function (data){
 		var /** number|string */ selectedValue  = /** @type {number|string} */ (jQuery("#groupingComponent input[name=subElementCategory]:checked").val());
@@ -150,6 +172,40 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 		
 		if(this.sorter)
 			this.sorter.storeData(data);
+		
+		return true;
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @param {Object<string, ?>} data
+	 * @param {number} categoryId
+	 * @param {string} elementId
+	 * 
+	 * @return {undefined} 
+	 */
+	this.storeDefaultData = function (data, categoryId, elementId){
+		if(this.defaultValue !== undefined){
+			var /** number|string|undefined */ val;
+			if(typeof this.defaultValue == "function")
+				val = this.defaultValue(categoryId, elementId);
+			else
+				val = this.defaultValue;
+			
+			if(val !== undefined){
+				if(isNaN(val)){
+					data["subElementCategory"] = "-3";
+					data["selectedTag"] = val;
+				}
+				else {
+					data["subElementCategory"] = val;
+				}
+			}
+		}
+		
+		if(this.sorter)
+			this.sorter.storeDefaultData(data);
 	};
 	
 	/**

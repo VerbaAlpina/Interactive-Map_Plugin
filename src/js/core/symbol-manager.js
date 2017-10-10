@@ -41,6 +41,15 @@ function SymbolManager(colorScheme) {
 	for (var/** number */ i = 0; i < numMain; i++) {
 		freeSubFeatures[i] = new Array(numSub);
 	}
+	
+	//Parameters a and b for the function 2 (a log(x) + b) + 1 that is used to compute the symbol size from the number of symbols
+	var /** number */ x1 = maxIdenticalIcons + 1;
+	var /** number */ y1 = symbolSize * (1 + minimumSymbolEnlargement / 100) / 2;
+	var /** number */ x2 = 100;
+	var /** number */ y2 = symbolSize * (1 + decSymbolEnlargement / 100) / 2;
+	
+	var /** number */ a = (y1 - y2) / (Math.log(x1) - Math.log(x2));
+	var /** number */ b = y1 - a * Math.log(x1);
 
 	//Other overlays
 	var/**Array<number> */ firstFreeColor = new Array(num_types);
@@ -345,19 +354,30 @@ function SymbolManager(colorScheme) {
 	/**
 	 * @param {Array<number>} indexArray
 	 * @param {number=} size
+	 * @param {number=} markingSize
 	 *
 	 * @return {string}
 	 */
-	this.createSymbolURL = function(indexArray, size) {
+	this.createSymbolURL = function(indexArray, size, markingSize) {
 		if (size == null)
 			size = symbolSize;
-		var /** Object<string, *> */ symbolInfo = colorScheme.getFeatureCombination(indexArray);
+		
+		if (markingSize == null){
+			markingSize = 0;
+		}
+		
+		var /** Object<string, *> */ symbolInfo = colorScheme.getFeatureCombination(indexArray, markingSize);
 		var /** string */ url = PATH["symbolGenerator"] + "?size=" + size;
 		for (var /** string */ prop in symbolInfo) {
 			url += "&" + prop + "=" + encodeURIComponent(/** @type{string} */ (symbolInfo[prop]));
 		}
+		
 		return url;
 	};
+	
+	this.getLogSizeForCount = function (count){
+		return 2 * Math.round(a * Math.log(count) + b) + 1;
+	}
 	
 	/**
 	 * @param {number} mainIndex
@@ -382,9 +402,25 @@ function SymbolManager(colorScheme) {
 	 * @return {string}
 	 */
 	this.createColorURL = function(index) {
-		var /** Array<number> */ color = colorScheme.getColor(index);
+		var /** Array<number> */ color = colorScheme.getColor(index % numCols);
 		var /** string */ url = PATH["symbolGenerator"] + "?size=" + symbolSize + "&shape=circle";
 		url += "&color=" + color;
+		return url;
+	};
+	
+	/**
+	 * @param {number} mainIndex
+	 * @param {number} colorIndex
+	 *
+	 * @return {string}
+	 */
+	this.createSymbolURLForMarking = function(mainIndex, colorIndex) {
+		var /** Object<string, *> */ symbolInfo = colorScheme.getSingleFeature(features_classes.main, mainIndex);
+		var /** string */ url = PATH["symbolGenerator"] + "?size=" + symbolSize
+			+ "&msize=" + markingSize + "&mcolor=" + colorScheme.getColor(colorIndex % numCols);
+		for (var /** string */ prop in symbolInfo) {
+			url += "&" + prop + "=" + encodeURIComponent(/** @type{string} */ (symbolInfo[prop]));
+		}
 		return url;
 	};
 	
@@ -395,7 +431,7 @@ function SymbolManager(colorScheme) {
 	 */
 	this.getColorStringForSymbol = function(index) {
 		//TODO this implies that there has always to be a index "color" defined, maybe find a better solution
-		var colorArray = /** @type{Array<number>} */ (colorScheme.getFeatureCombination(index)["color"]);
+		var colorArray = /** @type{Array<number>} */ (colorScheme.getFeatureCombination(index, 0)["color"]);
 		return '#' + decimalToHex(colorArray[0]) + decimalToHex(colorArray[1]) + decimalToHex(colorArray[2]);
 	};
 	
@@ -409,6 +445,13 @@ function SymbolManager(colorScheme) {
 		//TODO array copy!!!
 		//index[features_classes.add] = 3; //TODO adaptive!
 		return index;
+	}
+	
+	/**
+	 * @return {number}
+	 */
+	this.getNumColors = function (){
+		return numCols;
 	}
 }
 
@@ -497,10 +540,11 @@ function ColorScheme(main, sub, add, colors) {
 
 	/**
 	 * @param {Array<number>} indexArray
+	 * @param {number} markingSize
 	 *
 	 * @return {Object<string, *>}
 	 */
-	this.getFeatureCombination = function(indexArray) {
+	this.getFeatureCombination = function(indexArray, markingSize) {
 		var res = {};
 		for (var j = 0; j < indexArray.length; j++) {
 			var desc = descriptions[j];
@@ -508,6 +552,11 @@ function ColorScheme(main, sub, add, colors) {
 				res[desc[i].name] = ranges[j][indexArray[j]][i];
 			}
 		}
+		
+		if (markingSize > 0){
+			res["msize"] = markingSize;
+		}
+		
 		return res;
 	};
 

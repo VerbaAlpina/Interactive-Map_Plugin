@@ -50,7 +50,7 @@ function addNewValueScript (selector, callback, mode){
 function initGuiElements (){
 	
 	//Listener to add new rows to the database
-	jQuery(".im_table_select").val("").chosen({allow_single_deselect: true});
+	jQuery(".im_table_select:visible").val("").chosen(chosenSettings);
 	//addNewValueScript(".im_table_select", "reload", selectModes.Chosen, NEW_ELEMENTS_VAL);
 	
 	jQuery(".im_table_select").each(function (){
@@ -113,6 +113,7 @@ function initGuiElements (){
 		
 		//Load map:
 		categoryManager.loadSynopticMap(synMap.val() * 1);
+		jQuery(document).trigger("im_load_syn_map");
 		synMap.val("").trigger("chosen:updated");
 	});
 	
@@ -123,7 +124,7 @@ function initGuiElements (){
 		else {
 			jQuery("#IM_Syn_Map_Name").val("");
 			jQuery("#IM_Syn_Map_Description").val("");
-			jQuery('#IM_Save_Syn_Map').dialog({minWidth : 500});
+			jQuery('#IM_Save_Syn_Map').modal();
 		}
 	});
 	
@@ -444,9 +445,17 @@ function initCanvasMenu(){
 
 	jQuery.ajax({
 		dataType: "json",
-		url: PATH["mapStyleDark"],
+		url: PATH["mapStyleDarkSimple"],
 		success: function(data){
 			style_for_quantify = data;
+		}
+	});
+
+	 jQuery.ajax({
+		dataType: "json",
+		url: PATH["mapStyleDarkSimpleNoLabels"],
+		success: function(data){
+			style_for_hex_quantify = data;
 		}
 	});
 
@@ -531,15 +540,18 @@ function createCanvasMenu (gradients){
 jQuery(".canvas_list li").hover(function(){
    jQuery(this).find('.hoverdiv').show();
    jQuery(this).find('.canvastext').show();
+
 }, function(){
    jQuery(this).find('.hoverdiv').hide();
    jQuery(this).find('.canvastext').hide();
-});
+  
+});	
 
 jQuery("#activediv").hover(function(){
    jQuery(this).find('.hoverdiv').show();
    jQuery(this).find('.canvastext').show();
    jQuery('#listcontainer').find('.canvas_icon').show();
+   jQuery('.gradient_help').hide();
    if(!listout){
    jQuery(this).find('.editsymbol').show();
    jQuery(this).find('.editsymbolbg').show();
@@ -550,6 +562,7 @@ jQuery("#activediv").hover(function(){
    jQuery('#listcontainer').find('.canvas_icon').hide();
    jQuery(this).find('.editsymbol').hide();
    jQuery(this).find('.editsymbolbg').hide();
+   jQuery('.gradient_help').show();
 });
 
 jQuery(".editsymbol").hover(function(){
@@ -631,12 +644,17 @@ var colorpicker = jQuery('.editsymbol').colorPicker(
     	  symbolClusterer.changePolygonColor(false);
     	}
 
-    	if(!toggled)updateActiveCanvas(rgb,alpha,canvas);
+    	if(!toggled)updateActiveCanvas(rgb,alpha,canvas,false);
+
     }
 });
 
 
+var help_symbol = jQuery('<i class="gradient_help fa fa-question-circle-o" aria-hidden="true"></i>');
 
+jQuery('#listcontainer').append(help_symbol);
+
+addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); //TODO cannot use stuff from VA!!!
 
 var thediv = document.getElementById('listcontainer');
 jQuery('#listcontainer').hide();
@@ -645,36 +663,47 @@ map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(thediv);
 }//createCanvasMenu
 
 
-function createCanvas(canvas,gradient,canvas_size) {
+/**
+ * 
+ * @param {Element} canvas
+ * @param {Object} gradient
+ * @param {number} canvas_size
+ * 
+ * @return {undefined}
+ */
+function createCanvas(canvas, gradient, canvas_size) {
 
- var  ctx = canvas.getContext('2d');
- ctx.rect(0, 0, canvas.width, canvas.height);
-
- var grd = ctx.createLinearGradient(0,0,canvas_size,0);
-
- for (var i=0;i<gradient['stops'].length;i++){
-
-  grd.addColorStop(gradient['stops'][i].value,gradient['stops'][i].color);
-
- } 
-// Fill with gradient
-ctx.fillStyle = grd;
-ctx.fillRect(0,0,canvas_size,35);
-
+	var /** CanvasRenderingContext2D*/ ctx = canvas.getContext('2d');
+	ctx.rect(0, 0, canvas.width, canvas.height);
+	
+	var grd = ctx.createLinearGradient(0,0,canvas_size,0);
+	
+	for (var i = 0; i < gradient['stops'].length; i++){
+		grd.addColorStop(gradient['stops'][i].value,gradient['stops'][i].color);
+	} 
+	 // Fill with gradient
+	ctx.fillStyle = grd;
+	ctx.fillRect(0,0,canvas_size,35);
+	
+	var /** {r: number, g: number, b: number} */ first_color = {"r": 71, "g" : 71, "b" : 71};
+	
+	updateActiveCanvas(first_color, 0.5, canvas, true);
 }
 
 /**
  * 
  * @param {{r : number, g : number, b : number}} rgb 
  * @param {number} alpha_in 
- * @returns {undefined}
+ * 
+ * @return {undefined}
  */
-
-function updateActiveCanvas(rgb,alpha_in,canvas){
+function updateActiveCanvas(rgb,alpha_in,canvas,global_alpha){
 
 
  var ctx = canvas.getContext('2d');
      ctx.globalAlpha=alpha_in;
+
+     if(global_alpha)ctx.globalAlpha=1.0;
 
       var alpha = Math.floor(alpha_in*255);
 

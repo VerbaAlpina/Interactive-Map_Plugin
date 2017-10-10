@@ -4,7 +4,19 @@ var mapData = {
     center : new google.maps.LatLng(46.059547, 11.132220),
     zoom : 7,
     minZoom : 6,
-    mapTypeId : google.maps.MapTypeId.TERRAIN
+    mapTypeId : google.maps.MapTypeId.TERRAIN,
+    streetViewControl: false,
+    mapTypeControl:false,
+    styles: [
+                          {
+                            "featureType": "road.highway",
+                            "stylers": [
+                              {
+                                "visibility": "off"
+                              }
+                            ]
+                          }
+             ]
 };
 
 
@@ -90,6 +102,12 @@ var shapes = ['circle', 'rect', 'triangle', 'triangle_i', 'rhomb', 'house', 'hou
 var symbolSize = 15;
 
 /**
+ * @const
+ * @type {number}
+ */
+var markingSize = 4;
+
+/**
  *
  * Sliders to change polygon and line string stroke weight and opacity
  *
@@ -104,7 +122,7 @@ var showSliders = false;
 var colorScheme = new ColorScheme(
     [new Feature("shape", shapes)], 
     [new Feature("color", colors, false, 3), new Feature("letter", letters)], 
-    [new Feature("border_color", colors)], colors);
+    [new Feature("mcolor", colors)], colors);
 
 /**
  * @type{number}
@@ -113,3 +131,51 @@ var colorScheme = new ColorScheme(
  * For efficiency reasons only a certain size of multi symbols is allowed, so that it's bounds can be precomputed
  */
 var multiSymbolTableSize = 40;
+
+/**
+ * @type{number}
+ * @const
+ * 
+ * The maximum number of identical symbols within one multi symbol. If there are more only one symbol will be shown
+ * for this type which will be appropriately emphasized.
+ */
+var maxIdenticalIcons = 1;
+
+/**
+ * @type{number}
+ * @const
+ * 
+ * in percent; symbol enlargement for maxIdenticalIcons + 1 symbols
+ */
+var minimumSymbolEnlargement = 33;
+
+/**
+ * @type{number}
+ * @const
+ * 
+ * in percent; symbol enlargement for 100 symbols
+ */
+var decSymbolEnlargement = 100;
+
+/**
+ * @type{Object<string,?>}
+ * @const
+ */
+var chosenSettings = {
+	"allow_single_deselect": true,
+};
+
+/**
+ * @const
+ * @type{{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}}
+ */
+var polygonSettings = function (fillColor, highlighted){
+	var hex = optionManager.getOptionState("polymode") == "hex";
+	
+	return {
+		"strokeWeight" : hex? (highlighted? 4 : 2) : (highlighted? 2 : 1),
+		"strokeColor" : hex? "GhostWhite" : fillColor,
+		"fillOpacity" : hex? 1: (highlighted? 0.6 : 0.4)
+	}
+}
+

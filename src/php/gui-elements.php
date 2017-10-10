@@ -29,9 +29,12 @@
  * 		@type string 'custom_style_attributes CSS style rules added to the <select> element. Default ''.
  * 		@type callable list_format_function 	Takes for each row an array with values of the columns specified in $colums_to_select_from and returns the string used as text for the respective <option> element.
  * 												Default behaviour is to return the first non-empty, non-null value.
+ * 		@type callable sort_simplification_function Transforms a string for sorting
  * }
  * @return string The html code for the <select> element
  */
+
+
 
 function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_data = NULL, $create_nonce_field = true){
 	
@@ -67,6 +70,8 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	
 	$list_format_function = isset($addional_data['list_format_function'])? $addional_data['list_format_function'] : NULL;
 	
+	$sort_simplification_function = isset($addional_data['sort_simplification_function'])? $addional_data['sort_simplification_function'] : NULL;
+	
 	//Create key array if single key
 	if(!is_array($key)){
 		$key = array($key);
@@ -99,18 +104,19 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	//Create option texts
 	$options_texts = array();
 	foreach ($values as $index => &$value){
-		$value[] = im_get_option_text($value, $colums_to_select_from, $list_format_function);
+		$optext = im_get_option_text($value, $colums_to_select_from, $list_format_function);
+		$value[] = $optext;
+		$value[] = ($sort_simplification_function? $sort_simplification_function($optext): $optext);
 	}
 	
 	//Sort values
 	uasort($values, function ($v1, $v2) {
-		$a = preg_replace('/[*\']/', '', end($v1));
-		$b = preg_replace('/[*\']/', '', end($v2));
-		return strcasecmp($a, $b);
+		return strcasecmp(end($v1), end($v2));
 	});
 	
 	foreach($values as $index => $val){//TODO find better solution than the str_replace here or document!!!
-		$result .= "<option value='" . str_replace("'", '', implode('|', array_slice($val, 0, count($key)))) . "'>" . end($val) . "</option>\n";
+		end($val);
+		$result .= "<option value='" . str_replace("'", '', implode('|', array_slice($val, 0, count($key)))) . "'>" . strip_tags(prev($val)) . "</option>\n";
 	}
 	$result .= "</select>\n\n";
 	return $result;
@@ -145,11 +151,10 @@ function im_get_option_text ($row, $colums_to_select_from, $list_format_function
 	else { //Custom function
 	
 		$filtered_array = array();
-		foreach ($row as $key => $val){
-			if(in_array($key, $colums_to_select_from)){
-				$filtered_array[] = $val;
-			}
+		foreach ($colums_to_select_from as $col){
+			$filtered_array[] = $row[$col];
 		}
+		
 		if(is_array($list_format_function)){
 			$filtered_array = array_merge($filtered_array, array_slice($list_format_function, 1));
 			$list_format_function = $list_format_function[0];
@@ -402,18 +407,35 @@ function im_error_message ($text){
 
 function im_create_filter_popup_html (){
 	?>
-	<div style="display: none" id="IM_filter_popup_div">
-		<form id="IM_filter_popup_form">
-			<h1 id="IM_filter_popup_title"></h1>
-			<div id="IM_filter_popup_content">
-				
+
+	<div id="IM_filter_popup_div" class="modal fade">
+ 		 <div class="modal-dialog" role="document">
+			  <div class="modal-content im_map_modal_content">  
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"></h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+					<div class="modal-body im_map_modal_body">
+						<form id="IM_filter_popup_form">
+						<!-- 	<h1 id="IM_filter_popup_title"></h1> -->
+							<div id="IM_filter_popup_content">
+								
+							</div>
+						
+							<input type="button" id="IM_filter_popup_submit" class="btn btn-secondary im_custom_button" value="<?php _e('Show data', 'interactive-map');?>" />
+						</form>
+					</div>	
+					
+				<div class="modal-footer im_custom_footer"></div>
+
 			</div>
-			
-			<br />
-			<br />
-			<input type="button" id="IM_filter_popup_submit" class="button button-primary" value="<?php _e('Show data', 'interactive-map');?>" />
-		</form>
-	</div>
+
+	 </div>
+</div>	
 	<?php
 }
 
@@ -426,7 +448,7 @@ function im_create_legend (){
 
 function im_create_map ($min_height){
 	?>
-	<div id="IM_googleMap" style="min-height: <?php echo $min_height;?>pt"></div>
+	<div id="IM_map_div" style="min-height: <?php echo $min_height;?>pt"></div>
 	<?php
 }
 
@@ -440,15 +462,18 @@ function im_create_synoptic_map_div ($width, $readonly = false, $extra_content =
 		'placeholder' => __('Synoptic map', 'interactive-map'),
 		'width' => $width
 	);
+	$add_data['filter'] = "Name != 'Anonymous'";
+	
+	
 	if(!is_super_admin(wp_get_current_user() -> ID)){
-		$add_data['filter'] = "Released = 'Released' OR Author = '" .  wp_get_current_user() -> user_login . "'";
+		$add_data['filter'] .= " AND (Released = 'Released' OR Author = '" .  wp_get_current_user() -> user_login . "')";
 	}
 	
 	echo im_table_select('im_syn_maps', 'Id_Syn_Map', array('Name'), 'IM_Syn_Map_Selection', $add_data);
 	
 	if(is_user_logged_in() && !$readonly){
 		?>
-		<input type="button" class="button button-primary" id="IM_Save_Syn_Map_Button" style="width: <?php echo $width;?>;" value="<?php _e('Save selection as synoptic map', 'interactive-map');?> ">
+		<input type="button" class="btn btn-secondary im_custom_button" id="IM_Save_Syn_Map_Button" style="width: <?php echo $width;?>;" value="<?php _e('Save selection as synoptic map', 'interactive-map');?> ">
 		<?php
 	}
 	echo $extra_content . '</div>';
@@ -462,41 +487,63 @@ function im_create_ajax_nonce_field (){
 }
 
 function im_create_comment_popup_html (){
-	?>
-	<div id="commentWindow" style="display:none;" title="<?php _e('Comment', 'interactive-map');?>">
-		<h1 id="commentTitle" style="margin-left: 0.5em;"></h1>
-		<br />
-		
-		<div id="commentTabs"  style="height : 80%;">
-			<ul>
-				<?php $langs = IM_Initializer::$instance->gui_languages;
-				foreach ($langs as $lan){
-					echo "<li><a href='#ctabs-$lan'>$lan</a></li>\n";
-				}
-				?>
-			</ul>
-			
-			<?php
-			foreach ($langs as $lan){
-				?>
-				<div id="ctabs-<?php echo $lan; ?>">
-					<div id="commentContent-<?php echo $lan; ?>"  class="entry-content"></div>
+	?> 
+<div id="commentWindow" class="modal fade" data-backdrop="static">
+  <div class="modal-dialog" role="document">
+   
+   <div class="modal-content im_map_modal_content">  
+
+     <div class="modal-header">
+        <h5 class="modal-title"><?php _e('Comment', 'interactive-map');?></h5>
+        <button type="button" class="close" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+
+  			<div class="modal-body im_map_modal_body">
+			<!-- 	<h1 id="commentTitle" style="margin-left: 0.5em;"></h1> -->
+				
+				<div id="commentTabs"  style="height : 80%;">
+					<ul>
+						<?php $langs = IM_Initializer::$instance->gui_languages;
+						foreach ($langs as $lan){
+							echo "<li><a href='#ctabs-$lan'>$lan</a></li>\n";
+						}
+						?>
+					</ul>
+
 					<?php
-					if(current_user_can_for_blog(1, 'im_edit_comments')){
+					foreach ($langs as $lan){
+						?>
+						<div id="ctabs-<?php echo $lan; ?>">
+							<?php 
+							if(current_user_can_for_blog(1, 'im_edit_comments')){
+							?>
+							<div class="im_edit_comments_btn">
+								<a href="#" class="editCommentLink" id="editComment-<?php echo $lan; ?>"><i class="fa fa-pencil" aria-hidden="true"></i> <?php _e('Edit comment', 'interactive-map');?></a>
+								<input type="button" class="btn btn-secondary im_custom_button saveCommentButton" value="<?php _e('Save'); ?> " style="display: none" id="saveComment-<?php echo $lan; ?>">
+							</div>
+							<?php
+							}
+							?>
+						
+							<div id="commentContent-<?php echo $lan; ?>"  class="entry-content"></div>
+						</div>
+					<?php
+					}
 					?>
-					<br />
-					<br />
-					<a href="#" class="editCommentLink" id="editComment-<?php echo $lan; ?>" style="text-decoration: underline;"><?php _e('Edit comment', 'interactive-map');?></a>
-					<input type="button" class="button button-primary saveCommentButton" value="<?php _e('Save'); ?> " style="display: none" id="saveComment-<?php echo $lan; ?>">
-				<?php
-				}
-				?>
 				</div>
-			<?php
-			}
-			?>
-		</div>
+
+			  </div>
+
+			  <div class="modal-footer im_custom_footer"></div>
+    		 
+
 	</div>
+  </div>
+</div>	
+
 	<?php
 }
 
@@ -546,40 +593,65 @@ function im_hierarchical_select ($id, $selection_name, $data_array, $params_leav
 
 function im_create_save_map_popup_html (){
 	?>
-	<div id="IM_Save_Syn_Map" style="display:none;" title="<?php _e('Save selection as synoptic map') ?>">
-		<br />
-		<table style="border-spacing: 5px; border-collapse: separate; width : 100%">
-			<tr>
-				<td>
-					<?php _e('Name'); ?>
-				</td>
-				<td>
-					<input type="text" id="IM_Syn_Map_Name" style="width: 90%" />
-				</td>
-			</tr>
-			<tr>
-				<td>
-					<?php _e('Description') ?>
-				</td>
-				<td>
-					<textarea id="IM_Syn_Map_Description" style="width:90%" rows="5"></textarea>
-				</td>
-			</tr>
-		</table>
-		<br />
-		<p>
-			<input type="radio" name="IM_Syn_Map_All" value="0" checked /> <?php _e('Save only active elements'); ?>
-			<br />
-			<input type="radio" name="IM_Syn_Map_All" value="1" /> <?php _e('Save all elements'); ?>
-		</p>
-		<br />
-		<p>
-			<input type="checkbox" id="IM_Syn_Map_Release" value="release" /> <?php _e('Apply for release'); ?>
-			<img  id="helpRelease" src="<?php echo IM_PLUGIN_URL; ?>/icons/Help.png" style="vertical-align: middle;" />
-		</p>
-		<br />
-		<input type="button" class="button button-primary" id="IM_Save_Syn_Map_Final_Button" value="<?php echo _e('Save') ?>">
+
+
+	 <div id="IM_Save_Syn_Map" class="modal fade">
+
+	  <div class="modal-dialog" role="document">
+   	    <div class="modal-content im_map_modal_content">  
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"><?php _e('Save selection as synoptic map', 'interactive-map') ?></h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+			<div class="modal-body im_map_modal_body">
+
+						<br/>
+						<table style="border-spacing: 5px; border-collapse: separate; width : 100%">
+							<tr>
+								<td>
+									<?php _e('Name'); ?>
+								</td>
+								<td>
+									<input type="text" id="IM_Syn_Map_Name" style="width: 90%" />
+								</td>
+							</tr>
+							<tr>
+								<td>
+									<?php _e('Description') ?>
+								</td>
+								<td>
+									<textarea id="IM_Syn_Map_Description" style="width:90%" rows="5"></textarea>
+								</td>
+							</tr>
+						</table>
+						<br />
+						<p>
+							<input type="radio" name="IM_Syn_Map_All" value="0" checked /> <?php _e('Save only active elements', 'interactive-map'); ?>
+							<br/>
+							<input type="radio" name="IM_Syn_Map_All" value="1" /> <?php _e('Save all elements', 'interactive-map'); ?>
+						</p>
+						<br/>
+						<p>
+							<input type="checkbox" id="IM_Syn_Map_Release" value="release" /> <?php _e('Apply for release', 'interactive-map'); ?>
+
+							<i id="helpRelease" class="helpsymbol fa fa-question-circle-o" style="vertical-align: middle;" title="Hilfe"></i>
+							<!-- <img  id="helpRelease" src="<?php echo IM_PLUGIN_URL; ?>/icons/Help.png" style="vertical-align: middle;" /> -->
+						</p>
+						<br/>
+						<input type="button" class="btn btn-secondary im_custom_button" id="IM_Save_Syn_Map_Final_Button" value="<?php echo _e('Save') ?>">
+
+			 </div>
+
+			 	 <div class="modal-footer im_custom_footer"></div>
+
+		   </div>
+		</div>
 	</div>
+
 	<?php
 }
 

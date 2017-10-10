@@ -37,23 +37,29 @@ function CategoryManager (){
 	 * @private
 	 * @type {Object<string, string>} 
 	 */
-	this.addionalElementNames = {};
+	this.tagTranslations = {};
+	
+	/**
+	 * @private
+	 * @type {Object<string, Object<string, string>>}
+	 */
+	this.allDistinctNames = {};
 	
 	/**
 	 * 
 	 * @private
-	 * @type {Object<string, function(new:InfoWindowContent, number, OverlayType, Object<string, ?>)>} 
+	 * @type {Object<string, function(new:InfoWindowContent, number, string, OverlayType, Object<string, ?>)>} 
 	 */
-	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent};
+	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent, "polygon" : PolygonInfoWindowContent};
 	
 	/**
 	 *  @private
 	 *  @type {Object<number, CategoryInformation>}
 	 */
 	this.categories = {};
-	this.categories["-1"] = new CategoryInformation (-1,"?","",""); //Pseudo category for using every element as a sub-category
+	this.categories["-1"] = new CategoryInformation (-1,"?",TRANSLATIONS["ALL_DISTINCT"],""); //Pseudo category for using every element as a sub-category
 	this.categories["-2"] = new CategoryInformation (-2,"!","",""); //Pseudo category for no sub-categories
-	this.categories["-3"] = new CategoryInformation (-3,"#","",""); //Pseudo category for tags as sub-categories
+	this.categories["-3"] = new CategoryInformation (-3,"#","",TRANSLATIONS["WITHOUT_TAG"]); //Pseudo category for tags as sub-categories
 	//TODO name here
 	this.categories["-4"] = new CategoryInformation (-4,"$","distinct",""); //Pseudo category for distinctly colored neigbours
 	
@@ -82,11 +88,74 @@ function CategoryManager (){
 	
 	/**
 	 * @param {string} key
-	 * @param {string} name
+	 * 
+	 * @return {undefined}
 	 */
-	this.addElementName = function (key, name){
-		this.addionalElementNames[key] = name;
+	this.removeAjaxData = function (key){
+		delete this.additionalAjaxData[key];
 	};
+	
+	/**
+	 * @param {number} categoryID
+	 * @param {string|null} elementID
+	 * 
+	 * @return {undefined}
+	 */
+	this.setElementID = function (categoryID, elementID){
+		var /** CategoryInformation */ info = this.categories[categoryID];
+		var /** jQuery|null */ oldElement = info.element;
+		
+		if(oldElement != null){
+			oldElement.off("change");
+		}
+		
+		if(elementID != null){
+			info.element = jQuery("#" + elementID);
+			info.element.change(this.showFilterScreen.bind(this, info.element, info.categoryID, info.filterComponents));
+		}
+		else {
+			info.element = null;
+		}
+	};
+	
+	/**
+	 * @param {number} categoryID
+	 * @param {string} key
+	 * 
+	 * @return {boolean}
+	 */
+	this.forbidRemoving = function (categoryID, key){
+		var /** CategoryInformation */ info = this.categories[categoryID];
+		if (info.forbidRemovingFunction){
+			return info.forbidRemovingFunction(key);
+		}
+		return false;
+	}
+	
+	/**
+	 * @param {number} categoryID
+	 * 
+	 * @return {boolean}
+	 */
+	this.isSingleSelect = function (categoryID){
+		return this.categories[categoryID].singleSelect;
+	}
+	
+	/**
+	 * @param {string} key
+	 * @param {string} name
+	 * 
+	 * @return {undefined}
+	 */
+	this.addTagTranslation = function (key, name){
+		this.tagTranslations[key] = name;
+	};
+	
+	this.getTagTranslation = function (key){
+		if(this.tagTranslations[key])
+			return this.tagTranslations[key];
+		return key;
+	}
 	
 	/**
 	 * @param {number} categoryID 
@@ -94,18 +163,18 @@ function CategoryManager (){
 	 * @return {string}
 	 */
 	this.getEmptyCategoryName = function (categoryID){
-		var /** string|undefined */ emptyName = this.categories[categoryID].nameEmpty;
-		if(emptyName === undefined)
-			return "";
-		return emptyName;
+		return this.categories[categoryID].nameEmpty;
 	};
 	
 	/**
 	 * @param {number} categoryID 
+	 * @param {boolean=} emptyPseudoCategories
 	 * 
 	 * @return {string}
 	 */
-	this.getCategoryName = function (categoryID){
+	this.getCategoryName = function (categoryID, emptyPseudoCategories){
+		if(emptyPseudoCategories === true && categoryID < 0)
+			return "";
 		return this.categories[categoryID].name;
 	};
 	
@@ -125,11 +194,6 @@ function CategoryManager (){
 	 * @return {string}
 	 */
 	this.getElementName = function (categoryID, key){
-		var /** string|undefined */ name = this.addionalElementNames[key];
-		if(name !== undefined){
-			return name;
-		}
-		
 		var /** CategoryInformation */ cat = this.categories[categoryID];
 		
 		if(cat.costumGetNameFunction == undefined){
@@ -143,6 +207,16 @@ function CategoryManager (){
 		else {
 			return cat.costumGetNameFunction(key);
 		}
+	};
+	
+	/**
+	 * @param {string} key
+	 * @param {string} parentKey
+	 * 
+	 * @return {string}
+	 */
+	this.getAllDistinctElementName = function (key, parentKey){
+		return this.allDistinctNames[parentKey][key];
 	};
 	
 	/**
@@ -235,7 +309,7 @@ function CategoryManager (){
 	 * @return {undefined} 
 	 */
 	this.showFilterScreen = function (element, categoryID, filterComponents){
-			
+		
 		var /** string */ value = this.getCategoryPrefix(categoryID) + /** @type{function():string} */ (element.data("getSelectedValue"))();
 
 		/** @type {function():undefined} */ (element.data("reset"))();
@@ -254,7 +328,7 @@ function CategoryManager (){
 		if(filterComponents != undefined && filterComponents.length > 0){
 			var thisObject = this;
 			
-			jQuery("#IM_filter_popup_title").text(this.getElementName(categoryID, value));
+			// jQuery("#IM_filter_popup_title").text(this.getElementName(categoryID, value));
 			jQuery("#IM_filter_popup_content").empty();
 			
 			var /** Array<Element> */ newElements = new Array (filterComponents.length);
@@ -265,7 +339,7 @@ function CategoryManager (){
 					continue;
 				
 				jQuery("#IM_filter_popup_content").append(newElements[i]);
-				jQuery("#IM_filter_popup_content").append("<br />");
+
 				filterComponents[i].afterAppending(newElements[i], categoryID, value);
 				noElements = false;
 			}
@@ -273,27 +347,38 @@ function CategoryManager (){
 			if(!noElements){
 				jQuery("#IM_filter_popup_submit").unbind("click");
 				jQuery("#IM_filter_popup_submit").click(function () {
-					jQuery("#IM_filter_popup_div").dialog("close");
+					
 					var /** Object<string,?> */ filterData = {};
 					for (var i = 0; i < filterComponents.length; i++){
 						if(newElements[i] != null)
-							filterComponents[i].storeData(filterData, newElements[i], categoryID, value);
+							if(!filterComponents[i].storeData(filterData, newElements[i], categoryID, value)){
+								alert(TRANSLATIONS["FILTER_NOT_POSSIBLE"]);
+								return;
+							}
 					}
+					jQuery("#IM_filter_popup_div").modal('hide');		
+					
+					jQuery(document).trigger("im_load_data", [categoryID, value, filterData]);
 					thisObject.loadData (categoryID, value, filterData);
 				});
-	
-				jQuery("#IM_filter_popup_div").dialog({
-					"minWidth" : 700,
-					"resizable" : false, 
-					"modal": true,
-					"title" : this.getCategoryName(categoryID)
-				});
+
+				 var that = this;
+
+				jQuery('#IM_filter_popup_div').off().on('show.bs.modal', function (e) {
+					var name = that.getCategoryName(categoryID);
+					var m_title = jQuery('<span class="im_concept_hl">'+name+'</span><span class="im_name_hl">'+that.getElementName(categoryID, value)+'</span>');
+					jQuery('#IM_filter_popup_div .modal-title').empty().append(m_title);
+				}) 	
+
+				jQuery("#IM_filter_popup_div").modal('show');
 			}
 		}
 		
 		if(noElements){
 			//Directly load data
+			jQuery(document).trigger("im_load_data", [categoryID, value]); //TODO document
 			this.loadData (categoryID, value);
+			
 		}
 	};
 	
@@ -366,9 +451,13 @@ function CategoryManager (){
 			ajaxData[keyAjax] = this.additionalAjaxData[keyAjax];
 		}
 		
-		if(filterData != undefined){
-			ajaxData["filter"] = filterData;
+		if(filterData == undefined && this.categories[category].filterComponents){
+			filterData = {};
+			for (var f = 0; f < this.categories[category].filterComponents.length; f++){
+				this.categories[category].filterComponents[f].storeDefaultData(filterData, category, key);
+			}
 		}
+		ajaxData["filter"] = filterData;
 		
 		if(fixedColors != null && element != null){
 			//No need to reload the comments if only the symbols for the map are reloaded
@@ -388,11 +477,15 @@ function CategoryManager (){
 			else
 				element = new MultiLegendElement(category, key);
 			
+			if(categoryManager.isSingleSelect(category)){
+				legend.removeElementsByCategory(category);
+			}
+			
 			legend.collapseAll(false);
 			legend.addElement(element, fixedLegendIndex);
 			newLegendElementCreated = true;
+
 		}
-		
 		legend.update();
 
 		var /**CategoryManager */ thisObject = this;
@@ -413,17 +506,14 @@ function CategoryManager (){
 			if(result[DEBUG_DATA]){
 				jQuery("#im_debug_area").html(result[DEBUG_DATA])
 			}
+			
+			element.filterData = filterData;
 
 			if(singular){
 				thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), fixedColors, !newLegendElementCreated);
 			}
 			else {
 				thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), /** @type{Object<string, ?>}*/ (filterData), fixedColors, !newLegendElementCreated);
-			}
-			
-			if(filterData != undefined){
-				element.filterData = filterData;
-				//TODO check if the filter has to be updated if data is already defined
 			}
 			
 			if(callback)
@@ -466,7 +556,7 @@ function CategoryManager (){
 		var /**google.maps.LatLng */ center = map.getCenter();
 		
 		jQuery.post(ajaxurl, {
-				"action" : "im_u",
+				"action" : "im_a",
 				"namespace" : "save_syn_map",
 				"name" : name,
 				"description" : description,
@@ -489,10 +579,58 @@ function CategoryManager (){
 					alert(TRANSLATIONS["SAVE_MAP_ERROR"] + " (" + id + ")");
 				}
 				
-				jQuery("#IM_Save_Syn_Map").dialog('close');
+				jQuery("#IM_Save_Syn_Map").modal('hide');
 				jQuery("#IM_Syn_Map_Selection").append('<option value="' + id + '">' + name + '<option>').trigger("chosen:updated");
 		});
 	}
+	
+	/**
+	 * @param {function(number)} callback
+	 * 
+	 * @return {undefined}
+	 */
+	this.saveAnonymousMap = function (callback){
+		var /**google.maps.LatLng */ center = map.getCenter();
+		
+		jQuery.post(ajaxurl, {
+				"action" : "im_a",
+				"namespace" : "save_syn_map",
+				"name" : "Anonymous",
+				"description" : "",
+				"release" : "Private",
+				"zoom" : map.getZoom(),
+				"center_lat" : center.lat(),
+				"center_lng" : center.lng(),
+				"author" : PATH.userName,
+				"data" : legend.getCompleteExport(true),
+				"_wpnonce" : jQuery("#_wpnonce_syn_map_save").val()
+			}, function (id){
+				if(isNaN(id)){
+					callback(-1);
+				}
+				else {
+					callback(id * 1);
+				}
+		});
+	};
+	
+	
+	//TODO document
+	/**
+	 * @param {function(string)} callback
+	 * 
+	 * @return {undefined}
+	 */
+	this.produceMapURL = function (callback){
+		this.saveAnonymousMap(function (id){
+			if(id == -1){
+				callback("Error");
+			}
+			else {
+				callback(PATH["tkUrl"].replace("§§§", id + ""));
+			}
+		});
+	};
 	
 	
 	/**
@@ -537,6 +675,7 @@ function CategoryManager (){
 	
 		if(Object.getPrototypeOf(Object(result[DATA])) === Object.getPrototypeOf([])){
 			legend.removeElement(element, true);
+			element.setLoading(false);
 			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
 			return;
 		}
@@ -547,42 +686,78 @@ function CategoryManager (){
 		
 		var /** boolean */ overlaysMovable = optionManager.inEditMode() && this.categoryAllowsGeoDataEditingForElement(element.category, element.key, element.overlayType);
 		
+		var /** number */ maxLat;
+		var /** number */ maxLng;
+		var /** number */ minLat;
+		var /** number */ minLng;
+		
 		for (var/** number */ i = 0; i < length; i++) {
-			var /** Object */ currentShape = dataArray[i];
 			
+			//Geo data
+			var /** Object */ currentShape = dataArray[i];
 			if(currentShape[1] == null){
 				console.error("Element " + JSON.stringify(currentShape[0]).substring(0,50) + " has no geo data!");
 				i++;
 				continue;
 			}	
-			
 			var /** google.maps.Data.Geometry */ geoObject = parseGeoData(currentShape[1]);
-			var constr = this.infoWindowContentConstructors[currentShape[0]["elementType"]];
-			delete currentShape[0]["elementType"];
-			if(constr == undefined){
-				throw "InfoWindow type not found!";
-			}
 			
-			var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[2];
-			var /** string */ polygonQuantifyInfo = "";
-			var /** Object<string, number>*/ pointQuantifyInfo = null;
+			//TODO finish this
+//			if(geoObject instanceof google.maps.Data.Point){
+//				var /** number */ lat = geoObject.get().lat();
+//				var /** number */ lng = geoObject.get().lng();
+//				
+//				if(lat > maxLat || maxLat === undefined){
+//					maxLat = lat;
+//				}
+//				if (lat < minLat || minLat === undefined){
+//					minLat = lat;
+//				}
+//				if(lng > maxLng || maxLng === undefined){
+//					maxLng = lng;
+//				}
+//				if (lng < minLng || minLng === undefined){
+//					minLng = lng;
+//				}
+//			}
+//			else {
+//				if(currentShape[2][3] > maxLat || maxLat === undefined){
+//					maxLat = currentShape[2][3] * 1;
+//				}
+//				if (currentShape[2][1] < minLat || minLat === undefined){
+//					minLat = currentShape[2][1] * 1;
+//				}
+//				if(currentShape[2][2] > maxLng || maxLng === undefined){
+//					maxLng = currentShape[2][2] * 1;
+//				}
+//				if (currentShape[2][0] < minLng || minLng === undefined){
+//					minLng = currentShape[2][0] * 1;
+//				}
+//			}
+			
+			//Quantify data
+			var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[3];
+			var /** string|Object<string, number> */ qinfo;
 			if(quantifyInfo != null){
 				if(quantifyInfo[0] == "POINT"){
-					pointQuantifyInfo = /** @type{Object<string, number>}*/ (quantifyInfo[1]);
+					qinfo = /** @type{Object<string, number>} */ (quantifyInfo[1]); //Matching from categories to polygon ids
 				}
 				else {
-					polygonQuantifyInfo = /** @type{string}*/ (quantifyInfo[1]);
+					qinfo = /** @type{string}*/ (quantifyInfo[1]); //Id of the polygon
 				}
 			}
 			
 			var/** OverlayInfo */ overlayInfo = new OverlayInfo(
-				new constr(element.category, element.overlayType, currentShape[0]), geoObject, pointQuantifyInfo);
+				this.createInfoWindowContents(currentShape[0], element.category, element.key, element.overlayType), 
+				geoObject, qinfo, currentShape[4]);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
-				symbolClusterer.addOverlay(overlayInfo, element, polygonQuantifyInfo, overlaysMovable);
+				symbolClusterer.addOverlay(overlayInfo, element, overlaysMovable);
 			}
 		}
+		
+		//mapInterface.zoomToBounds(minLat, minLng, maxLat, maxLng);
 		
 		for (var /** string */ ckey in result[COMMENTS]){
 			commentManager.addComment(ckey, result[COMMENTS][ckey]);
@@ -591,9 +766,34 @@ function CategoryManager (){
 		if(symbolClusterer.checkQuantify())
 			symbolClusterer.reQuantify();
 		
-		element.loading = false;
+		element.setLoading(false);
 		legend.update();
 	};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {Array<Object<string, ?>>} data
+	 * @param {number} category
+	 * @param {string} key
+	 * @param {OverlayType} overlayType
+	 * 
+	 * @return {Array<InfoWindowContent>}
+	 */
+	this.createInfoWindowContents = function (data, category, key, overlayType){
+		var /** Array<InfoWindowContent>*/ result = [];
+		
+		for (var i = 0; i < data.length; i++){
+			var constr = this.infoWindowContentConstructors[data[i]["elementType"]];
+			delete data[i]["elementType"];
+			if(constr == undefined){
+				throw "InfoWindow type not found!";
+			}
+			result.push(new constr(category, key, overlayType, data[i]));
+		}
+		
+		return result;
+	}
 	
 	/**
 	 * @private
@@ -675,10 +875,15 @@ function CategoryManager (){
 			var /**Sorter|undefined */ sorter = categoryManager.getSorter(element.category);
 			var /** Array<string> */ sortedKeys;
 			if(sorter == undefined){
-				sortedKeys = Sorter.createKeyArray(result[DATA]);
+				if(filterData["subElementCategory"] == -3){ //Tags used but no sorter => sort by alphabet
+					sortedKeys = new Sorter([new AlphabetSorter()]).getSortedKeys(result[DATA], 0, 0, -3);
+				}
+				else {
+					sortedKeys = Sorter.createKeyArray(result[DATA]);
+				}
 			}
 			else {
-				sortedKeys = sorter.getSortedKeys(result[DATA], filterData);
+				sortedKeys = sorter.getSortedKeys(result[DATA], filterData["sorter"]["sortType"], filterData["sorter"]["sortOrder"], filterData["subElementCategory"]);
 			}
 			
 			var numSubElements = sortedKeys.length;
@@ -695,7 +900,7 @@ function CategoryManager (){
 				var /** string */ id = sortedKeys[ki];
 				var /** OverlayType */ overlayType =  result[DATA][id][0];
 				
-				var /** LegendElement */ currentElement = new LegendElement(filterData["subElementCategory"], id);
+				var /** LegendElement */ currentElement = new LegendElement(filterData["subElementCategory"], id, element);
 
 				if(fixedColors != undefined){
 					var /** Array<number>|number */ currentIndex = fixedColors[id];
@@ -712,7 +917,6 @@ function CategoryManager (){
 				currentElement.overlayType = overlayType;
 				currentElement.visible(visibilities[id]);
 				
-				currentElement.parent = element;
 				element.addSubElement(currentElement);
 				element.subElementsVisible++;
 			}
@@ -765,51 +969,50 @@ function CategoryManager (){
 				//Iterate over all records associated with the sub-element
 				var /** Array */ dataArray = result[DATA][id][1];
 				for (var/** number */ j = 0; j < numRecords; j++) {
+					
+					//Geo data
 					var /** Array */ currentShape = dataArray[j];
-				
 					if(currentShape[1] == null){
 						console.error("Element " + JSON.stringify(currentShape[0]).substring(0,50) + " has no geo data!");
 						continue;
 					}	
-					
 					var /** google.maps.Data.Geometry */ geoObject = parseGeoData(currentShape[1]);
-					var constr = this.infoWindowContentConstructors[currentShape[0]["elementType"]];
-					delete currentShape[0]["elementType"];
-					if(constr == undefined){
-						throw "InfoWindow type not found!";
-					}
 					
-					var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[2];
-					var /** string */ polygonQuantifyInfo = "";
-					var /** Object<string, number>*/ pointQuantifyInfo = null;
+					//Quantify data
+					var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[3];
+					var /** string|Object<string, number> */ qinfo;
 					if(quantifyInfo != null){
 						if(quantifyInfo[0] == "POINT"){
-							pointQuantifyInfo = /** @type{Object<string, number>} */ (quantifyInfo[1]);
+							qinfo = /** @type{Object<string, number>} */ (quantifyInfo[1]); //Matching from categories to polygon ids
 						}
 						else {
-							polygonQuantifyInfo = /** @type{string}*/ (quantifyInfo[1]);
+							qinfo = /** @type{string}*/ (quantifyInfo[1]); //Id of the polygon
 						}
 					}
 					
-					var/** OverlayInfo */ overlayInfo = new OverlayInfo(new constr(currentElement.category, currentElement.overlayType, currentShape[0]), geoObject, pointQuantifyInfo);
+					var/** OverlayInfo */ overlayInfo = new OverlayInfo(this.createInfoWindowContents(currentShape[0], currentElement.category, element.key, currentElement.overlayType), geoObject, qinfo, currentShape[4]);
 					currentElement.overlayInfos.push(overlayInfo);
 					
 					if(filterData["subElementCategory"] == -1){ //Pseudo category
-						this.addElementName (id, currentShape[0]["name"]); //TODO name might not be set
+						if(this.allDistinctNames[element.key] === undefined){
+							this.allDistinctNames[element.key] = {};
+						}
+						this.allDistinctNames[element.key][id] = currentShape[0][0]["name"]; //TODO name might not be set
 					}
 					
 					if (addToMap && overlayInfo.geomData != null){
-						symbolClusterer.addOverlay(overlayInfo, currentElement, polygonQuantifyInfo, overlaysMovable);
+						symbolClusterer.addOverlay(overlayInfo, currentElement, overlaysMovable);
 					}
 
 				 	
 				}
-				currentElement.loading = false;
+				currentElement.setLoading(false);
 				
 			}
 			
 			if(!reload && mainIndex != undefined){
 				element.symbolStandard = symbolManager.createSymbolURLForMainIndex(mainIndex);
+				element.mainColorIndex = mainIndex;
 			}
 			
 			//Comments
@@ -820,14 +1023,28 @@ function CategoryManager (){
 		   if(symbolClusterer.checkQuantify())
 			   symbolClusterer.reQuantify();	
 		   
-			element.loading = false;
+			element.setLoading(false);
 			legend.update();
 		}
 		else {	
+			element.setLoading(false);
 			legend.removeElement(element, true);
 			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
 		 }		
-	};	
+	};
+	
+	/**
+	 * @param {string} prefix
+	 * 
+	 * @return {number}
+	 */
+	this.getCategoryFromPrefix = function (prefix){
+		for (var id in this.categories){
+			if(this.categories[id * 1].categoryPrefix == prefix)
+				return id * 1;
+		}
+		return -1;
+	};
 	
 	
 	/**
@@ -851,7 +1068,7 @@ function CategoryManager (){
 	
 	/**
 	 * @param {string} elementType Short name of the InfoWindowContent class as returned by the PHP code
-	 * @param {function(new:InfoWindowContent, number, OverlayType, Object<string, ?>)} constr Constructor function of the InfoWindowConten class
+	 * @param {function(new:InfoWindowContent, number, string, OverlayType, Object<string, ?>)} constr Constructor function of the InfoWindowConten class
 	 * 
 	 * @return {undefined}
 	 */
@@ -933,7 +1150,7 @@ function CategoryManager (){
  * 					All category prefixes must consist of one letter to avoid clashes in presence of non-numerical ids!
  * 					(e.g. in VerbaAlpina C5 is a concept id and M5 is the id of a morphological type)
  * 
- * @param {string} nameEmpty This name is used if a data point should have this type, but nothing is assigned, yet, e.g. something like "not typified", "no Concept", etc.
+ * @param {string=} nameEmpty This name is used if a data point should have this type, but nothing is assigned, yet, e.g. something like "not typified", "no Concept", etc.
  * @param {string=} elementID {
  * 	The id of an html element that triggers the visualisation of new data. This has to suffice the following conditions:
  * 		- It fires an "change" event
@@ -950,8 +1167,10 @@ function CategoryManager (){
  * @param {AbstractListBuilder=} listBuilder The list builder to be used for information of this category (default: undefined)
  * @param {function(string):string=} costumGetNameFunction Function to overwrite the getName functions provided by the gui elements
  * @param {EditConfiguration=} editConfiguration If this paramter is set, users with the capability "im_edit_map_data" can edit the markers belonging to this category and add new markers to it
+ * @param {boolean=} singleSelect If true only one element from this category can be visualized on the map at a time
+ * @param {function(string):boolean=} forbidRemovingFunction If this function returns true for an element, it cannot be removed from the legend by the user
  */
-function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration){
+function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration, singleSelect, forbidRemovingFunction){
 	/**
 	 * @type {number} 
 	 */
@@ -964,8 +1183,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	if(typeof listBuilder == "object" && listBuilder != null){
 		this.listBuilder = listBuilder;
 	} 
-	else 
-	{
+	else {
 		this.listBuilder = new SimpleListBuilder(["name","description"]);
 	}
 	
@@ -980,9 +1198,16 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	this.name = name;
 	
 	/**
-	 * @type {string|undefined} 
+	 * @type {string} 
 	 */
-	this.nameEmpty = nameEmpty;
+	this.nameEmpty;
+	
+	if (nameEmpty === undefined){
+		 this.nameEmpty = "";
+	}
+	else{
+		 this.nameEmpty = nameEmpty;
+	}
 	
 	/**
 	 * @type {jQuery} 
@@ -1040,12 +1265,52 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	 * @type{string|undefined}
 	 */
 	this.textForListRetrieval = textForListRetrieval;
+	//TODO enfore (or at least document) that textForListRetrieval and listBuilder have be used together!
 	
 	/**
 	 * @type {EditConfiguration|undefined}
 	 */
 	this.editConfiguration = editConfiguration;
+	
+	/**
+	 * @type {boolean}
+	 */
+	this.singleSelect = (singleSelect === true);
+	
+	/**
+	 * @type {function(string):boolean|undefined}
+	 */
+	this.forbidRemovingFunction = forbidRemovingFunction;
 }	
+
+/**
+ * Pseudo constructor to build information from paramter array using default values for parameters not given. For documentation look at
+ * the real constructor
+ * 
+ * @param {{
+ * 		categoryID : number,
+ * 		categoryPrefix: string,
+ * 		name: string,
+ * 		nameEmpty: (string|undefined),
+ * 		elementID: (string|undefined),
+ * 		filterComponents : (Array<FilterComponent>|undefined),
+ * 		countNames : (Array<string>|undefined),
+ * 		textForNewComment: (string|undefined),
+ * 		textForListRetrieval: (string|undefined),
+ * 		listBuilder: (AbstractListBuilder|undefined),
+ * 		costumGetNameFunction : (function(string):string|undefined),
+ * 		editConfiguration: (EditConfiguration|undefined),
+ * 		singleSelect: (boolean|undefined),
+ * 		forbidRemovingFunction: (function(string):boolean|undefined)
+ * 		
+ * }} data
+ * @return {CategoryInformation}
+ */
+function buildCategoryInformation (data){
+	return new CategoryInformation(data["categoryID"], data["categoryPrefix"], data["name"] , data["nameEmpty"], data["elementID"], 
+			data["filterComponents"] , data["countNames"], data["textForNewComment"], data["textForListRetrieval"], data["listBuilder"],
+			data["costumGetNameFunction"], data["editConfiguration"], data["singleSelect"], data["forbidRemovingFunction"]);
+}
 
 /**
  * @interface
@@ -1080,9 +1345,20 @@ FilterComponent.prototype.getFilterScreenElement = function (categoryId, element
  * @param {number} categoryId
  * @param {string} elementId
  * 
- * @return {undefined}
+ * @return {boolean}
  */
 FilterComponent.prototype.storeData = function (data, element, categoryId, elementId){};
+
+/**
+*
+*
+* @param {Object<string, ?>} data
+* @param {number} categoryId
+* @param {string} elementId
+* 
+* @return {undefined}
+*/
+FilterComponent.prototype.storeDefaultData = function (data, categoryId, elementId){};
 
 /**
  *

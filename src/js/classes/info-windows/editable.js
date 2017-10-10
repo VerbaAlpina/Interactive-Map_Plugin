@@ -4,10 +4,11 @@
  * @implements {InfoWindowContent}
  * 
  * @param {number} categoryID
+ * @param {string} elementID
  * @param {OverlayType} overlayType
  * @param {Object<string, ?>=} fieldValues
  */
-function EditableInfoWindowContent (categoryID, overlayType, fieldValues){
+function EditableInfoWindowContent (categoryID, elementID, overlayType, fieldValues){
 	
 	/**
 	 * 
@@ -46,9 +47,11 @@ function EditableInfoWindowContent (categoryID, overlayType, fieldValues){
 	/**
 	 * @override
 	 * 
+	 * @param {number} index
+	 * 
 	 * @return {Element}
 	 */
-	this.getHtml = function (){
+	this.getHtml = function (index){
 		var /** string */ result = "<div><table>";
 		
 		for (var i = 0; i < this.fields.length; i++){
