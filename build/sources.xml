@@ -14,6 +14,7 @@
 	<file name="src/js/core/list-builder.js" />
 	<file name="src/js/core/list-manager.js" />
 	<file name="src/js/core/map-interface.js" />
+	<file name="src/js/core/map-state.js" />
 	
 	<file name="src/js/classes/filter-components/grouping.js" />
 	<file name="src/js/classes/filter-components/sorting.js" />
@@ -23,8 +24,6 @@
 	<file name="src/js/classes/info-windows/simple.js" />
 	<file name="src/js/classes/info-windows/polygon.js" />
 	<file name="src/js/classes/info-windows/editable.js" />
-	<file name="src/js/classes/info-windows/mergeable-table.js" />
-	<file name="src/js/classes/info-windows/generic.js" />
 	<file name="src/js/classes/sort-types/alphabet.js" />
 	<file name="src/js/classes/sort-types/num-records.js" />
 	<file name="src/js/classes/list-printers/html-list-printer.js" />
@@ -39,7 +38,8 @@
 	<file name="src/js/classes/undo-operations/data-changed.js" />
 	<file name="src/js/classes/gui-options/bool.js" />
 	<file name="src/js/classes/gui-options/click.js" />
-    <file name="src/js/classes/hexagon_builder/hex_builder.js"/>
+	<file name="src/js/classes/gui-options/hidden.js" />
+    <!--<file name="src/js/classes/hexagon_builder/hex_builder.js"/>-->
 	
 	<file name="lib/js/js-info-bubble-gh-pages/src/infobubble.js" />
 	<file name="lib/js/contextmenuGM.js/ContextMenu.js" />

@@ -33,13 +33,22 @@ function SimpleInfoWindowContent (categoryID, elementID, overlayType, data){
 	/**
 	 * @override
 	 * 
-	 * @param {MapSymbol} mapSymbol
-	 * @param {LegendElement} owner
+	 * @param {InfoWindowContent} oldContent
 	 *
 	 * @return {boolean} 
 	 */
-	this.tryMerge = function (mapSymbol, owner){
+	this.tryMerge = function (oldContent){
 		return false;
+	};
+	
+	/**
+	*
+	* @override
+	*
+	* @return {undefined} 
+	*/
+	this.resetState = function (){
+		//Do nothing
 	};
 	
 	/**
@@ -80,5 +89,14 @@ function SimpleInfoWindowContent (categoryID, elementID, overlayType, data){
 	 */
 	this.getName = function (){
 		return this.data["name"];
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @return {number}
+	 */
+	this.getNumElements = function (){
+		return 1;
 	};
 }

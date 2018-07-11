@@ -1,6 +1,8 @@
 /**
  * @constructor
  * @struct
+ * 
+ * @implements{Iterable<LegendElement>}
  *
  * Contains the complete information about the data visualized on the map
  */
@@ -11,13 +13,33 @@ function Legend() {
 	 *
 	 */
 	this.elements = new Array();
-	
+
 	/**
 	 * @type{number}
 	 * @private
 	 */
 	this.numLoading = 0;
 	
+	/**
+	 * @type {number}
+	 * @public
+	 */
+	this.numActive = 0;
+
+
+	/**
+	 * @type {number}
+	 * @private
+	 */
+	this.globalZindex = 2;
+
+	/**
+	 * @type {number}
+	 * @private
+	 */
+	this.scrollPosTop = 0;
+	
+
 	/**
 	 *  @return {number}
 	 */
@@ -51,6 +73,22 @@ function Legend() {
 		else {
 			element.setIndex(this.elements.length);
 			this.elements.push(element);
+		}
+	};
+	
+	/**
+	 * @param {LegendElement} owner
+	 * 
+	 * @return {undefined}
+	 */
+	this.destroyPolygonInfoWindowsForOwner = function (owner){
+		for (var i = mapState.getInfoWindowCount() - 1; i >= 0; i--){
+			var /** MapShape|MapSymbol */ mapElement = mapState.getInfoWindowOwner(i);
+			if (mapElement instanceof MapShape){
+				if(mapElement.owner == owner){
+					mapElement.destroyInfoWindow();
+				}
+			}
 		}
 	};
 
@@ -129,6 +167,7 @@ function Legend() {
 	 */
 	this.update = function() {
 
+
 		jQuery(document).trigger("im_legend_before_rebuild", this); //TODO comment
 		
 		//Rebuild legend
@@ -148,6 +187,7 @@ function Legend() {
 				}
 				legendRow(this.elements, i, tablebody);
 			}
+
 		}
 
 		tablecontainer.className = "legendtablecontainer";
@@ -157,6 +197,13 @@ function Legend() {
 			
 		jQuery(document).trigger("im_legend_after_update", this); //TODO comment
 		setTableRowWidth();
+
+		for (var/** number */ j = 0; j < mapState.getInfoWindowCount(); j++) {
+			mapState.getInfoWindowOwner(j).updateInfoWindow();
+		}
+		if(this.scrollPosTop!=0){
+			 jQuery('.legendtable tbody').scrollTop(this.scrollPosTop);
+		}
 	};
 
 	/** 
@@ -244,6 +291,17 @@ function Legend() {
 			this.removeElement(this.elements[0], true);
 		}
 	};
+
+	/**
+	 * @return {undefined} 
+	 */
+	this.deactivateAll = function (){
+		for (let /** LegendElement */ le of this){
+			le.setActive(false);
+		}
+		symbolClusterer.repaintPointSymbols();
+	};
+	
 	
 	/**
 	* @param {boolean} useHiddenElements
@@ -259,9 +317,22 @@ function Legend() {
 			
 			var /** Object<string, ?> */ currentFilterData = currElement.filterData;
 			if(!useHiddenElements && currElement instanceof MultiLegendElement){
-				for (var j = 0; j < currElement.subElements.length; j++){
+				for (let j = 0; j < currElement.subElements.length; j++){
 					if(!currElement.subElements[j].visible()){
 						currentFilterData = storeRemovedElement(currentFilterData, currElement.subElements[j].key);
+					}
+				}
+			}
+			
+			var /** boolean|Array<number> */ active;
+			if (currElement instanceof LegendElement){
+				active = currElement.active;
+			}
+			else {
+				active = [];
+				for (let j = 0; j < currElement.subElements.length; j++){
+					if(currElement.subElements[j].active){
+						active.push(j);
 					}
 				}
 			}
@@ -270,11 +341,43 @@ function Legend() {
 				"category" : currElement.category, 
 				"key" : currElement.key, 
 				"filter" : currentFilterData, 
-				"fixedColors" : currElement.getColorAssignment()
+				"fixedColors" : currElement.getColorAssignment(),
+				"active" : active
 			};
 		}
 		return result;
 	};
+	
+	/**
+	 * @param {?number} subIndex
+	 * @param {number} mainIndex
+	 * 
+	 * @return {LegendElement}
+	 */
+	this.getElementByIndexes = function (subIndex, mainIndex){
+		if(subIndex){
+			return this.elements[mainIndex].subElements[subIndex];
+		}
+		else {
+			return /** @type{LegendElement} */ (this.elements[mainIndex]);
+		}
+	};
+	
+	/**
+	 * @param{Array<Object>} data
+	 * 
+	 * @return {undefined}
+	 */
+	this.switchToState = function (data){
+		//TODO better implementation that does not reload everything
+		legend.removeAll();
+		
+		for (var i = 0; i < data.length; i++){
+			var /** Object */ currElement = data[i];
+			
+			categoryManager.loadData(currElement["category"] * 1, currElement["key"], "stateChange", currElement["filter"], currElement["fixedColors"]);
+		}
+	}
 	
 	/**
 	 *  @param {Object<string, ?>} filterData
@@ -322,12 +425,22 @@ function Legend() {
 		
 		if(element instanceof MultiLegendElement){
 			row.addEventListener ("click", function (event){
+    		    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+    		    var rowpos = jQuery(row).position().top-75;
+			    legend.scrollPosTop = scrollpos + rowpos; // scroll clicked element as good in view as possible
+		
 				if((event.target || event.srcElement) instanceof HTMLInputElement)
 					return;
 				element.childrenInLegend = !element.childrenInLegend;
+
 				legend.update();
 
 			});
+		}
+		else {
+			if(element.openInfoWindowsNumber > 0){
+				row["className"] += " focused";
+			}
 		}
 
 		row["tabIndex"] = -1;
@@ -337,23 +450,65 @@ function Legend() {
 		}
 		
 		var /** Element */ col = document.createElement("td");
+		var /** Element */ span;
 		
 		if(element instanceof MultiLegendElement){
 			col["className"] = "collapseSymbol";
-			var /** Element */ span = document.createElement("span");
+			span = document.createElement("span");
 			if(element.childrenInLegend){
 				var minus = document.createElement("i");
-		     	minus.className = "fa fa-minus-circle collapsesymbol_icon";
+		     	minus.className = "fa fa-caret-down collapsesymbol_icon";
 				span.appendChild(minus);
 				}
 			else{
 				var plus = document.createElement("i");
-		     	plus.className = "fa fa-plus-circle collapsesymbol_icon";
+		     	plus.className = "fa fa-caret-right collapsesymbol_icon";
 				span.appendChild(plus);
 			}
 			col.appendChild(span);
 		}
-		
+
+		else{
+			if(element.overlayType == OverlayType.PointSymbol && !symbolClusterer.checkQuantify()){
+
+
+
+				span = document.createElement("span");
+				var dot = document.createElement("i");
+		    	dot.className = "fa fa-circle activate_symbol_icon";
+			    span.appendChild(dot);
+			    col.appendChild(span);
+			    row.className += " toggle"
+			    if(element.active){
+			    	dot.className += " active";
+			    }
+			    
+			    row.addEventListener("click", function(){
+
+	    		    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+    			    legend.scrollPosTop = scrollpos;
+
+    			    var /** boolean */ active = !this.active;
+			    	this.setActive(active);
+
+			    	if(this.active && !this.visible()){
+			    		 this.visible(true, false);
+			    	}
+
+			    	var /** boolean */ largeRepaint = (active && legend.numActive == 1) || (!active && legend.numActive == 0);
+			    	if(largeRepaint){
+			    		//Repainting all symbols is more efficient for pretty much every case, since the symbols for all elements except one have to be repainted
+			    		symbolClusterer.repaintPointSymbols();
+			    	}
+			    	else {
+			    		symbolClusterer.repaintPointSymbols(this);
+			    	}
+
+					legend.update();
+				}.bind(element));
+		    }
+		}
+
 		row.appendChild(col);
 		
 		
@@ -363,7 +518,12 @@ function Legend() {
 			if (element.loading) {
 				 img["src"] = PATH["Loading"];
 			} else {
-				img["src"] = element.symbolStandard;
+		
+				if(!element.active && element.overlayType == OverlayType.PointSymbol && legend.numActive>0) img["src"] = element.symbolInactive;
+				else img["src"] = element.symbolStandard;
+	
+				img["style"]["width"] = symbolSize + " px";
+				img["style"]["height"] = symbolSize + "px";
 			}
 			col.appendChild(img);
 		}
@@ -390,10 +550,10 @@ function Legend() {
 
 
      		if(!element.quantify){
-     			qButtonIcon.className ="fa fa-times-circle-o qcheck q-stack1 fa-stack-1x"; 
+     			qButtonIcon.className ="far fa-times-circle qcheck q-stack1 fa-stack-1x"; 
      		}
      		else{
-     			qButtonIcon.className ="fa fa-check-circle-o qcheck q-stack1 greensymbol fa-stack-1x";
+     			qButtonIcon.className ="far fa-check-circle qcheck q-stack1 greensymbol fa-stack-1x";
      		}
 
      		if(element.loading_quantify){
@@ -401,7 +561,7 @@ function Legend() {
 
      		}
 
-     		qButtonIcon3.className="fa fa-circle-thin ring";
+     		qButtonIcon3.className="far fa-circle ring";
      		qButtonIcon2.className ="fa fa-circle qcheck q-stack fa-stack-1x"; 
      		qIconSpan.className ="q-span fa-stack";
      		qButton.title = "Quantify";
@@ -413,12 +573,18 @@ function Legend() {
 			qButtonParent.className="qButtonParent";
 
 			jQuery(qButton).on('click',function(event){  //second listener for clicks while loading
+
 			     event.stopPropagation();
 			     event.preventDefault();
 			});
 
 			if(!element.loading_quantify){ 
 				jQuery(qButton).one( "click", function(event) {
+
+					 var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+					 legend.scrollPosTop = scrollpos;
+
+					legend.deactivateAll();
 
 					hideAllOtherPolygonGrps(element);
 					if(!element.visible())element.visible(true,false);
@@ -429,7 +595,6 @@ function Legend() {
 					//only do things if quantify is not running on other element
 					if(jQuery('#IM_legend').find('.fa-cog').length == 0 && element.visible() && !element.loading_quantify){
 	
-						var /** jQuery */ clicked_icon = jQuery(this).find('.q-stack1');
 						var /** LegendElement|MultiLegendElement|boolean} */ checkQuant = symbolClusterer.checkQuantify();
 			   
 						element.loading_quantify = true;
@@ -485,15 +650,24 @@ function Legend() {
 		}
 
 		cb.type = "checkbox";
+		cb.className = "legend_checkbox";
 		var /** function () */ cbFun;
 		cb.addEventListener ("click", function (event){
 			element.visible(this.checked, true);
+
+		    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+	        legend.scrollPosTop = scrollpos;
+
 			if(symbolClusterer.checkQuantify() && element.containsPointSymbols())
-				symbolClusterer.reQuantify();
+				symbolClusterer.reQuantify();	
+
 				event.stopPropagation();
+
 			});
+
 			cb.checked = element.visible();
 			col.appendChild(cb);
+
 
 		}
 		row.appendChild(col);
@@ -513,7 +687,51 @@ function Legend() {
 			delete_symbol.className = "fa fa-times delete_symbol"
 
 			delete_symbol.addEventListener ("click", function (event){
+				var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+				legend.scrollPosTop = scrollpos;
+
+				var needs_repaint = false;
+
+				if(element instanceof MultiLegendElement && element.containsPointSymbols()){
+						var /*number */ len = element.subElements.length;
+						for (var /** number */ i = 0; i < len; i++){
+							if(element.subElements[i].active){
+								element.subElements[i].setActive(false);
+								needs_repaint =true;
+							}
+						}
+				}
+				else {
+				   if(element.active){
+				   		element.setActive(false);	
+		   				needs_repaint =true;
+				   }
+				}	
+
+				if(needs_repaint){
+					//this.repaintSymbols(); //TODO performance do not repaint all symbols in all cases
+					for (var i = 0; i < legend.elements.length; i++){
+			    		legend.elements[i].repaintSymbols();
+			    	}
+			    	needs_repaint = false;
+				}
+	        
+
 				legend.removeElement(element, true);
+				history.pushState({"content" : legend.getCompleteExport(true)}, "");
+
+		        if(legend.elements.length==0){
+		        	jQuery('#legend_heading').parent()
+		        	.removeClass('keep_shadow')
+		        	.removeClass('active')
+		        	.find('.fa-caret-down')
+		        	.removeClass('fa-caret-down')
+		        	.addClass('fa-caret-right');
+	        	  	jQuery('#legend_heading').parent().find('.menu_collapse').hide();
+
+	        	  	jQuery('#legend_heading').addClass('l_disabled');
+		        }
+
 				event.stopPropagation();
 			});
 			col.appendChild(delete_symbol);
@@ -525,14 +743,21 @@ function Legend() {
 		
 		jQuery(document).trigger("im_legend_element_created", element, row); //TODO document
 		
-		if(element instanceof MultiLegendElement && element.childrenInLegend){
+		if(element instanceof MultiLegendElement){
 			var /*number */ len = element.subElements.length;
 			for (var /** number */ i = 0; i < len; i++){
-				legendRow(element.subElements, i, table, index);
+				if(element.childrenInLegend){
+					legendRow(element.subElements, i, table, index);
+				}
+				else {
+					if(element.subElements[i].openInfoWindowsNumber > 0){
+						row["className"] += " focused";
+						break;
+					}
+				}
 			}
 		}
 	}
-
 
 	/**
 	 * @param {!LegendElement|MultiLegendElement} element
@@ -562,9 +787,26 @@ function Legend() {
 				}
 			}
 		}
+	};
+	
+	/**
+	 * @return {LegendElement}
+	 */
+	this[Symbol.iterator] = function* (){
+		var length = this.elements.length;
+		for (let i = 0; i < length; i++){
+			var /** LegendElement|MultiLegendElement */ child = this.elements[i];
+			if (child instanceof LegendElement){
+				yield child;
+			}
+			else {
+				var subLength = child.subElements.length;
+				for (let j = 0; j < subLength; j++){
+					yield child.subElements[j];
+				}
+			}
+		}
 	}
-
-
 
 	/**
 	 *
@@ -638,60 +880,38 @@ function Legend() {
 			divElement.appendChild(document.createTextNode(categoryManager.getCountString(element.category, numRecords)));
 		}
 		
-	
-		
-//		if(showSliders && element instanceof LegendElement && element.overlayType == overlay_types.Polygon){ //TODO only polygon here
-//			var /** Element */ slider = document.createElement("input");
-//			//TODO only stroke for line string
-//			//TODO set start value
-//			//TODO store opacity
-//			slider.type = "range";
-//			slider.style.height = "1em";
-//			slider.style.width = "5em";
-//			slider.style.margin_top = "0.3em";
-//				slider.addEventListener("change", function (element, event){
-//					symbolClusterer.changeOverlayOpacity(element, this.value / 100);
-//			}.bind(slider, element));
-//			
-//			var /** Element */ slider2 = document.createElement("input");
-//			slider2.type = "range";
-//			slider2.max = "10";
-//			slider2.style.height = "1em";
-//			slider2.style.width = "5em";
-//			slider2.style.margin_top = "0.3em";
-//				slider2.addEventListener("change", function (element, event){
-//					symbolClusterer.changeOverlayStrokeWeight(element, this.value);
-//			}.bind(slider2, element));
-//			
-//			divElement.appendChild(slider);
-//			divElement.appendChild(slider2);
-//		}
-		
 		col.appendChild(divElement);
 		
 		if(element.filterData !== undefined && element.filterData["markings"] !== undefined){
 			var /** string */ tagName = element.filterData["markings"]["tagName"];
 			var /** Object<string,number>*/ values = element.filterData["markings"]["tagValues"];
 			var /** Element */ markDiv = document.createElement("div");
-			markDiv["style"]["fontWeight"] = "normal";
+			markDiv.className="mark_parent";
+
 			for (var key in values){
-				markDiv.appendChild(document.createElement("br"));
+
+				var /** Element */ markItem = document.createElement("div");
+				markItem.className="mark_item";
+
+				markDiv.appendChild(markItem);
 				
 				var /** Element */ mimg = /** @type{HTMLImageElement} */ (document.createElement("img"));
-				mimg["style"]["marginLeft"] = "10px";
+				// mimg["style"]["marginLeft"] = "10px";
 				mimg["style"]["verticalAlign"] = "middle";
+			    mimg["style"]["width"] = "23px";  // TODO: USE CORRECT SIZES BASED ON  markingScaleFunction(symbolInfo)
+
 				var /** number */ colIndex = element instanceof LegendElement? element.colorIndex[0]: element.mainColorIndex;
 				mimg["src"] = symbolManager.createSymbolURLForMarking(colIndex, values[key]);
-				markDiv.appendChild(mimg);
+				markItem.appendChild(mimg);
 				
-				markDiv.appendChild(document.createTextNode(" = "));
+				markItem.appendChild(document.createTextNode(" = "));
 				
 				var /** Element */ tagNameElement = document.createElement("span");
 				tagNameElement.appendChild(document.createTextNode(tagName + " "));
 				tagNameElement["style"]["font-weight"] = "bold";
-				markDiv.appendChild(tagNameElement)
+				markItem.appendChild(tagNameElement)
 				
-				markDiv.appendChild(document.createTextNode(key));
+				markItem.appendChild(document.createTextNode(key));
 			}
 			col.appendChild(markDiv);
 		}	
@@ -779,7 +999,7 @@ function Legend() {
 	 * 
 	 * @return {undefined} 
 	 */
-	this.reloadMarkers = function(callback) {
+	this.reloadOverlays = function(callback) {
 		var /** number */ legendLength = this.elements.length;
 		if(legendLength == 0){
 			if(callback)
@@ -846,6 +1066,24 @@ function LegendElement(category, key, parent) {
 	
 	/** @type {string} */
 	this.key = key;
+
+	/** @type {number} */
+	this.zIndex = 0;
+	
+	/** 
+	 * @type {boolean} 
+	 */
+	this.active = false;
+	
+	/**
+	 * @type {number}
+	 */
+	this.currentElementIndex = 0;
+	
+	/**
+	 * @type {number}
+	 */
+	this.openInfoWindowsNumber = 0;
 	
 	/** 
 	 * @type{number}
@@ -861,6 +1099,13 @@ function LegendElement(category, key, parent) {
 	this.getIndex = function (){
 		return this.index;
 	};
+
+	/**
+	 * @return {number}
+	 */
+	this.getZindex = function (){
+		return this.zIndex;
+	};
 	
 	/**
 	 * @param {number} index
@@ -870,6 +1115,50 @@ function LegendElement(category, key, parent) {
 	this.setIndex = function (index){
 		this.index = index;
 	};
+	
+	/**
+	 * @param {boolean} active
+	 * 
+	 * @return {undefined}
+	 */
+	this.setActive = function (active){
+		if(this.active == active)
+			return;
+		
+		this.active = active;
+		if (active){
+			legend.numActive++;
+			legend.globalZindex++;
+			if(legend.globalZindex > 999999)
+				legend.globalZindex = 2; 
+			this.zIndex = legend.globalZindex;
+		}
+		else{
+			legend.numActive--;
+			this.zIndex = 0;
+		}
+	};
+	
+	/**
+	 * @return {undefined}
+	 */
+	this.repaintSymbols = function (){
+		if(this.overlayType != OverlayType.Polygon){
+			symbolClusterer.repaintPointSymbols(this);
+		}
+	};
+	
+	/**
+	 * @return {number}
+	 */
+	this.getSubElementIndex = function (){
+		if(this.parent == null){
+			return -1;
+		}
+		
+		return this.parent.subElements.indexOf(this);
+	};
+
 
 	/**
 	 * @type {Array<number>|number}
@@ -921,7 +1210,7 @@ function LegendElement(category, key, parent) {
 	this.symbolStandard = "";
 
 	/** @type{string} */
-	this.symbolHighlighted = "";
+	this.symbolInactive  = "";
 
 	/** @type{Array<OverlayInfo>} */
 	this.overlayInfos = new Array();
@@ -986,7 +1275,7 @@ function LegendElement(category, key, parent) {
 	 * @return {boolean}
 	 */
 	this.visible = function(visible, updateLegend) {
-
+		
 	//Setter:
 	var /** number*/ i;
 	if (visible != null){
@@ -1016,8 +1305,10 @@ function LegendElement(category, key, parent) {
 					for (var id in this.googleFeatures){
 						map.data.remove(this.googleFeatures[id]);
 					}
+					legend.destroyPolygonInfoWindowsForOwner(this);
 				}
 				else {
+					this.openInfoWindowsNumber = 0;
 					symbolClusterer.removeOverlays(this);
 				}
 				
@@ -1047,6 +1338,16 @@ function LegendElement(category, key, parent) {
 	this.hasChild = function (element){
 		return false;
 	};
+	
+	this.isActive = function (){
+		if(legend.numActive == 0){
+			return true;
+		} 
+		else{
+			return this.active;
+		}
+	}
+
 
 	/**
 	* @param{boolean} q
@@ -1077,16 +1378,47 @@ function LegendElement(category, key, parent) {
 	 * @return {undefined} 
 	 */
 	this.highlight = function (){
+		var /** jQuery */ element;
+		
 		if(this.parent != null && !this.parent.childrenInLegend){
-			this.parent.htmlElement.focus();
-			this.parent.htmlElement.addClass("focused");
+			element = this.parent.htmlElement;
 		}
 		else
 		{
-			this.htmlElement.focus();
-			this.htmlElement.addClass("focused");
+			element = this.htmlElement;
 		}
+		
+		element.focus();
+		if (element.hasClass("focused"))
+			return;
+		
+		element.addClass("focused");
+		
+		this.openInfoWindowsNumber++;
+
+	    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
+        legend.scrollPosTop = scrollpos;
+
 	};
+	
+	this.unhighlight = function (){
+		this.openInfoWindowsNumber--;
+		
+		if(this.openInfoWindowsNumber == 0){
+			if(this.parent != null && !this.parent.childrenInLegend){
+				for (var i = 0; i < this.parent.subElements.length; i++){
+					if(this.parent.subElements[i].openInfoWindowsNumber > 0){
+						return;
+					}
+				}
+				this.parent.htmlElement.removeClass("focused");
+			}
+			else
+			{
+				this.htmlElement.removeClass("focused");
+			}
+		}
+	}
 	
 	/**
 	 * @return {undefined} 
@@ -1109,7 +1441,6 @@ function LegendElement(category, key, parent) {
 	 * @return {undefined} 
 	 */
 	this.reloadSymbols = function (callback, filterData){
-		//TODO identical in MultiLE and LE => maybe move to a super class?
 		if (this.loading){
 			if(callback)
 				callback();
@@ -1119,7 +1450,8 @@ function LegendElement(category, key, parent) {
 		this.setLoading(true);
 		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
-		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
+		
+		categoryManager.loadData(this.category, this.key, "reload", (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
 	
 	/** 
@@ -1138,7 +1470,7 @@ function LegendElement(category, key, parent) {
 			return symbolManager.getColorStringForSymbol(/** @type{Array<number>} */ (this.colorIndex));
 		}
 		else {
-			return symbolManager.getColorString(/** @type{number} */ (this.colorIndex));
+			return symbolManager.getPolygonColorString(/** @type{number} */ (this.colorIndex));
 		}
 	};
 	
@@ -1168,7 +1500,8 @@ function LegendElement(category, key, parent) {
  * Concrete instance of an legend element with children. Contains info about markers, comments for the category, visibility status etc. and a list of children
  */
 function MultiLegendElement(category, key) {
-	
+
+
 	/** @type {number} */
 	this.category = category;
 	
@@ -1196,11 +1529,32 @@ function MultiLegendElement(category, key) {
 	};
 	
 	/**
+	 * @return {undefined}
+	 */
+	this.repaintSymbols = function (){
+		for (var i = 0; i < this.subElements.length; i++){
+			this.subElements[i].repaintSymbols();
+		}
+	};
+	
+	/**
 	 * @return {number}
 	 */
 	this.getIndex = function (){
 		return this.index;
 	};
+	
+	/**
+	 * @param {boolean} active
+	 * 
+	 * @return {undefined}
+	 */
+	this.setActive = function (active){
+		for (var i = 0; i < this.subElements.length; i++){
+			this.subElements[i].setActive(active);
+		}
+	}
+
 
 	/**
 	 * @type {number}
@@ -1242,9 +1596,6 @@ function MultiLegendElement(category, key) {
 
 	/** @type{string} */
 	this.symbolStandard = "";
-
-	/** @type{string} */
-	this.symbolHighlighted = "";
 	
 	/**
 	 *  @private
@@ -1441,7 +1792,8 @@ function MultiLegendElement(category, key) {
 		this.setLoading(true);
 		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
-		categoryManager.loadData(this.category, this.key, (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
+		
+		categoryManager.loadData(this.category, this.key, "reload", (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
 	
 	/** 

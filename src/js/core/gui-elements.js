@@ -3,15 +3,17 @@ var selectModes = {
 	Select2 : 1
 };
 
+
 /**
  * 
- * @param {string=} selector 
- * @param {number=} mode 
+ * @param {string=} selector
+ * @param {number=} mode
  * @param {string=} dbName
+ * @param {function(Object)=} callback
  * 
  * @returns {undefined}
  */
-function addNewEnumValueScript (selector, mode, dbName){
+function addNewEnumValueScript (selector, mode, dbName, callback){
 	if(selector == undefined)
 		selector = ".im_enum_select";
 	
@@ -22,7 +24,7 @@ function addNewEnumValueScript (selector, mode, dbName){
 		var /** jQuery */ selectObject = jQuery(/** @type{HTMLSelectElement} */ (this));
 		if(selectObject.val() == "###NEW###"){
 			updateSelect(selectObject, "", /** @type{number} */ (mode))
-			newEnumEntry(this, /** @type{string}*/ (selectObject.data("table")), /** @type{string}*/ (selectObject.data("column")), /** @type{string}*/ (selectObject.data("nonce")), /** @type{number} */ (mode), dbName);
+			newEnumEntry(this, /** @type{string} */ (selectObject.data("table")), /** @type{string} */ (selectObject.data("column")), /** @type{string} */ (selectObject.data("nonce")), /** @type{number} */ (mode), dbName, callback);
 		}
 	});
 }
@@ -36,7 +38,7 @@ function addNewEnumValueScript (selector, mode, dbName){
  * @returns {undefined}
  */
 
-//TODO addNewValue for already selected elements
+// TODO addNewValue for already selected elements
 function addNewValueScript (selector, callback, mode){
 	jQuery(selector).change(function (){
 		var /** jQuery */ selectObject = jQuery(/** @type{HTMLSelectElement} */ (this));
@@ -49,23 +51,23 @@ function addNewValueScript (selector, callback, mode){
 
 function initGuiElements (){
 	
-	//Listener to add new rows to the database
+	// Listener to add new rows to the database
 	jQuery(".im_table_select:visible").val("").chosen(chosenSettings);
-	//addNewValueScript(".im_table_select", "reload", selectModes.Chosen, NEW_ELEMENTS_VAL);
+	// addNewValueScript(".im_table_select", "reload", selectModes.Chosen, NEW_ELEMENTS_VAL);
 	
 	jQuery(".im_table_select").each(function (){
-		//Function to get the current value from a select menu
+		// Function to get the current value from a select menu
 		jQuery(this).data("getSelectedValue", function (){
 			return jQuery(this).val();
 		}.bind(this));
 		
-		//Function to get the current name from a select menu
+		// Function to get the current name from a select menu
 		jQuery(this).data("getName", function (key){
-			key = key.substring(1); //Remove prefix
+			key = key.substring(1); // Remove prefix
 			return jQuery(this).children("option[value='" + key + "']").first().text();
 		}.bind(this));
 		
-		//Function to reset the select element
+		// Function to reset the select element
 		jQuery(this).data("reset", function (){
 			jQuery(this).val("0").trigger("chosen:updated");
 		}.bind(this));
@@ -91,28 +93,25 @@ function initGuiElements (){
 		}.bind(this));
 		
 		jQuery(this).data("getName", function (key){
-			key = key.substring(1); //Remove prefix
+			key = key.substring(1); // Remove prefix
 			return jQuery(this).find("a[data-id=" + key + "]").text();
 		}.bind(this));
 		
 		jQuery(this).data("reset", function (){
-			//Not needed
+			// Not needed
 		});
 	});
 	
 	var /** jQuery */ synMap = jQuery("#IM_Syn_Map_Selection");
 	synMap.val("").trigger("chosen:updated");
 	synMap.change(function(){
-		//Disable quantify mode if enabled
+		// Disable quantify mode if enabled
 		if(symbolClusterer.checkQuantify() !== false){
 			symbolClusterer.toggleQuantifyMode();
 		}
 		
-		//Empty legend:
-		legend.removeAll();
-		
-		//Load map:
-		categoryManager.loadSynopticMap(synMap.val() * 1);
+		// Load map:
+		categoryManager.loadSynopticMap(synMap.val() * 1, "USER");
 		jQuery(document).trigger("im_load_syn_map");
 		synMap.val("").trigger("chosen:updated");
 	});
@@ -140,6 +139,17 @@ function initGuiElements (){
 	});
 
 	initCanvasMenu();
+	createLocNavigationDiv();
+	addSelect2ToSearchField();
+
+	window.onpopstate = function (event){
+		if(event.state && event.state["tk"]){
+			categoryManager.loadSynopticMap(event.state["tk"], "URL");
+		}
+		else if(event.state && event.state["content"]){
+			legend.switchToState(event.state["content"])
+		}
+	}
 }
 
 
@@ -147,16 +157,18 @@ function initGuiElements (){
  * Opens a dialog window for a tableEntryBox (compare with table_entry_box in gui-elements.php)
  * 
  * @param {string} id The id of the content that is supposed to be showed
- * @param {function(Object<string, *>)|string|null} callback A function that is called if the dialog is closed using the confirm button. The shortcode "reload" triggers a page reload.
+ * @param {function(Object<string, *>)|string|null} callback A function that is called if the dialog is closed using the confirm button. The
+ *            shortcode "reload" triggers a page reload.
  * @param {number} mode
  * @param {string=} dbName
  * @param {boolean=} suppressUserName
  * @param {string=} primaryKeyField
  * @param {string=} updateId
+ * @param {Object<string, string>=} values
  * 
  * @return {undefined}
  */
-function showTableEntryDialog(id, callback, mode, dbName, suppressUserName, primaryKeyField, updateId){
+function showTableEntryDialog(id, callback, mode, dbName, suppressUserName, primaryKeyField, updateId, values){
 
 	var /** jQuery */ divObject = jQuery('#' + id);
 	jQuery("#error" + id).html("");
@@ -166,8 +178,15 @@ function showTableEntryDialog(id, callback, mode, dbName, suppressUserName, prim
 		'modal': true
 	});
 	
+	if (values !== undefined){
+		for (var key in values){
+			// TODO also make this work for checkboxes
+			divObject.find("form[name=inputNewConceptForTree] [name=" + key + "]").val(values[key]);
+		}
+	}
+	
 	if(mode == selectModes.Chosen){
-		//Rebuild Chosen elements (this is needed since Chosen sets the width of a hidden element to zero)
+		// Rebuild Chosen elements (this is needed since Chosen sets the width of a hidden element to zero)
 		divObject.find('select').chosen("destroy");
 		divObject.find('select').chosen({allow_single_deselect: true});
 	}
@@ -176,13 +195,13 @@ function showTableEntryDialog(id, callback, mode, dbName, suppressUserName, prim
 		divObject.find('select').select2();
 	}
 	
-	//Set button value
+	// Set button value
 	if(primaryKeyField && updateId)
 		jQuery("#save" + id).val(/** @type{string} */ (jQuery("#save" + id).data("update-value")));
 	else
 		jQuery("#save" + id).val(/** @type{string} */ (jQuery("#save" + id).data("insert-value")));
 	
-	//Bind callback function
+	// Bind callback function
 	jQuery("#save" + id).unbind("click");
 	jQuery("#save" + id).click(function (){
 		addEntryToTable(/** @type {string} */ (divObject.data("table")), id, callback, mode, dbName, suppressUserName, primaryKeyField, updateId);
@@ -205,7 +224,7 @@ function showTableEntryDialog(id, callback, mode, dbName, suppressUserName, prim
 function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserName, primaryKeyField, updateId){
 	var /** HTMLCollection */ e = document["forms"]["input" + selectId].elements;
 	
-	var /**Array<HTMLFormElement> */ elementArray = [];
+	var /** Array<HTMLFormElement> */ elementArray = [];
 	var /** string */ nonce;
 	
 	for (var /** number */ i = 0; i < e.length; i++){
@@ -214,7 +233,7 @@ function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserN
 			nonce = e[i]["value"];
 		}
 		else if(e[i]["parentNode"]["className"] != "chosen-search"){
-			//Ignore the input elements added by Chosen
+			// Ignore the input elements added by Chosen
 			elementArray.push(e[i]);
 		}
 	}
@@ -256,7 +275,7 @@ function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserN
 						break;
 						
 					default:
-						alert("Unknown callback shortcut!"); //TODO translate
+						alert("Unknown callback shortcut!"); // TODO translate
 				}
 			}
 
@@ -316,6 +335,7 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
 	var /** Array<string> */ rows = [];
 	var /** Array<string> */ values = [];
 	var /** Array<string> */ format = [];
+	var /** Array<string> */ defaultFields = [];
 	
 	for (var /** number */ i = 0; i < elements.length; i++){
 		if(suppressUserName && elements[i].dataset["meta"] == "user"){
@@ -323,24 +343,42 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
 		}
 		
 		if((elements[i]["value"] == "" || elements[i]["value"] == null) && elements[i]["dataset"]["nonempty"] == "1"){
-			alert("Das Feld \"" + elements[i]["name"] + "\" darf nicht leer sein!"); //TODO translation
+			alert("Das Feld \"" + elements[i]["name"] + "\" darf nicht leer sein!"); // TODO translation
 			return null;
 		}
+		
 		var indexName = rows.indexOf(elements[i].name);
 		if(indexName === -1){
-			rows.push(elements[i].name);
-		
-			if(elements[i]["dataset"]["type"] == 'B'){
+			if(elements[i]["dataset"]["emptydefault"] == '1' && elements[i]["value"] == ""){
+				if(updateId){
+					defaultFields.push(elements[i].name);
+				}
+				//Ignore, so that the default value is used
+			}
+			else if(elements[i]["dataset"]["type"] == 'B'){
 				values.push(elements[i]["checked"]? "1":"0");
 				format.push('%d');
+				rows.push(elements[i].name);
 			}
 			else if(elements[i]["dataset"]["type"] == 'S'){
 				values.push(elements[i]["checked"]? elements[i]["value"] : "");
 				format.push('%s');
+				rows.push(elements[i].name);
+			}
+			else if(elements[i]["dataset"]["type"] == 'N'){
+				if(isNaN(elements[i]["value"])){
+					alert("Im Feld '" + elements[i].name + "' muss eine Nummer stehen!");
+					return null;
+				}
+				
+				values.push(elements[i]["value"]);
+				format.push('%d');
+				rows.push(elements[i].name);
 			}
 			else {
 				values.push(elements[i]["value"]);
 				format.push('%s');
+				rows.push(elements[i].name);
 			}
 		}
 		else if(elements[i]["checked"]) {
@@ -350,7 +388,7 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
 				values[indexName] += ("+" + elements[i]["value"]);
 		}
 	}
-	var /** Object<string, string> */ data = {
+	var /** Object<string, ?> */ data = {
 		'action' : 'im_u',
 		'namespace' : 'gui_elements',
 		'query': updateId? 'update_table_value' : 'add_new_entry_to_table',
@@ -365,6 +403,10 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
 		data["key_field"] = primaryKeyField;
 	}
 	
+	if(updateId){
+		data["defaultFields"] = defaultFields;
+	}
+	
 	return data;
 }	
 
@@ -375,10 +417,11 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
  * @param {string} nonce
  * @param {number} mode
  * @param {string=} dbName
+ * @param {function(Object)=} callback
  * 
  * @returns{undefined}
  */
-function newEnumEntry(caller, table, col, nonce, mode, dbName){
+function newEnumEntry(caller, table, col, nonce, mode, dbName, callback){
 	var selectObject = jQuery(caller);
 	var newVal = prompt(TRANSLATIONS["NEW_ENTRY"], "");
 	if(newVal != null && newVal != ""){
@@ -405,6 +448,8 @@ function newEnumEntry(caller, table, col, nonce, mode, dbName){
 			else{
 				selectObject.append("<option value='" + newVal + "'>" + newVal + "</option>");
 				updateSelect(selectObject, newVal, mode);
+				if(callback)
+					callback({"newValue" : newVal});
 				alert(TRANSLATIONS["VALUE_ADDED"]);
 			}	
 		});
@@ -431,9 +476,232 @@ function updateSelect(element, value, mode){
 	}
 }
 
-/** 
-* @return {undefined}
-*/
+
+/**
+ * @returns {undefined}
+ */
+ function createLocNavigationDiv (){
+
+ 	google.maps.event.addListenerOnce(map, 'idle', function(){
+
+
+		var div = jQuery('<div class="im_loc_nav custom_control_base custom_control_shadow"><i class="fas fa-compass" aria-hidden="true"></i></div>');
+		jQuery('.gm-style').append(div);
+
+	    div.on('click',function(){
+	    	jQuery('#IM_loc_nav_popup').modal();
+	    });
+
+	    jQuery('#IM_loc_nav_popup').one('shown.bs.modal',function(){
+	    	var ajax_data_loc = getAjaxData("load_loc_data");
+	    	var select2_lang = PATH["language"];
+	    	if(select2_lang=="si")
+	    		select2_lang="sl";
+
+	    	var loc_select2 = jQuery('.loc_data_select').select2({
+	    	  "ajax": ajax_data_loc,
+	      	  "minimumInputLength": 3,
+	    	  "placeholder":  TRANSLATIONS['SEARCH_PLACEHOLDER'],
+	    	  "escapeMarkup": function (markup) { return markup; },
+	          "delay": 250,
+	          "templateResult": formatLocResults,
+	          "width" : "100%",
+	          "language": select2_lang
+	    	});
+
+
+			loc_select2.on('select2:select', function (e) {
+				jQuery('#IM_loc_nav_popup').modal('hide');
+				var data = e['params']['data'];
+				gotoLocation(data['id'], true);
+			});
+
+
+			var ajax_data_lang = getAjaxData("global_search"); // change when ajax done
+
+	  })
+
+	jQuery('#IM_loc_nav_popup').on('show.bs.modal',function(){
+		try {
+			jQuery('.loc_data_select').val('').trigger('change');
+		}
+		catch(e) {
+			    
+		}
+	})
+});
+
+
+}
+
+
+
+ function addSelect2ToSearchField(){
+
+	var ajax_data_loc = getAjaxData("load_loc_data");
+	var select2_lang = PATH["language"];
+	
+	if(select2_lang=="si")
+		select2_lang="sl";
+
+	var ajax_data_lang = getAjaxData("global_search"); // change when ajax done
+
+	var lang_select2 = jQuery('.global_search').select2({
+		"ajax": ajax_data_lang,
+		"minimumInputLength": 3,
+		"placeholder":  TRANSLATIONS['SEARCH_PLACEHOLDER'],
+		"escapeMarkup": function (markup) { return markup; },
+		"templateResult": formatLocResults,
+		"width" : "100%",
+	 	"language": select2_lang,
+	});
+
+	lang_select2.on('select2:select', function (e) {
+
+		jQuery('#IM_lang_search_modal').modal('hide');
+		var data = e['params']['data'];
+
+		var type = 0;
+		var id = data['id'];
+
+		if(id.startsWith("SYN")){
+			categoryManager.loadSynopticMap(id.substring(3), "USER");
+		}
+
+		else if(id.startsWith("LOC")){
+		   gotoLocation(id.substring(3), true);
+		}
+
+		else {
+			categoryManager.showFilterScreen(categoryManager.categoryFromId(id), id);
+		}
+		lang_select2.val(null).trigger('change');
+	});
+
+	lang_select2.on('select2:open',function(e){
+		var id = jQuery(this).parent().find('.select2-selection.select2-selection--multiple').attr('aria-owns');
+		var dropdown = jQuery('#'+id).parent().parent().parent();
+		dropdown.attr('id','global_search_dropdown');
+
+		var height = jQuery('#leftTable').height();
+		if(height<300)height=300;
+		dropdown.find('ul.select2-results__options').css('max-height',(height)+"px");
+	});
+
+
+}
+
+
+function getAjaxData(namespace){
+
+return {
+    dataType: 'json',
+			    "type": "POST",
+			    url: ajaxurl,
+			    delay: 250,
+				"data": function (params) {
+
+					var query = {
+					"search" : params['term'],
+					"action" : "im_a",
+ 					"namespace" : namespace,
+					"lang" : PATH["language"],
+					"_wpnonce" : jQuery("#_wpnonce").val()
+				}
+
+				 return query;
+				},
+
+				 "processResults": function (data, params) {
+			 	  var results_by_categories = {}; 
+			      params['page'] = params['page'] || 1;
+
+			      // group results by categories
+
+			      for(var key in data['results']){
+			      		var item = data['results'][key];
+			      		var desc = item['description'];
+			      		if(results_by_categories[desc]==null){
+			      			results_by_categories[desc] = [];
+			      		}
+
+			      		results_by_categories[desc].push(item);
+			      }
+
+			     var res_objs = []
+
+			      for(var key in results_by_categories){
+			      	  var res_obj = {};
+			      	  var obj = results_by_categories[key];
+			      	  res_obj['text'] = key;
+			      	  res_obj['children'] = obj;
+			      	  res_objs.push(res_obj);
+			      }
+
+			      return {
+			        "results": res_objs,
+			        "pagination": {
+			          "more": (params['page'] * 30) < data['total_count']
+			        }
+			      };
+			    }
+
+}
+
+}
+
+function formatLocResults(data){
+
+ if (data['loading']) {
+    return TRANSLATIONS['SEARCH_LOADING'];
+  }
+	var markup ="";
+	var desc = data['description'];
+
+	 markup+='<div>'+data['text']+'</div>';
+
+	return markup;
+}
+
+/**
+ * 
+ * @param {string} id
+ * @param {boolean} zoom
+ * 
+ * @return {undefined}
+ */
+function gotoLocation(id, zoom){
+
+	var data = {
+		'action' : 'im_a',
+		'namespace' : 'goto_loc',
+		'loc_id' : id,
+		'_wpnonce' : jQuery("#_wpnonce").val()
+	};
+
+	jQuery.post(ajaxurl, data, function (response) {
+		if(response == "-1"){
+			alert("Not allowed!");
+		}
+		else {
+			var responseData = JSON.parse(response);
+			
+			var /** string */ pointstr = responseData["point"];
+			var /** string */ text = responseData["text"];
+			
+			var match = pointstr.match(/\(\(\s*(.*?)\s*\,/)[1];
+			var res = match.split(" ");
+			
+			var marker = mapInterface.addLocationMarker(parseFloat(res[1]), parseFloat(res[0]), text, id, zoom);
+			mapState.addLocationMarker(id, marker);
+			
+		}	
+	});
+}
+
+/**
+ * @return {undefined}
+ */
 function initCanvasMenu(){
 	jQuery.ajax({
 		dataType: "json",
@@ -471,9 +739,8 @@ function createCanvasMenu (gradients){
 
 	var container = jQuery('<div id="listcontainer"></div>');
 	jQuery('body').append(container);
-	var edithover = false;
 	var listout = false;
-	
+
 	var list = jQuery('<ul class="canvas_list"></ul>');
 	container.append(list);
 	
@@ -483,6 +750,9 @@ function createCanvasMenu (gradients){
 	container.append(icon);
 	
 	container.append(jQuery('<div id="activediv"></div>'));
+
+	var startblock = jQuery('<div id="gradient_startblock"></div>')
+	container.append(startblock);
 	
 	for (var i=0; i<gradients.length;i++){
 	
@@ -514,11 +784,6 @@ function createCanvasMenu (gradients){
 		var canvas  = document.getElementById('barcanvas_'+i);
 		createCanvas(canvas,gradient,canvas_size);
 	
-		var editsymbol = jQuery('<i style="display:none;" class="fa fa-pencil-square editsymbol" aria-hidden="true"></i>');
-		active.append(editsymbol);
-	
-		var editsymbolbg = jQuery('<i style="display:none;" class="fa fa-square editsymbolbg" aria-hidden="true"></i>');
-		active.append(editsymbolbg);
 
 	}
 	else {
@@ -552,48 +817,33 @@ jQuery("#activediv").hover(function(){
    jQuery(this).find('.canvastext').show();
    jQuery('#listcontainer').find('.canvas_icon').show();
    jQuery('.gradient_help').hide();
-   if(!listout){
-   jQuery(this).find('.editsymbol').show();
-   jQuery(this).find('.editsymbolbg').show();
-   }
+
+
 }, function(){
    jQuery(this).find('.hoverdiv').hide();
    jQuery(this).find('.canvastext').hide();
    jQuery('#listcontainer').find('.canvas_icon').hide();
-   jQuery(this).find('.editsymbol').hide();
-   jQuery(this).find('.editsymbolbg').hide();
    jQuery('.gradient_help').show();
 });
 
-jQuery(".editsymbol").hover(function(){
-   edithover = true;
-}, function(){
-   edithover = false;
-});
 
 
 jQuery('#activediv').click(function() {
-  if(!edithover){
-    listout= !listout;
-    jQuery('.canvas_list').slideToggle();
-    jQuery('.canvas_icon').toggleClass('fa fa-long-arrow-up fa fa-long-arrow-down');
-    jQuery(this).find('.editsymbol').hide();
-    jQuery(this).find('.editsymbolbg').hide();
-    jQuery('.colorbarlegenditem').hide();
-    if(!listout){
-         jQuery(this).find('.editsymbol').show();
-         jQuery(this).find('.editsymbolbg').show();
-         setTimeout(function() { jQuery('.colorbarlegenditem').fadeIn('slow');}, 200);
-        
-    }
-    }
+  listout = adjustCanvasList(listout,true);
+
 });
+
+jQuery('#gradient_startblock').on('click',function(){
+    if(listout) listout = adjustCanvasList(listout,false);
+})
 
 
 jQuery('.canvas_list li').click(function(){
+	
+jQuery('.hoverdiv').hide();
+jQuery('.canvastext').hide();
 
  var clicked_canvas = jQuery(this).children();
- var hover =  jQuery(this).find('.hoverdiv');
 
  var old_active = jQuery('.exchangeparent').children();
 
@@ -607,12 +857,13 @@ jQuery('.canvas_list li').click(function(){
 jQuery(this).prepend(old_active);
  // jQuery(this).parent().append(old_active);
 listout = false;
+
 symbolClusterer.changePolygonColor(false);
-})
+});
 
 
 
-var colorpicker = jQuery('.editsymbol').colorPicker(
+var colorpicker = jQuery('#gradient_startblock').colorPicker(
 {	
     "doRender" : false,
     "opacity": true,
@@ -626,16 +877,8 @@ var colorpicker = jQuery('.editsymbol').colorPicker(
 
     	if (toggled) { // on show colorPicker
 
-    		var /** CanvasRenderingContext2D */ ctx = canvas.getContext('2d');
-	        var /** ImageData */ pix = ctx.getImageData(0, 0, 1, 1);
-	        var /**Uint8ClampedArray */ color_arr = pix.data;
-	        	
-	        var /** number*/ r = color_arr[0];
-	        var /** number*/ g = color_arr[1];
-	        var /** number*/ b = color_arr[2];
-	        var /** number*/ a = Math.round((color_arr[3]/255)*10)/10;
+    		var initial_color = jQuery('#gradient_startblock').css('background-color');
 
-	        var initial_color = "rgba(" + r + "," + g + "," + b + "," + a +")";	
     	    this['color']['setColor'](initial_color);
     	    this['render']();
 
@@ -644,23 +887,53 @@ var colorpicker = jQuery('.editsymbol').colorPicker(
     	  symbolClusterer.changePolygonColor(false);
     	}
 
-    	if(!toggled)updateActiveCanvas(rgb,alpha,canvas,false);
+    	if(!toggled)changeStartColor(rgb,alpha,canvas,false);
 
     }
 });
+
 
 
 var help_symbol = jQuery('<i class="gradient_help fa fa-question-circle-o" aria-hidden="true"></i>');
 
 jQuery('#listcontainer').append(help_symbol);
 
-addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); //TODO cannot use stuff from VA!!!
+addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); // TODO cannot use stuff from VA!!!
 
 var thediv = document.getElementById('listcontainer');
 jQuery('#listcontainer').hide();
 map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(thediv);
 
-}//createCanvasMenu
+}// createCanvasMenu
+
+
+
+/**
+ * 
+ * @param {boolean} listout
+ * @param {boolean} keep_overlay
+ * @return {boolean}
+ */
+
+function adjustCanvasList(listout,keep_overlay){
+	listout= !listout;
+    jQuery('.canvas_list').slideToggle();
+    jQuery('.canvas_icon').toggleClass('fa fa-long-arrow-up fa fa-long-arrow-down');
+    jQuery('.colorbarlegenditem').hide();
+
+    if(!listout){
+
+         setTimeout(function() { jQuery('.colorbarlegenditem').fadeIn('slow');}, 200);
+    }
+
+    if(!keep_overlay){
+	    jQuery('.hoverdiv').hide();
+  	    jQuery('.canvastext').hide();
+    }
+    
+
+    return listout;
+}
 
 
 /**
@@ -673,7 +946,7 @@ map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(thediv);
  */
 function createCanvas(canvas, gradient, canvas_size) {
 
-	var /** CanvasRenderingContext2D*/ ctx = canvas.getContext('2d');
+	var /** CanvasRenderingContext2D */ ctx = canvas.getContext('2d');
 	ctx.rect(0, 0, canvas.width, canvas.height);
 	
 	var grd = ctx.createLinearGradient(0,0,canvas_size,0);
@@ -684,40 +957,49 @@ function createCanvas(canvas, gradient, canvas_size) {
 	 // Fill with gradient
 	ctx.fillStyle = grd;
 	ctx.fillRect(0,0,canvas_size,35);
-	
-	var /** {r: number, g: number, b: number} */ first_color = {"r": 71, "g" : 71, "b" : 71};
-	
-	updateActiveCanvas(first_color, 0.5, canvas, true);
 }
 
 /**
  * 
- * @param {{r : number, g : number, b : number}} rgb 
- * @param {number} alpha_in 
+ * @param {{r : number, g : number, b : number}} rgb
+ * @param {number} alpha_in
  * 
  * @return {undefined}
  */
-function updateActiveCanvas(rgb,alpha_in,canvas,global_alpha){
+function changeStartColor(rgb,alpha_in,canvas,global_alpha){
 
 
- var ctx = canvas.getContext('2d');
-     ctx.globalAlpha=alpha_in;
+ // var ctx = canvas.getContext('2d');
+ // ctx.globalAlpha=alpha_in;
 
-     if(global_alpha)ctx.globalAlpha=1.0;
+ // if(global_alpha)ctx.globalAlpha=1.0;
 
-      var alpha = Math.floor(alpha_in*255);
+ // var alpha = Math.floor(alpha_in*255);
 
-      var imgd = ctx.getImageData(0, 0, 1, 35);
-      var pix = imgd.data;
+ // var imgd = ctx.getImageData(0, 0, 1, 35);
+ // var pix = imgd.data;
 
-      for (var i = 0, n = pix.length; i <n; i += 4) {
+ // for (var i = 0, n = pix.length; i <n; i += 4) {
               
-              pix[i] = rgb['r'];
-              pix[i+1] = rgb['g'];
-              pix[i+2] = rgb['b'];
-              pix[i+3] = alpha; 
-      }
+ // pix[i] = rgb['r'];
+ // pix[i+1] = rgb['g'];
+ // pix[i+2] = rgb['b'];
+ // pix[i+3] = alpha;
+ // }
 
-     ctx.putImageData(imgd, 0, 0);
+ // ctx.putImageData(imgd, 0, 0);
 
+    jQuery('#gradient_startblock').css('background-color',"rgba(" + rgb['r'] + "," + rgb['g'] + "," + rgb['b'] + "," + alpha_in +")");
+
+}
+
+/**
+ * 
+ * @param {jQuery|string} input
+ * 
+ * @return {Array<string>}
+ */
+
+function parseColor(input) {
+    return input.split("(")[1].split(")")[0].split(",");
 }

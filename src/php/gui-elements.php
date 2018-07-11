@@ -30,6 +30,8 @@
  * 		@type callable list_format_function 	Takes for each row an array with values of the columns specified in $colums_to_select_from and returns the string used as text for the respective <option> element.
  * 												Default behaviour is to return the first non-empty, non-null value.
  * 		@type callable sort_simplification_function Transforms a string for sorting
+ * 		@type string group_by Grouping of elements the ids are concatenated with +
+ * 		@type string group_order_by Order by clause for the group concat that creates the key for queries with group by clauses
  * }
  * @return string The html code for the <select> element
  */
@@ -78,7 +80,23 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	}
 	
 	//Get table rows
-	$sql = 'SELECT DISTINCT ' . implode(',', $key) . ', ' . implode(', ', $colums_to_select_from) . ' FROM ' . $table . (isset($addional_data['filter'])? ' WHERE ' . $addional_data['filter'] : '');
+	$key_part = 'DISTINCT ' . implode(',', $key);
+	if (isset($addional_data['group_by'])){
+		$group_order = '';
+		if (isset($addional_data['group_order_by'])){
+			$group_order .= ' ORDER BY ' . $addional_data['group_order_by'];
+		}
+		$keySelect = 'GROUP_CONCAT(' . $key_part . $group_order . " SEPARATOR '+')";
+	}
+	else {
+		$keySelect = $key_part;
+	}
+	
+	$sql = 'SELECT ' . $keySelect . ', ' . implode(', ', $colums_to_select_from) . ' FROM ' . $table . (isset($addional_data['filter'])? ' WHERE ' . $addional_data['filter'] : '');
+	if (isset($addional_data['group_by'])){
+		$sql .= ' GROUP BY ' . $addional_data['group_by'];
+	}
+	
 	$values = IM_Initializer::$instance->database->get_results($sql, ARRAY_A);
 	
 	$result = '';
@@ -152,6 +170,10 @@ function im_get_option_text ($row, $colums_to_select_from, $list_format_function
 	
 		$filtered_array = array();
 		foreach ($colums_to_select_from as $col){
+			$index_as = stripos($col, ' AS ');
+			if($index_as !== false){
+				$col = substr($col, $index_as + 4);
+			}
 			$filtered_array[] = $row[$col];
 		}
 		
@@ -165,12 +187,14 @@ function im_get_option_text ($row, $colums_to_select_from, $list_format_function
 }
 
 class IM_Field_Information {
-	function __construct ($col_name, $col_type, $mandatory, $allow_new_values = false, $default_value = NULL){
+	function __construct ($col_name, $col_type, $mandatory, $allow_new_values = false, $default_value = NULL, $fixed = false, $default_on_empty = false){
 		$this->col_name = $col_name;
 		$this->col_type = $col_type;
 		$this->mandatory = $mandatory;
 		$this->allow_new_values = $allow_new_values;
 		$this->default_value = $default_value;
+		$this->fixed = $fixed;
+		$this->default_on_empty = $default_on_empty;
 	}
 	
 	public $col_name;
@@ -214,7 +238,7 @@ class IM_Row_Information {
  * 
  * @return string The html code for the input box
  */
-function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonce_field = true){
+function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonce_field = true, $addional_html = ''){
 
 	$result = '<div id="' . $id . '" style="display:none;" title="' . $row_information->table . '" data-table="' . $row_information->table . '" >
 				<div id="error' . $id . '" class="IM_error_message">
@@ -224,46 +248,75 @@ function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonc
 				
 	foreach ($row_information->field_list as $field_info){
 		
+		$alias = $field_info->col_name;
+		$pos_as = strpos($field_info->col_name, ' AS ');
+		if($pos_as !== false){
+			$alias = substr($field_info->col_name, $pos_as + 4);
+			$field_info->col_name = substr($field_info->col_name, 0, $pos_as);
+		}
+		
 		//TODO use default value for others than booleans!
+		//TODO use fixed for others than fk!
 		$type = $field_info->col_type;
 		if($type == 'B'){ //Boolean
 			$result .= 
-				'<tr><td>' . $field_info->col_name . ':</td><td><input type="checkbox" name="' . 
-				$field_info->col_name . '"' . ($field_info->default_value? 'checked="checked' : '') . ' data-nonempty="' . $field_info->mandatory . '" data-type="B"></td></tr>';
+			'<tr><td>' . $alias . ':</td><td><input type="checkbox" name="' . 
+			$field_info->col_name . '"' . ($field_info->default_value? 'checked="checked' : '') . ' data-nonempty="' . 
+			$field_info->mandatory . '" data-type="B" data-emptydefault="' . $field_info->default_on_empty . '"></td></tr>';
 		}
 		else if ($type == 'E'){
 			$result .=
-			'<tr><td>' . $field_info->col_name . ':</td><td>' .
-			im_enum_select($row_information->table, $field_info->col_name, $field_info->col_name, '---', $field_info->allow_new_values, 'data-type="E" data-nonempty="' . $field_info->mandatory . '"', NULL, $dbname) . '</td></tr>';
+			'<tr><td>' . $alias . ':</td><td>' .
+			im_enum_select($row_information->table, $field_info->col_name, $field_info->col_name, '---', $field_info->allow_new_values, 'data-type="E" data-nonempty="' . $field_info->mandatory . '" data-emptydefault="' . $field_info->default_on_empty . '"', NULL, $dbname) . '</td></tr>';
 		}
 		else if ($type == 'T'){ //Text
 			$result .=
-			'<tr><td>' . $field_info->col_name . ':</td><td><textarea name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="T"></textarea></td></tr>';
+			'<tr><td>' . $alias . ':</td><td><textarea name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="T" data-emptydefault="' . $field_info->default_on_empty . '"></textarea></td></tr>';
 		}
 		else if ($type == 'S'){ 
 			//Serialized enum 
 			//(e.g. used for multiple gender assignments, instead of using a separate table to store the gender assignments
 			// an enum with all combinations (f m n f+m, f+n m+n f+m+n) is used. On the surface checkboxes are used for every value (f,m,n)
 			$result .=
-			'<tr><td>' . $field_info->col_name . ':</td><td>' .
+			'<tr><td>' . $alias . ':</td><td>' .
 			im_serialized_enum($row_information->table, $field_info->col_name, $field_info->col_name, '---', $dbname) .
 			'</td></tr>';
 		}
 		else if(strpos($type, 'F') === 0){ //Foreign Key
-			$whereClause = substr($type, 1);
+			$add_info = substr($type, 1);
+			$where_clause = '';
+			$extra_field = NULL;
+			if($add_info != ''){
+				if($add_info[0] == '{'){
+					$pos_closing = strpos($add_info, '}');
+					$extra_field = substr($add_info, 1, $pos_closing - 1);
+					$where_clause = substr($add_info, $pos_closing + 1);
+				}
+				else {
+					$where_clause = $add_info;
+				}
+			}
+			
 			$result .=
-			'<tr><td>' . $field_info->col_name . ':</td><td>' .
-			im_fk_input($row_information->table, $field_info->col_name, $field_info->col_name,  '---', "data-type=\"F\"", $whereClause, $dbname) . '</td></tr>'; //TODO nonempty
+			'<tr><td>' . $alias . ':</td><td>' .
+			im_fk_input($row_information->table, $field_info->col_name, $field_info->col_name,  '---', "data-type=\"F\" data-emptydefault=\"" . $field_info->default_on_empty . "\"", $where_clause, $extra_field, $dbname, $field_info->fixed) . '</td></tr>'; //TODO nonempty
+		}
+		else if($type == 'N'){ //Number
+			$result .=
+			'<tr><td>' . $alias . ':</td><td><input type="text" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="N" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
 		}
 		else { //Varchar
 			$result .=
-			'<tr><td>' . $field_info->col_name . ':</td><td><input type="text" name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="V" /></td></tr>';
+			'<tr><td>' . $alias . ':</td><td><input type="text" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="V" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
 		}
 	}
 
 	$result .= '</table>';
+	
+	$result .= $addional_html;
 	
 	if(isset($row_information->user_name_field)){
 		$result .= '<input type="hidden" data-meta="user" name="' .$row_information->user_name_field . '" value="' . wp_get_current_user()->user_login . '" />';
@@ -328,7 +381,7 @@ function im_enum_select($table, $col, $name, $selected_value, $allow_new = false
 		$dbname = IM_Initializer::$instance->database->dbname;
 	}
 
-	$enum = IM_Initializer::$instance->database->get_var("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$table' AND COLUMN_NAME = '$col' AND TABLE_SCHEMA = '" . $dbname . "'");
+	//$enum = IM_Initializer::$instance->database->get_var("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '$table' AND COLUMN_NAME = '$col' AND TABLE_SCHEMA = '" . $dbname . "'");
 
 	$enum_list = im_get_enum_values_list($table, $col, $dbname);
 
@@ -359,7 +412,7 @@ function im_get_enum_values_list ($table, $col, $dbname){
 	return $enum_list;
 }
 
-function im_fk_input ($table, $col, $name, $selected_value, $custom_attributes = '', $where_clause = '', $dbname = NULL){
+function im_fk_input ($table, $col, $name, $selected_value, $custom_attributes = '', $where_clause = '', $extra_field = NULL, $dbname = NULL, $fixed = false){
 
 	if($dbname === NULL){
 		$dbname = IM_Initializer::$instance->database->dbname;
@@ -376,15 +429,22 @@ function im_fk_input ($table, $col, $name, $selected_value, $custom_attributes =
 			from INFORMATION_SCHEMA.KEY_COLUMN_USAGE
 			where TABLE_SCHEMA = '$dbname' and TABLE_NAME = '$table' and COLUMN_NAME = '$col'
 			and referenced_column_name is not NULL;", ARRAY_N);
-	$valueList = $db->get_results("SELECT " . $table_info[0][1] . " FROM " . $table_info[0][0] . $where_clause, ARRAY_N);
+	
+	$select_clause = $table_info[0][1];
+	if($extra_field !== NULL){
+		$select_clause = $extra_field;
+	}
+	$valueList = $db->get_results("SELECT " . $table_info[0][1] . ', ' . $select_clause . " AS Renamed FROM " . $table_info[0][0] . $where_clause . ' ORDER BY ' . $select_clause, ARRAY_N);
+	
+	if($fixed)
+		$custom_attributes .= ' disabled="disabled"';
 	
 	$result = '<select name="' . $name . '" id="' . $col . '" ' . $custom_attributes . ">\n";
 	foreach($valueList as $value){
-		$value = $value[0];
 		if($value == $selected_value)
-			$result .= "<option value=\"$value\" selected>$value</option>\n";
+			$result .= "<option value=\"{$value[0]}\" selected>{$value[1]}</option>\n";
 			else
-				$result .= "<option value=\"$value\">$value</option>\n";
+				$result .= "<option value=\"{$value[0]}\">{$value[1]}</option>\n";
 	}
 	$result .= "</select>\n\n";
 	
@@ -438,6 +498,67 @@ function im_create_filter_popup_html (){
 </div>	
 	<?php
 }
+
+function im_create_loc_nav_popup_html($Ue){
+	?>
+
+	<div id="IM_loc_nav_popup" class="modal fade im_search_modal">
+ 		 <div class="modal-dialog" role="document">
+			  <div class="modal-content im_map_modal_content">  
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"><span><i class="fas fa-compass" aria-hidden="true"></i> <?php echo $Ue['GEO_NAVIGATION']; ?></span></h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+					<div class="modal-body im_map_modal_body">
+							<div class="db_select_head"> <?php echo $Ue['LOC_NAVIGATION']; ?>:</div>
+							<select class="loc_data_select"></select>
+					</div>	
+					
+				<div class="modal-footer"></div>
+
+			</div>
+
+	 </div>
+</div>	
+	<?php
+}
+
+
+
+function im_create_lang_search_html($Ue){
+	?>
+
+	<div id="IM_lang_search_modal" class="modal fade im_search_modal">
+ 		 <div class="modal-dialog" role="document">
+			  <div class="modal-content im_map_modal_content">  
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"><span><i class="fas fa-search" aria-hidden="true"></i> <?php echo $Ue['SEARCH']; ?></span></h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+					<div class="modal-body im_map_modal_body">
+							<div class="db_select_head"> <?php echo $Ue['LANG_NAVIGATION']; ?>:</div>
+							<select class="lang_data_select"></select>
+					</div>	
+					
+				<div class="modal-footer"></div>
+
+			</div>
+
+	 </div>
+</div>	
+	<?php
+}
+
+
+
 
 function im_create_legend (){
 	?>
@@ -494,7 +615,7 @@ function im_create_comment_popup_html (){
    <div class="modal-content im_map_modal_content">  
 
      <div class="modal-header">
-        <h5 class="modal-title"><?php _e('Comment', 'interactive-map');?></h5>
+        <h5 class="modal-title" id="commentTitle"><?php _e('Comment', 'interactive-map');?></h5>
         <button type="button" class="close" aria-label="Close">
           <span aria-hidden="true">&times;</span>
         </button>

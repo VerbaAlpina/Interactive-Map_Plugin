@@ -50,7 +50,7 @@ function MarkingComponent (tags){
 		link.appendChild(icon);
 		link.appendChild(document.createTextNode(" " + TRANSLATIONS["ADD_MARKING"]));
 		link.addEventListener("click", function (){
-			if(jQuery("#IM_Marking_Table .IM_Marking_Color_Select").length < symbolManager.getNumColors()){
+			if(jQuery("#IM_Marking_Table .IM_Marking_Color_Select").length < symbolManager.getNumMarkingColors()){
 				var /** Array<Element>*/ colorSelects = jQuery(".IM_Marking_Color_Select").get();
 		 		var /** Array<number>*/ restrictedColors = colorSelects.map(function (element){
 					return element.value * 1;
@@ -147,11 +147,11 @@ function MarkingComponent (tags){
 		colorSelect["style"]["width"] = "15%";
 		
 		var /** boolean */ first = true;
-		for (var i = 0; i < symbolManager.getNumColors(); i++){	
+		for (var i = 0; i < symbolManager.getNumMarkingColors(); i++){
 			if(blockedColors.indexOf(i) === -1){
 			
 				if(first){
-					colorSelect.style.background = symbolManager.getColorString(i);
+					colorSelect.style.background = symbolManager.getMarkingColorString(i);
 					colorSelect["dataset"]["lastColor"] = i;
 					jQuery("#IM_Marking_Table .IM_Marking_Color_Select option[value='" + i + "']").remove();
 					first = false;
@@ -162,7 +162,7 @@ function MarkingComponent (tags){
 		}
 		
 		colorSelect.addEventListener("change", function (){
-			this.style.background = symbolManager.getColorString(this.value);
+			this.style.background = symbolManager.getMarkingColorString(this.value);
 			jQuery("#IM_Marking_Table .IM_Marking_Color_Select").not(this).append(thisObject.getColorOption(this["dataset"]["lastColor"]));
 			jQuery("#IM_Marking_Table .IM_Marking_Color_Select").not(this).find("option[value='" + this.value + "']").remove();
 			this["dataset"]["lastColor"] = this.value;
@@ -204,7 +204,7 @@ function MarkingComponent (tags){
 		var /** Element */ colorOption = document.createElement("option");
 		colorOption.value = colorIndex;
 		colorOption.style.height = "1.5em";
-		colorOption.style.background = symbolManager.getColorString(colorIndex);
+		colorOption.style.background = symbolManager.getMarkingColorString(colorIndex);
 		
 		return colorOption;
 	};
@@ -253,16 +253,21 @@ function MarkingComponent (tags){
 		var /** jQuery */ tagNameSelect = jQuery("#IM_Marking_Table .tagNameSelect");
 		
 		if(tagNameSelect.length > 0 && tagNameSelect.val() != "-1"){
-			data["markings"] = {
-				"tagName" : tagNameSelect.val(),
-				"tagValues" : {}
-			}
 			
+			var tagVals = {};
 			jQuery("#IM_Marking_Table .tagValueSelect").each(function (){
 				if(this.value != "-1"){
-					data["markings"]["tagValues"][this.value] = jQuery(this).next().val();
+					tagVals[this.value] = jQuery(this).next().val();
 				}
 			});
+			
+			if(Object.keys(tagVals).length > 0){
+				data["markings"] = {
+					"tagName" : tagNameSelect.val(),
+					"tagValues" : tagVals
+				}
+			}
+			
 		}
 		
 		return true;

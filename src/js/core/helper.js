@@ -72,3 +72,19 @@ function decimalToHex(d, padding) {
     }
     return hex;
 }
+
+/**
+ * 
+ * @param {string} urlStr
+ * @param {string} param
+ * @param {string} value
+ *
+ * @return{string}
+ */
+function addParamToUrl (urlStr, param, value){
+	var url = new URL(urlStr);
+	var params = new URLSearchParams(url.search);
+	params.set(param, value);
+	url.search = params.toString();
+	return url.toString()
+}

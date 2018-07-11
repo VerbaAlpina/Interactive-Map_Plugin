@@ -14,7 +14,7 @@ function Sorter (sortTypes){
 	this.sortTypes = sortTypes;
 	
 	/**
-	 * @param {Object<string, ?>} data
+	 * @param {!Object<string, ?>} data
 	 * @param {number} sortTypeIndex
 	 * @param {number} sortOrder
 	 * @param {number} subElementCategory
@@ -23,8 +23,7 @@ function Sorter (sortTypes){
 	 */
 	this.getSortedKeys = function (data, sortTypeIndex, sortOrder, subElementCategory){
 		
-		var /**Array<string> */ keyArray = Sorter.createKeyArray(data);
-		
+		var /**Array<string> */ keyArray = Object.keys(data);
 		var /** SortType */ sortType = sortTypes[sortTypeIndex];
 		
 		sortType.sortOrder = sortOrder;
@@ -148,19 +147,6 @@ function Sorter (sortTypes){
 }
 
 /**
- * @param {Object<string, ?>} data
- * 
- * @return {Array<string>}
- */
-Sorter.createKeyArray = function (data){
-	var /**Array<string> */ keyArray = [];
-	for (var /**string */ key in data){
-		keyArray.push(key);
-	}
-	return keyArray;
-};
-
-/**
  * A mapping from element key to element name (potentially translated in the current gui language)
  * 
  * @param {Array<string>} keyArray
@@ -174,10 +160,10 @@ Sorter.createNameMapping = function (keyArray, subElementCategory) {
 	for (var i = 0; i < keyArray.length; i++){
 		var /**string */ key = keyArray[i];
 		if(subElementCategory == -3){ //Tags
-			nameMapping[key] = categoryManager.getTagTranslation(key.substring(1));
+			nameMapping[key] = key == -1? "": categoryManager.getTagTranslation(key.substring(1));
 		}
 		else {
-			nameMapping[key] = categoryManager.getElementName(subElementCategory, key);
+			nameMapping[key] = key == -1? "": categoryManager.getElementName(subElementCategory, key);
 		}
 	}
 	

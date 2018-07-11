@@ -70,9 +70,9 @@ jQuery.prototype.superfish = function (p) {};
 jQuery.prototype.qtip = function (p, v){};
 
 /**
- * @param {string=} p
+ * @param {string|Object=} p
  * 
- * @return {undefined}
+ * @return {jQuery}
  */
 jQuery.prototype.select2 = function (p){};
 

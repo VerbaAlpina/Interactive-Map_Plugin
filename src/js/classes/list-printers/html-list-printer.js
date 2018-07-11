@@ -9,6 +9,10 @@ function HtmlListPrinter(){
     this.getType = function(){
         return "text/html;charset=utf8"
     }
+    
+    /** 
+     *@return {string}
+     */
     this.buildList = function(data){
         var result = "<table>";
         if(data.length>0){

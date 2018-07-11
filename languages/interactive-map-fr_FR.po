@@ -1,168 +1,168 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: \n"
-"POT-Creation-Date: 2016-12-16 16:23+0100\n"
-"PO-Revision-Date: 2016-12-16 16:23+0100\n"
+"POT-Creation-Date: 2018-02-21 14:09+0100\n"
+"PO-Revision-Date: 2018-02-21 14:10+0100\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"X-Generator: Poedit 1.8.8\n"
+"X-Generator: Poedit 2.0.6\n"
 "X-Poedit-Basepath: ..\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "X-Poedit-KeywordsList: __;_e\n"
 "X-Poedit-SearchPath-0: src/php\n"
 "X-Poedit-SearchPath-1: plugin.php\n"
 
-#: src/php/ajax-calls.php:456 src/php/ajax-calls.php:466
+#: src/php/ajax-calls.php:709 src/php/ajax-calls.php:719
 msgid "Slug does not exist!"
 msgstr ""
 
-#: src/php/ajax-calls.php:470
+#: src/php/ajax-calls.php:723
 msgid ""
 "Only a slug with a given (default) database can be used. Please edit the "
 "slug in the SQLToHtml options and add a data base!"
 msgstr ""
 
-#: src/php/gui-elements.php:40
+#: src/php/gui-elements.php:43
 msgid "No table given!"
 msgstr ""
 
-#: src/php/gui-elements.php:43
+#: src/php/gui-elements.php:46
 msgid "No primary key given!"
 msgstr ""
 
-#: src/php/gui-elements.php:46
+#: src/php/gui-elements.php:49
 msgid "No columns given!"
 msgstr ""
 
-#: src/php/gui-elements.php:49
+#: src/php/gui-elements.php:52
 msgid "No id given!"
 msgstr ""
 
-#: src/php/gui-elements.php:58 src/php/gui-elements.php:319
+#: src/php/gui-elements.php:61 src/php/gui-elements.php:326
 msgid "Add new value"
 msgstr ""
 
-#: src/php/gui-elements.php:270
+#: src/php/gui-elements.php:277
 msgid "Insert"
 msgstr ""
 
-#: src/php/gui-elements.php:270
+#: src/php/gui-elements.php:277
 msgid "Update"
 msgstr ""
 
-#: src/php/gui-elements.php:414
+#: src/php/gui-elements.php:431
 msgid "Show data"
 msgstr "Afficher des données"
 
-#: src/php/gui-elements.php:439
+#: src/php/gui-elements.php:496
 msgid "Synoptic map"
 msgstr "Carte synoptique"
 
-#: src/php/gui-elements.php:450 src/php/gui-elements.php:547
+#: src/php/gui-elements.php:510 src/php/gui-elements.php:638
 msgid "Save selection as synoptic map"
 msgstr "Sauvegardez vorte choix comme carte synoptique "
 
-#: src/php/gui-elements.php:464
+#: src/php/gui-elements.php:531 src/php/initializer.php:328
 msgid "Comment"
 msgstr "Commentaire"
 
-#: src/php/gui-elements.php:487
+#: src/php/gui-elements.php:558
 msgid "Edit comment"
 msgstr "Modifiez le commentaire"
 
-#: src/php/gui-elements.php:488 src/php/gui-elements.php:579
+#: src/php/gui-elements.php:559 src/php/gui-elements.php:679
 msgid "Save"
 msgstr "Sauvegardez"
 
-#: src/php/gui-elements.php:552
+#: src/php/gui-elements.php:650
 msgid "Name"
 msgstr "Nom"
 
-#: src/php/gui-elements.php:560
+#: src/php/gui-elements.php:658
 msgid "Description"
 msgstr "Description"
 
-#: src/php/gui-elements.php:569
+#: src/php/gui-elements.php:667
 msgid "Save only active elements"
 msgstr "Sauvegardez seulement les éléments actifs"
 
-#: src/php/gui-elements.php:571
+#: src/php/gui-elements.php:669
 msgid "Save all elements"
 msgstr "Sauvegardez tous les éléments "
 
-#: src/php/gui-elements.php:575
+#: src/php/gui-elements.php:673
 msgid "Apply for release"
 msgstr "Demandez l'activation "
 
-#: src/php/initializer.php:253
+#: src/php/initializer.php:293
 msgid "Grouping"
 msgstr "Rassemblement"
 
-#: src/php/initializer.php:254
+#: src/php/initializer.php:294
 msgid "Sorting"
 msgstr "Tri"
 
-#: src/php/initializer.php:255
+#: src/php/initializer.php:295
 msgid "alphabetical"
 msgstr "par ordre alphabétique"
 
-#: src/php/initializer.php:256
+#: src/php/initializer.php:296
 msgid "ascending"
 msgstr "par ordre croissant"
 
-#: src/php/initializer.php:257
+#: src/php/initializer.php:297
 msgid "descending"
 msgstr "par ordre décroissant"
 
-#: src/php/initializer.php:258
+#: src/php/initializer.php:298
 msgid "according to the number of instances"
 msgstr "selon le nombre d'attestations"
 
-#: src/php/initializer.php:259
+#: src/php/initializer.php:299
 msgid "No elements selected!"
 msgstr "Vous n'avez choisi aucun élément!"
 
-#: src/php/initializer.php:260
+#: src/php/initializer.php:300
 msgid "Please enter a name!"
 msgstr "Tapez un nom, s'il vous plaît!"
 
-#: src/php/initializer.php:261
+#: src/php/initializer.php:301
 msgid "A map by that name already exists. Please choose another name!"
 msgstr ""
 "Il y a déjà une carte avec ce nom. S'il vous plaît, insérez un autre nom!"
 
-#: src/php/initializer.php:262
+#: src/php/initializer.php:302
 msgid "You have saved the map successfully!"
 msgstr "Vous avez sauvegardé la carte à succès!"
 
-#: src/php/initializer.php:263
+#: src/php/initializer.php:303
 msgid "Saving not possible!"
 msgstr "Sauvegarde n'est pas possible! "
 
-#: src/php/initializer.php:264
+#: src/php/initializer.php:304
 msgid "There are not enough symbols to show the current selection!"
 msgstr "Il n'y a pas assez de symboles pour afficher la selection actuelle!"
 
-#: src/php/initializer.php:265
+#: src/php/initializer.php:305
 msgid "There is no data!"
 msgstr "Il n'y a pas de données"
 
-#: src/php/initializer.php:266
+#: src/php/initializer.php:306
 msgid ""
 "This comment is not available in English. Please select another language!"
 msgstr ""
 "Ce commentaire n'est pas disponible en français. Choisissez une autre "
 "langue, s'il vous plaît."
 
-#: src/php/initializer.php:267
+#: src/php/initializer.php:307
 msgid "Please save the current changes first!"
 msgstr "Sauvegardez d'abord les modifications actuelles, s'il vous plaît!"
 
-#: src/php/initializer.php:268
+#: src/php/initializer.php:308
 msgid ""
 "If a synoptic map should be shown to all users, you have to ask for its "
 "release. All other maps remain personal and can only be used by the person "
@@ -172,80 +172,166 @@ msgstr ""
 "pour tous les utilisateurs. Les autres cartes restent privées et seulement "
 "les producteurs respectifs les peuvent utiliser."
 
-#: src/php/initializer.php:269
+#: src/php/initializer.php:309
 msgid "Enter new value!"
 msgstr ""
 
-#: src/php/initializer.php:270
+#: src/php/initializer.php:310
 msgid "Value added!"
 msgstr ""
 
-#: src/php/initializer.php:271
+#: src/php/initializer.php:311
 msgid "Print List"
 msgstr ""
 
-#: src/php/initializer.php:272
+#: src/php/initializer.php:312
 msgid "Select List Type"
 msgstr ""
 
-#: src/php/initializer.php:273
+#: src/php/initializer.php:313
 msgid "Options"
 msgstr ""
 
-#: src/php/initializer.php:274
+#: src/php/initializer.php:314
 msgid "Select category"
 msgstr ""
 
-#: src/php/initializer.php:275
+#: src/php/initializer.php:315
 msgid "Add new data"
 msgstr ""
 
-#: src/php/initializer.php:276
+#: src/php/initializer.php:316
 msgid "Select all"
 msgstr ""
 
-#: src/php/initializer.php:277
+#: src/php/initializer.php:317
 msgid "No grouping"
 msgstr "Aucun rassemblement"
 
-#: src/php/initializer.php:310
-msgid "Options Interactive Map"
+#: src/php/initializer.php:318
+msgid "Discard changes"
 msgstr ""
 
-#: src/php/initializer.php:310
-msgid "Interactive Map"
+#: src/php/initializer.php:319
+msgid "Commit changes"
 msgstr ""
 
-#: src/php/initializer.php:331 src/php/initializer.php:344
-msgid "Error"
+#: src/php/initializer.php:320
+#, fuzzy
+#| msgid "Edit comment"
+msgid "Edit mode"
+msgstr "Modifiez le commentaire"
+
+#: src/php/initializer.php:321
+#, php-format
+msgid "Separate %d. marker from multi symbol"
+msgstr ""
+
+#: src/php/initializer.php:322
+msgid "Undo last operation"
+msgstr ""
+
+#: src/php/initializer.php:323
+msgid "Leave edit mode"
+msgstr ""
+
+#: src/php/initializer.php:324
+msgid "Not possible to load non-editable category in edit mode!"
+msgstr ""
+
+#: src/php/initializer.php:325
+#, php-format
+msgid "Field \"%s\" is not allowed to be empty!"
+msgstr ""
+
+#: src/php/initializer.php:326
+#, fuzzy
+#| msgid "Save all elements"
+msgid "per element"
+msgstr "Sauvegardez tous les éléments "
+
+#: src/php/initializer.php:327
+msgid "This comment is currently edited by another user!"
+msgstr ""
+
+#: src/php/initializer.php:329
+msgid "Marking"
+msgstr ""
+
+#: src/php/initializer.php:330
+msgid "Add marking"
+msgstr ""
+
+#: src/php/initializer.php:331
+msgid "Select domain"
+msgstr ""
+
+#: src/php/initializer.php:332
+msgid "Select value"
+msgstr ""
+
+#: src/php/initializer.php:333
+msgid "Remove"
+msgstr ""
+
+#: src/php/initializer.php:334
+msgid "(without)"
+msgstr ""
+
+#: src/php/initializer.php:335
+msgid "This selection will return no data!"
+msgstr ""
+
+#: src/php/initializer.php:336
+msgid "English text gradient help"
 msgstr ""
 
 #: src/php/initializer.php:337
+msgid "Loading, please wait..."
+msgstr "Est en train de charger, attendez, s`il vous plaît..."
+
+#: src/php/initializer.php:338
+msgid "Please enter searchterm..."
+msgstr "Insérez un mot-clé, s`il vous plaît..."
+
+#: src/php/initializer.php:380
+msgid "Options Interactive Map"
+msgstr ""
+
+#: src/php/initializer.php:380
+msgid "Interactive Map"
+msgstr ""
+
+#: src/php/initializer.php:401 src/php/initializer.php:414
+msgid "Error"
+msgstr ""
+
+#: src/php/initializer.php:407
 msgid ""
 "Comments and synoptic maps will be copied into the new data base. Any "
 "changes within the example data will be lost. Continue?"
 msgstr ""
 
-#: src/php/initializer.php:347
+#: src/php/initializer.php:417
 msgid "Finished!"
 msgstr ""
 
-#: src/php/initializer.php:356
+#: src/php/initializer.php:428
 msgid "Use example data"
 msgstr ""
 
-#: src/php/initializer.php:361
+#: src/php/initializer.php:433
 msgid "Data base"
 msgstr ""
 
-#: src/php/initializer.php:366
+#: src/php/initializer.php:438
 msgid "Default Wordpress data base"
 msgstr ""
 
-#: src/php/initializer.php:377
+#: src/php/initializer.php:449
 msgid "The data base connections can be created with the SQLtoHTML plugin."
 msgstr ""
 
-#: src/php/initializer.php:381
+#: src/php/initializer.php:453
 msgid "Please install sqlToHtml plugin to use stored data base connections"
 msgstr ""

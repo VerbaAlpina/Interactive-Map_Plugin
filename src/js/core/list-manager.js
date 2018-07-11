@@ -44,7 +44,7 @@ function ListManager(listBuilderParam, elementParam){
         var printerID = printerSelect.options[printerSelect.selectedIndex].value;
         var printerResult = self.listBuilder.retrieveList(printerID,self.element);
         if(printerResult[2]==true){
-            var blob = new Blob([printerResult[1]], {type: printerResult[0]});
+            var blob = new Blob([printerResult[1]], /** @type{BlobPropertyBag}*/ ({"type": printerResult[0]}));
             var a = window.document.createElement('a');
             a.href = window.URL.createObjectURL(blob);
             a.download = printerResult[3];

@@ -65,13 +65,22 @@ function EditableInfoWindowContent (categoryID, elementID, overlayType, fieldVal
 	/**
 	 * @override
 	 * 
-	 * @param {MapSymbol} mapSymbol
-	 * @param {LegendElement} owner
+	 * @param {InfoWindowContent} oldContent
 	 *
 	 * @return {boolean} 
 	 */
-	this.tryMerge = function (mapSymbol, owner){
+	this.tryMerge = function (oldContent){
 		return false;
+	};
+	
+	/**
+	*
+	* @override
+	*
+	* @return {undefined} 
+	*/
+	this.resetState = function (){
+		//Do nothing
 	};
 	
 	/**
@@ -133,5 +142,14 @@ function EditableInfoWindowContent (categoryID, elementID, overlayType, fieldVal
 	 */
 	this.getName = function (){
 		return "";
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @return {number}
+	 */
+	this.getNumElements = function (){
+		return 1;
 	};
 }

@@ -71,7 +71,6 @@ abstract class IM_Initializer {
 	public abstract function enqueue_gui_elements ();
 	public abstract function enqueue_chosen_library ();
 	public abstract function enqueue_select2_library ();
-	//public abstract function enqueue_font_awesome ();
 }
 
 function im_install_plugin (){
@@ -113,7 +112,14 @@ function im_create_map_tables (&$db){
 			`Author`       varchar(100),
 			`Released`     ENUM('Private','Applied','Released'),
 			`Center_Lat`   double UNSIGNED,
-			`Center_Lng`   double UNSIGNED
+			`Center_Lng`    double UNSIGNED,
+			`Colors`        TEXT NOT NULL,
+			`Opened` 		varchar(20),
+            `Options`       varchar(500),
+            `Quant`         varchar(100),
+            `Info_Windows`  varchar(1000),
+            `Location_Markers`  varchar(1000),
+            `Erstellt_Am`    timestamp DEFAULT CURRENT_TIMESTAMP NOT NULL
 			) ENGINE=InnoDB  DEFAULT CHARSET=utf8");
 	
 	$db->query("CREATE TABLE IF NOT EXISTS  `im_syn_maps_elements`

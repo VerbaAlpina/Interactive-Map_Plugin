@@ -29,7 +29,10 @@ function hexgonBuilder(options){
  var assigned_hexagons = {};
  var polygons_to_country = {};
 
+
  var dont_use_cdata = false;   //** SET TO TRUE FOR POLYGONS THAT HAVE COUNTRY RELATIONS"
+
+ var global_offset = -4.5;
 
 	//goal for Sprachgebiete = 7
 	//0.9 == 7 // Sprachgebiete + Sprachgebiete
@@ -60,7 +63,7 @@ function hexgonBuilder(options){
 
 if(typeof options.polygongrp == 'object') {
 
- var size =0.9;  //in px (global map px not screen px)
+ var size =0.09;  //in px (global map px not screen px)
  var width = size *2;
  var horizontal_step =  width *3/4;
  var vertical_step =  Math.sqrt(3)/2 *width;
@@ -175,145 +178,26 @@ var polygrp = {};
       }
     }
      
-     addNeighboursToPolygons(gPolygons);
+     addNeighboursToPolygons(gPolygons,"neighbours_60.txt","names_60.json",function (){
 
-     for(var i=0; i<gPolygons.length;i++){
-      gPolygons[i]['neighbours'] = sortNeighboursByTopLeft(gPolygons[i]['neighbours']);
-     }
+        // var manualstop = 0;
+  
+        // performAlternateMethod(gPolygons,ids_to_countries,manualstop);
 
-     // testNeighbours(gPolygons);
-
-    var min_lat = Number.POSITIVE_INFINITY;
-    var startpolygon = null;
-    var number_of_polygons = gPolygons.length;
-
-     for(var i=0; i<gPolygons.length;i++){
-      var poly = gPolygons[i];
-
-         poly.getPaths().forEach(function(path){
-              var array = path.getArray();
-              for(var k=0;k<array.length;k++){
-                var lat = array[k].lat();
-                if(lat<min_lat){min_lat = lat; startpolygon = poly;}
-              } 
-          }) 
-
-       }
-
-      var start_point = projection.fromLatLngToPoint(startpolygon.center);
-      var current_polys = [startpolygon];
-      var route = [startpolygon];
-
-     while(route.length<number_of_polygons){
-
-         var next_poly_neighbours  = [];
-
-         for(var i=0;i<current_polys.length;i++){
-            for(var j=0; j<current_polys[i]['neighbours'].length;j++){
-              var neighbour = current_polys[i]['neighbours'][j];
-               if(route.indexOf(neighbour)==-1){
-                route.push(neighbour);
-                next_poly_neighbours.push(neighbour);
-               }
-            }
-         }
+         testAlternateMethod(gPolygons,ids_to_countries);
 
 
-         current_polys = next_poly_neighbours;
-     }
+
 
      // visuallyIterateHexagons(route,true);
 
-    var hex_centers = [start_point];
-
-    while(first_result.length<gPolygons.length){
-
-     for(var l=0; l<route.length;l++){
-
-      var current_poly = route[l];
-      var country = ids_to_countries[current_poly.id];
-      var color = colors[country];
-
-      var hex_candidates = {};
-      var idx = 0;
-       for(var i=0;i<hex_centers.length;i++){
-         var center = hex_centers[i];
-         var all_neighbours  =  getHexNeighbours(center,size,vertical_step,horizontal_step);
-           for(var j=0;j<all_neighbours.length;j++){
-            hex_candidates[idx] = all_neighbours[j];
-            idx++;
-           }
-       }
-
-
-      // if(firstrun)hex_neighbours = getHexNeighbours(projection.fromLatLngToPoint(current_poly.center),size,vertical_step,horizontal_step);
-
-
-      for(var key in hex_candidates){
-          var candidate = hex_candidates[key];
-
-          for(var j=0; j<hex_centers.length;j++){
-            var dist = getDistance(candidate,hex_centers[j]);
-                  if(dist<0.01){
-                    delete hex_candidates[key];
-                  }
-          }
-      }
-
-      var hex_candidates_array = [];
-        for(var key in hex_candidates){
-          var candidate = hex_candidates[key];
-          hex_candidates_array.push(candidate);
-        }
-
-        if(hex_candidates_array.length==0)console.log("WARNING");
-
-
-        var min_dist = Number.POSITIVE_INFINITY;
-        var best_hex = null;
-
-       for(var i=0;i<hex_candidates_array.length;i++){
-
-        var candidate = hex_candidates_array[i];
-        var dist = getDistance(candidate,projection.fromLatLngToPoint(current_poly.center));
-        if(dist<min_dist){
-          min_dist = dist;
-          best_hex = candidate;
-        }
-
-       }
-
-        hex_centers.push(best_hex);
-        var center = best_hex;
-        var hex_points = calculatePolygonPoints(center.x,center.y,6,size);
-
-         var hexagon = new google.maps.Polygon({
-                                  paths: hex_points,
-                                  strokeColor: 'purple',
-                                  strokeOpacity: 0.8,
-                                  strokeWeight: stroke_weight,
-                                  fillColor: color,
-                                  fillOpacity: options.hex_opacity,
-                                  idx: l
-                                });
-           hexagon.setMap(options.map);
-           first_result.push(hexagon);
-  }
-
- 
-  }
-
-
-
-
-
-
-
-
+     // testNeighbours(route,false);
 
   
 
      // console.log(gPolygons);
+
+     });
     
 
         }
@@ -615,12 +499,795 @@ jQuery.ajax({
 
 }
 
-function addNeighboursToPolygons(gPolygons){
 
+var test_array = [];
+
+function performAlternateMethod(gPolygons,ids_to_countries,manualstop){
+
+     //   for(var i=0; i<gPolygons.length;i++){
+     //  gPolygons[i]['neighbours'] = sortNeighboursByTopLeft(gPolygons[i]['neighbours']);
+     // }
+
+
+    var min_lat = Number.POSITIVE_INFINITY;
+    var startpolygon = null;
+    var number_of_polygons = gPolygons.length;
+
+     for(var i=0; i<gPolygons.length;i++){
+      var poly = gPolygons[i];
+
+         poly.getPaths().forEach(function(path){
+              var array = path.getArray();
+              for(var k=0;k<array.length;k++){
+                var lat = array[k].lat();
+                if(lat<min_lat){min_lat = lat; startpolygon = poly;}
+              } 
+          }) 
+
+       }
+
+
+      var country = ids_to_countries[startpolygon.id];
+      var startcolor = colors[country];
+      var start_point = projection.fromLatLngToPoint(startpolygon.center);
+
+     var start_hex = addHexagonToMap(start_point,'purple',startcolor,global_offset);
+
+     start_hex.setMap(options.map);
+     first_result.push(start_hex);   
+
+
+
+      var used_polygons = {};
+      used_polygons[startpolygon.id] = true;
+
+
+      var used_hexagons = {};
+      var identifier = start_point.x.toFixed(3).toString()+start_point.y.toFixed(3).toString();  
+
+
+      startpolygon['hexagon'] = {center: projection.fromLatLngToPoint(startpolygon['center']),polygon:startpolygon,identifier:identifier}; 
+
+      used_hexagons[identifier] = startpolygon['hexagon'];
+
+      var current_polygons = [startpolygon];     
+
+
+
+  var whilecount = 0;
+
+     while(first_result.length<number_of_polygons){
+
+        console.log("++++++++++++++++");
+
+    var all_possible_hexagons = {}; 
+
+   
+    for(var i=0; i<current_polygons.length;i++){
+
+
+
+        var hex_candidates = {};
+
+             var current_poly = current_polygons[i];
+             var country = ids_to_countries[current_poly.id];
+             var color = colors[country];
+
+
+
+            var hex = current_poly['hexagon'];
+
+         var all_neighbours  =  getHexNeighbours(hex['center'],size,vertical_step,horizontal_step);
+         var count = 0;  
+         for(var j=0; j<all_neighbours.length;j++){ 
+
+                 var cur_center = all_neighbours[j];
+                var identifier = cur_center.x.toFixed(3).toString() + cur_center.y.toFixed(3).toString();
+                if(used_hexagons[identifier]==null){
+                   var candidate = {center:cur_center,identifier:identifier,color:color,"relatedPolygons":[current_poly]};
+          
+                   if(all_possible_hexagons[identifier]==null)all_possible_hexagons[identifier] = candidate;
+                   else {
+                    candidate = all_possible_hexagons[identifier];
+                    all_possible_hexagons[identifier]['relatedPolygons'].push(current_poly);
+                   }
+
+                   hex_candidates[count] = candidate;
+                }
+             count ++;
+
+         } 
+
+         current_poly['hex_candidates'] = hex_candidates;
+
+       }
+
+        for (var j=0; j<test_array.length;j++){
+          var hex = test_array[j];
+            if(hex!=null)hex.setMap(null);
+  
+        }
+
+        test_array = [];
+
+
+       for(var key in all_possible_hexagons){
+
+        var hex_c = all_possible_hexagons[key];
+        var hexagon = addHexagonToMap(hex_c.center,'red','transparent',global_offset);
+        test_array.push(hexagon);
+       }
+
+ 
+
+          for(var i=0; i<current_polygons.length;i++){
+
+                    var current_poly = current_polygons[i];
+                    var neighbours = current_poly['neighbours'];
+                    var hex_candidates = current_poly['hex_candidates'];
+
+                    for(var j=0; j<neighbours.length;j++){
+                            var neighbour = neighbours[j];
+
+                            //           var marker = new google.maps.Marker({
+                            //   position: neighbour.center,
+                            //   map: options.map,
+                            //   title: 'Hello World!'
+                            // });
+                            
+                            var id = neighbour.id;
+                            if(used_polygons[neighbour.id]==null && current_polygons.indexOf(neighbour)==-1){
+
+                           
+                                       var best_hex = getBestHexByAngle(current_poly,neighbour,false);
+                                       // var best_hex_by_share = getBestHexByNeighbourhood(current_poly,current_polygons,neighbour,best_hex);
+
+
+                                       // if(best_hex_by_share!=null){
+                                       //      if(best_hex!==best_hex_by_share) best_hex = best_hex_by_share;               
+                                       //  }
+                              
+
+
+                                           if(best_hex==null){
+                                                  // var polyangle =  getBestHexByAngle(current_poly,neighbour,true);
+                                                  // var position = getPositionByAngle(polyangle);
+                                                  // var best_hex_idx = dealWithConflict(position,polyangle,hex_candidates);
+                                                  // var best_hex = hex_candidates[best_hex_idx];
+                                                  
+                                            } //optimal hexagon already in use
+
+
+                                          
+                                           if(best_hex!=null){ 
+
+                                              neighbour['proposal_origin'] = current_poly;
+
+                                             if(best_hex['wants_to_be_used_by'] == null){
+                                              best_hex['wants_to_be_used_by'] = [neighbour];
+                                 
+                                              var obj = new Object();
+                                              var arr = [obj];
+                                              obj[current_poly.id] = neighbour;
+                                              best_hex['assignment_map'] = arr;
+                                            }
+                                             else {
+                                              best_hex['wants_to_be_used_by'].push(neighbour);
+
+                                              var obj = new Object();
+                                              obj[current_poly.id] = neighbour;
+                                              best_hex['assignment_map'].push(obj)
+                                            }
+
+                                            
+                                            //assignment_map; polygon_x says i want to use this hexagon (best_hex) for this one of my neighbours
+
+                                             
+                                              
+                                                        
+                                        }
+
+                                        else{
+                                            // even second best hex already in use;
+                                            // console.log("SECOND BEST IN USE");
+                                        }
+                                           
+
+                            }
+
+                          
+                    }
+          }
+
+      
+
+
+
+
+
+
+      if(whilecount>=manualstop){
+          break;
+        }
+
+
+        var next_polygons = [];
+
+
+        for(var key in all_possible_hexagons){
+            var hex = all_possible_hexagons[key];
+            var use_list = hex['wants_to_be_used_by'];
+
+           if(use_list!=null){
+
+              use_list = removeDoublesFromClearCases(use_list,polygon,all_possible_hexagons);  // best case: one hex = one polygon // polygon is ONLY assigned to this hex and to no other
+              
+              var test = false;
+       
+              if(use_list.length==1){  
+
+                    var polygon = use_list[0];
+                    removePolygonfromOtherListsIfAssignmentClear(polygon,all_possible_hexagons,use_list);
+
+                    var multi_assignment = checkIfPolygonOccuresInOtherLists(all_possible_hexagons,use_list,polygon);
+                         
+                    if(multi_assignment){
+                       console.log("RARE CASE");
+                    }
+                    else{
+
+                      assignHexagonToPolygon(hex,polygon,ids_to_countries,used_hexagons);
+                      addPolygonToNextPolygons(next_polygons,polygon);
+                       
+                      
+                    }
+              }
+
+              else{
+
+
+               var polygon = getBestCandidateByDistance(use_list);
+               assignHexagonToPolygon(hex,polygon,ids_to_countries,used_hexagons);
+               addPolygonToNextPolygons(next_polygons,polygon);
+
+          
+              }
+
+
+
+
+           }
+
+
+
+        }
+
+      console.log(all_possible_hexagons);
+
+        
+         // var next_polygons = [];
+         // for(var i=0; i<current_polygons.length;i++){
+
+      
+         //      var current_poly = current_polygons[i];
+         //      var country = ids_to_countries[current_poly.id];
+         //      var color = colors[country];
+
+         //      var hex_candidates = current_poly['hex_candidates'];
+         //      var neighbours = current_poly['neighbours'];
+
+         //       for(var j=0;j<neighbours.length;j++){
+         //            var neighbour = neighbours[j];
+
+         //             if(used_polygons[neighbour.id]==null){
+
+                      
+         //              var polycenter = projection.fromLatLngToPoint(current_poly.center);
+         //              var neighbourcenter = projection.fromLatLngToPoint(neighbour.center);
+  
+         //               var polyangle = getAngle(polycenter,neighbourcenter);
+         //               var position = getPositionByAngle(polyangle);
+         //               var best_hex_idx = getNeighbourByPosition(position);
+         //               var best_hex = hex_candidates[best_hex_idx];
+
+
+            
+                          
+
+         //               if(best_hex==null){
+
+         //                var new_position = dealWithConflict(position,polyangle,hex_candidates);
+         //                if(new_position!="no_solution_found"){
+         //                     best_hex_idx = getNeighbourByPosition(new_position);
+         //                     best_hex = hex_candidates[best_hex_idx];
+         //                }
+                             
+         //               }
+
+         //                if(best_hex!=null){
+
+         //                    var hexagon = addHexagonToMap(best_hex.center,'purple',color);
+         //                    first_result.push(hexagon);
+         //                    used_hexagons[best_hex.identifier] = best_hex;
+         //                   neighbour['hexagon'] = best_hex;
+
+          
+         //               }
+
+
+
+         //               else{
+
+         //                  if(Object.keys(hex_candidates).length>0){
+         //                     var firsthexkey = Object.keys(hex_candidates)[0];
+         //                     var random_hex = hex_candidates[firsthexkey];
+         //                     best_hex = random_hex;
+
+         //                      var hexagon = addHexagonToMap(best_hex.center,'purple',color);
+                              
+         //                       first_result.push(hexagon);
+
+         //                       used_hexagons[best_hex.identifier] = best_hex;
+         //                       neighbour['hexagon'] = best_hex;
+
+         //                  }
+
+         //                  else{
+
+         //                    console.log("NO HEXAGONS AVAILABLE");
+         //                  }
+                        
+         //               }
+
+
+                       
+
+         //               next_polygons.push(neighbour);  
+         //               used_polygons[neighbour.id] = true;
+
+
+         //              }
+
+         //       }
+         // }
+
+           for(var i=0; i<current_polygons.length;i++){
+               used_polygons[current_polygons[i].id] = true;
+           }
+
+         current_polygons = next_polygons; 
+
+
+         whilecount++;
+  
+     }
+
+  };
+
+
+  function getBestCandidateByDistance(_in){
+
+    var min_dist = Number.POSITIVE_INFINITY;
+    var best_candidate = null;
+
+    for(var i=0; i<_in.length;i++){
+
+      var c_center = projection.fromLatLngToPoint(_in[i]['center']);
+      var origin_center = projection.fromLatLngToPoint(_in[i]['proposal_origin']['center']);
+      var dist = getDistance(origin_center,c_center); 
+      if(dist<min_dist){
+        min_dist = dist;
+        best_candidate =  _in[i];
+      }
+
+    }
+
+    return best_candidate;
+
+  }
+
+
+  function checkIfAssignmentMapHasUniformOrigin(assignment_map, current_polygons){
+
+    var res = true;
+    var firstkey = Object.keys(assignment_map[0])[0];
+
+     for(var i=1;i<assignment_map.length;i++){
+          var obj = assignment_map[i];
+          var key = Object.keys(obj)[0];
+
+          if(key!=firstkey){
+            res = false;
+            break;
+          }
+
+    }
+
+    if(res){
+
+      res = {};
+
+      for(var i=0; i<current_polygons.length;i++){
+           var cp = current_polygons[i];
+           if(cp['id']==firstkey) {
+             res['origin'] = cp;
+             res['candidates'] = []; 
+             break;
+           }   
+      }
+
+          for(var i=0;i<assignment_map.length;i++){
+              var obj = assignment_map[i];
+              var key = Object.keys(obj)[0];
+              var candidate = obj[key];
+              res['candidates'].push(candidate);
+          }
+
+    }
+
+    return res;
+
+  }
+
+
+  function addPolygonToNextPolygons(next_polygons,polygon){
+
+          var already_in = false;  
+          for(var k=0;k<next_polygons.length;k++){
+          if(next_polygons[k].id==polygon.id)already_in=true;
+          }        
+          if(!already_in)next_polygons.push(polygon); 
+  }
+
+
+  function getBestHexByNeighbourhood(current_poly,current_polygons,neighbour,best_hex){
+
+
+    var sharing_polys = []; //other current polygons that share the same current neighbour (param)
+
+    for(var i=0; i<current_polygons.length;i++){
+      var other_poly = current_polygons[i];
+      if(other_poly!==current_poly){
+          var neighbours = other_poly['neighbours'];
+          for(var j=0;j<neighbours.length;j++){
+              if(neighbours[j]===neighbour)sharing_polys.push(other_poly);
+          }
+      }
+    }
+   
+  var current_hex_candidates = current_poly['hex_candidates'];
+
+  var sharing_hex_candidates = [];
+
+  for(var i=0; i<sharing_polys.length;i++){
+ 
+    var other_hex_candidates = sharing_polys[i]['hex_candidates'];
+    for(var key in current_hex_candidates){
+
+      var hex_candidate= current_hex_candidates[key];
+
+      for(var o_key in other_hex_candidates){
+        var other_candidate = other_hex_candidates[o_key];
+        if(other_candidate===hex_candidate)sharing_hex_candidates.push(hex_candidate);
+      }
+
+    }
+  }
+
+   for(var j=0; j<sharing_hex_candidates;j++){
+     if(sharing_hex_candidates[j]===best_hex)sharing_hex_candidates.splice(j,1);
+   }
+
+    return sharing_hex_candidates[0];  // find method to determine best shared hex count should be the thing
+
+  }
+
+
+  function getBestHexByAngle(current_poly,neighbour,get_only_angle){
+
+    var polycenter = projection.fromLatLngToPoint(current_poly.center);
+    var neighbourcenter = projection.fromLatLngToPoint(neighbour.center);
+    var polyangle = getAngle(polycenter,neighbourcenter);
+    var position = getPositionByAngle(polyangle);
+    var best_hex_idx = getNeighbourByPosition(position);
+    var best_hex = current_poly['hex_candidates'][best_hex_idx];
+  
+  if(!get_only_angle)return best_hex;
+  else return polyangle;
+
+}
+
+
+function getPositionForNewHexByAngle(origin,candidate){
+    var origincenter = projection.fromLatLngToPoint(origin.center);
+    var candidatecenter = projection.fromLatLngToPoint(candidate.center);
+    var polyangle = getAngle(origincenter,candidatecenter);
+    var position = getPositionByAngle(polyangle);
+    return position;
+}
+
+
+  function removePolygonfromOtherListsIfAssignmentClear(polygon,all_possible_hexagons,use_list){
+
+    // remove a Polygon that already can be clearly assigned to one Hexagon for all other lists 
+    // that contain other Polygons than itsself. 
+
+
+      var pid = polygon.id;
+
+       for(var key in all_possible_hexagons){
+             var hex = all_possible_hexagons[key];
+
+             if(hex['wants_to_be_used_by']!=null){
+
+              var other_use_list = hex['wants_to_be_used_by'];
+
+               if(other_use_list.length>1){
+
+                 var check = checkifListContainsOtherEntries(other_use_list)
+
+                 if(check){
+
+                     for(var i=0;i<other_use_list.length;i++){
+                      var id = other_use_list[i].id;
+                        if(id==pid){
+                          other_use_list.splice(i,1);
+                        }
+
+                    }
+
+                 }
+
+                  else{
+
+                      // case polygon occures in other use_list more than once with no other 
+
+                 }
+
+              }
+
+          }
+       }
+
+  };
+
+
+  function checkifListContainsOtherEntries(list){
+
+    var res = false;
+    for(var i=0;i<list.length;i++){
+       if(list[i]!==list[0]){
+        res = true;
+        break;
+       }
+    }
+    return res;
+  }
+
+  function checkOccurencesInList(list,entry){
+    var res = 0;
+    for(var i=0;i<list.length;i++){
+       if(list[i]==entry){
+        res ++;
+       }
+    }
+    return res;
+  }
+
+
+  function checkIfPolygonOccuresInOtherLists(all_possible_hexagons,use_list,proposal){
+
+    var res = false;
+
+       for(var key in all_possible_hexagons){
+              var hex = all_possible_hexagons[key];
+
+               if(hex['wants_to_be_used_by']!=null){
+                 var other_use_list = hex['wants_to_be_used_by'];
+
+                 if(other_use_list!==use_list){
+                     
+                  if(other_use_list.indexOf(proposal)!=-1){
+                    res = true;
+                    break;
+                  }
+
+                 }
+
+                }
+         } 
+  }
+
+
+  function removeDoublesFromClearCases(use_list,all_possible_hexagons){
+
+   //if one hex is assigned for one polygon by multiple Polygons rm all assignements except one => lenght = 1
+   // will remove duplicate entries from a use_list
+   // but only if the proposed polygon will not occur in any other use list 
+   // if poly occures in other list the other list needs to be checked. If the count of occurence in own list is greater than other list
+   // remove all occurences from other list and remain with own. If the count in other list is greater remove all occurances from own list
+
+       var sameid= true;
+       var proposal = use_list[0];
+       var first_check = checkifListContainsOtherEntries(use_list);     
+
+       if(!first_check) {
+
+          var second_check = checkIfPolygonOccuresInOtherLists(all_possible_hexagons,use_list,proposal)
+           if(!second_check){
+                 use_list.splice(1);
+           }
+    
+       }
+  
+     return use_list;
+  };
+
+
+  function removePolygonsBasedOnLength(all_possible_hexagons){
+
+    var longest_uniform_use_list;
+    var max = Number.NEGATIVE_INFINITY;
+
+       for(var key in all_possible_hexagons){
+              var hex = all_possible_hexagons[key];
+
+               if(hex['wants_to_be_used_by']!=null){ 
+
+                var use_list = hex['wants_to_be_used_by'];
+                if(!checkifListContainsOtherEntries(use_list)){
+                    if(use_list.length>max){
+                      max = use_list.length;
+                      longest_uniform_use_list = use_list;
+                    }
+                }
+
+               }
+        }
+
+        console.log(longest_uniform_use_list);
+
+     //   for(var key in all_possible_hexagons){
+     //          var hex = all_possible_hexagons[key];
+
+     //           if(hex['wants_to_be_used_by']!=null){
+     //             var other_use_list = hex['wants_to_be_used_by'];
+
+     //             if(other_use_list!==longest_uniform_use_list){
+                    
+     //                 var first_check = checkifListContainsOtherEntries(other_use_list);  
+     //                   if(!first_check){
+     //                      other_use_list=[];                     
+     //                   }  
+     //               }
+
+     //            }
+     //     } 
+
+     // longest_uniform_use_list.splice(1);    
+  }
+
+
+  function assignHexagonToPolygon(hex,polygon,ids_to_countries,used_hexagons){
+
+          var country = ids_to_countries[polygon.id];
+          var color = colors[country];
+
+          var hexagon = addHexagonToMap(hex.center,'purple',color,global_offset);
+          first_result.push(hexagon);
+          used_hexagons[hex.identifier] = hex;
+          polygon['hexagon'] = hex;
+
+
+    hexagon.addListener('click', function() {
+
+    var infoWindow = new google.maps.InfoWindow();  
+    infoWindow.setContent("ID : " + polygon.id + " Name: " + polygon['loc_name']);
+    var pos = new google.maps.Point(hex.center.x+global_offset,hex.center.y);
+    infoWindow.setPosition(projection.fromPointToLatLng(pos));     
+    infoWindow.open(options.map);
+
+    });
+
+
+
+};
+
+
+function testAlternateMethod(gPolygons,ids_to_countries){
+ 
+  var i = -1;       
+
+          jQuery(document).on("keydown", function (e) {
+
+              for(var j=0;j<first_result.length;j++){
+                  var hex = first_result[j];
+                   hex.setMap(null); 
+              }
+
+              first_result = [];
+
+
+              if(e.which == 37){i--} //left
+              if(e.which == 39){i++} // right
+               if(i<-1) i=-1;
+
+              performAlternateMethod(gPolygons,ids_to_countries,i);
+          })
+
+}
+
+function addNeighboursToPolygons(gPolygons,neighbours,names,callback){
+
+   if(typeof callback == "function"){
+
+
+    var url = PATH["hexagonFolder"];
+    var path = url+"/"+neighbours;
+
+    jQuery.ajax({
+        type: 'GET',
+        url: path,
+        success: function (data) {
+
+
+       var url = PATH["hexagonFolder"];
+       var path = url+"/"+names;
+
+
+        jQuery.ajax({
+        type: 'GET',
+        url: path,
+        success: function (n_data) { 
+
+        var gPolygonsbyIdx = {};
+
+         for(var i=0; i<gPolygons.length;i++){
+          var poly = gPolygons[i];
+          gPolygonsbyIdx[poly['id']] = poly;
+         }
+
+
+         var neighbourslist = JSON.parse(data);
+
+         var names_list = {};
+
+         for(var key in n_data){
+          var obj = n_data[key];
+          names_list[obj['ID_Ort']] = obj['NAME'];
+         }
+
+         for(var i=0; i<gPolygons.length;i++){
+            var poly = gPolygons[i];
+            poly['neighbours'] = [];
+            var neighbourids = neighbourslist[poly['id']];
+
+            for(var j=0; j<neighbourids.length;j++){
+               var id = neighbourids[j];
+               poly['neighbours'].push(gPolygonsbyIdx[id]);
+            }
+
+            poly['loc_name'] = names_list[poly['id']];
+
+          } 
+
+           callback();
+
+           }
+
+         })
+
+        }
+
+
+      })
+
+
+    }
+
+ else{
 
  for(var i=0; i<gPolygons.length;i++){
-
-      console.log(i);
 
       var poly = gPolygons[i];
 
@@ -694,7 +1361,7 @@ function addNeighboursToPolygons(gPolygons){
           
      }    
 
-
+   }
 }
 
 
@@ -1660,7 +2327,7 @@ function getColumnsAsArray(first_result){
 }
 
 
-function testNeighbours(polygons){
+function testNeighbours(polygons,show_neighbours){
 
   var i = 0;       
         var previouspoly = null;  
@@ -1703,12 +2370,16 @@ function testNeighbours(polygons){
 
                       var poly = polygons[i];
                       poly.setOptions({fillColor:"red",strokeColor:"white",strokeOpacity:1.0,fillOpacity:1.0});   
-                      poly.setMap(options.map);   
+                      poly.setMap(options.map); 
 
-                      for(var j=0;j<poly['neighbours'].length;j++){
-                        var neighbour = poly['neighbours'][j];
-                        neighbour.setOptions({fillColor:"blue",strokeColor:"white",strokeOpacity:1.0,fillOpacity:1.0}); 
-                        neighbour.setMap(options.map);   
+                      if(show_neighbours){  
+
+                        for(var j=0;j<poly['neighbours'].length;j++){
+                          var neighbour = poly['neighbours'][j];
+                          neighbour.setOptions({fillColor:"blue",strokeColor:"white",strokeOpacity:1.0,fillOpacity:1.0}); 
+                          neighbour.setMap(options.map);   
+                        }
+
                       }
 
                          var marker = new google.maps.Marker({
@@ -2222,7 +2893,102 @@ var result = [
 
 return result;
 
+};
+
+
+function createHexByPosition(hex_center,size,vertical_step,horizontal_step,position,polygon,ids_to_countries){
+
+var hex = {};
+
+if(position =="top") hex['center'] = new google.maps.Point(hex_center.x, hex_center.y - vertical_step);
+if(position =="top_right") hex['center'] = new google.maps.Point(hex_center.x +horizontal_step, hex_center.y - vertical_step/2);
+if(position =="bottom_right") hex['center'] = new google.maps.Point(hex_center.x +horizontal_step, hex_center.y + vertical_step/2);
+if(position =="bottom") hex['center'] = new google.maps.Point(hex_center.x, hex_center.y + vertical_step);
+if(position =="bottom_left") hex['center'] = new google.maps.Point(hex_center.x -horizontal_step, hex_center.y + vertical_step/2);
+if(position =="top_left") hex['center'] =  new google.maps.Point(hex_center.x -horizontal_step, hex_center.y - vertical_step/2);
+
+  var country = ids_to_countries[polygon.id];
+  var color = colors[country];
+  var identifier = hex['center'].x.toFixed(3).toString() + hex['center'].y.toFixed(3).toString();
+  hex['identifier'] = identifier;
+  hex['color']  = color;
+  hex['relatedPolygons'] = [polygon];
+
+  return hex;
+
+};
+
+function getNeighbourByPosition(position){
+
+if(position =="top") return 0;
+if(position =="top_right") return 2;
+if(position =="bottom_right") return 5;
+if(position =="bottom") return 3;
+if(position =="bottom_left") return 4;
+if(position =="top_left") return 1;
+
+};
+
+
+function dealWithConflict(position,angle,hex_candidates){
+
+var solution = "no_solution_found";
+
+if(position =="top"){
+  if(angle>270 && hex_candidates[2]!=null)solution = "top_right";
+  if(angle<270 && hex_candidates[1]!=null)solution = "top_left";
 }
+
+if(position=="top_right"){
+   if(hex_candidates[0]!=null) solution = "top";
+   else if(hex_candidates[1]!=null) solution ="bottom_right";
+}
+
+if(position=="top_left"){
+   if(hex_candidates[0]!=null) solution = "top";
+   else if(hex_candidates[2]!=null) solution ="bottom_left";
+}
+
+if(position =="bottom"){
+  if(angle>90 && hex_candidates[4]!=null)solution = "bottom_left";
+  if(angle<90 && hex_candidates[5]!=null)solution = "bottom_right";
+}
+
+if(position=="bottom_right"){
+   if(hex_candidates[3]!=null) solution = "bottom";
+   else if(hex_candidates[4]!=null) solution ="top_right";
+}
+
+if(position=="bottom_left"){
+   if(hex_candidates[3]!=null) solution = "bottom";
+   else if(hex_candidates[5]!=null) solution ="top_left";
+}
+
+if(solution!="no_solution_found") solution = getNeighbourByPosition(solution);
+
+return solution;
+
+};
+
+
+function addHexagonToMap(center,stroke_color,fill_color,offset){
+
+var hex_points = calculatePolygonPoints(center.x+offset,center.y,6,size);
+
+var hexagon = new google.maps.Polygon({
+                          paths: hex_points,
+                          strokeColor: stroke_color,
+                          strokeOpacity: 0.8,
+                          strokeWeight: stroke_weight,
+                          fillColor: fill_color,
+                          fillOpacity: options.hex_opacity,
+                        });
+
+hexagon.setMap(options.map);
+
+return hexagon;
+
+};
 
 
 function sortNeighboursByTopLeft(neighbours){
@@ -2326,6 +3092,21 @@ function calculatePolygonPoints (x,y,n,r){
     	return Math.sqrt(Math.pow(point_a.x-point_b.x,2)+Math.pow(point_a.y-point_b.y,2));
 
     };
+
+    function getAngle(p1,p2){
+      var res =  Math.atan2(p2.y - p1.y, p2.x - p1.x) * 180 / Math.PI;
+      if(res<0) res+=360;
+      return res;
+    };
+
+    function getPositionByAngle(angle){
+      if(angle> 240  && angle <  300)   return "top";
+      if(angle> 300  && angle <  360)   return "top_right";
+      if(angle> 0    && angle <   60)   return "bottom_right";
+      if(angle> 60   && angle <  120)   return "bottom";
+      if(angle> 120  && angle <  180)   return "bottom_left";
+      if(angle> 180  && angle <  240)   return "top_left";
+    }
 
     function sortObject(o) {
     var sorted = {},

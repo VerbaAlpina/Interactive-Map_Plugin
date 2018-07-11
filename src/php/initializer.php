@@ -35,7 +35,10 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//Options that have to be set
 		$this->map_function = 'im_show_test_map';
 		$this->load_function = 'im_load_test_data';
+		$this->search_location_function = NULL;
+		$this->get_location_function = NULL;
 		$this->edit_function = NULL;
+		$this->global_search_function = NULL;
 		
 		//Options that can be used
 		$this->gui_languages = array ('de','en','fr', 'it', 'sl', 'rg');
@@ -89,6 +92,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 		//Scripts
 
+
 		//Chosen
 		wp_register_script('im_chosen', IM_PLUGIN_URL . 'lib/js/chosen/chosen.jquery.js');
 		wp_register_script('im_chosen_order', IM_PLUGIN_URL . '/lib/js/chosen-order/dist/chosen.order.jquery.min.js', array('im_chosen'));
@@ -98,8 +102,17 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_script('im_select2', IM_PLUGIN_URL . '/lib/js/select2/dist/js/select2.min.js');
 		wp_register_style('im_select2_style', IM_PLUGIN_URL . '/lib/js/select2/dist/css/select2.min.css');
 
+		//Select2 Translations
+		wp_register_script('im_select2_de', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/de.js');
+		wp_register_script('im_select2_fr', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/fr.js');
+		wp_register_script('im_select2_it', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/it.js');
+		wp_register_script('im_select2_sl', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/sl.js');
+
+
 		//Google maps
-		wp_register_script('im_googleMaps', 'https://maps.googleapis.com/maps/api/js?v=3&libraries=drawing&language=' . substr(get_locale(), 0, 2), array(), false, true);
+		$key = apply_filters('im_google_maps_api_key', '');
+		$key_str = ($key != ''? '&key=' . $key : '');
+		wp_register_script('im_googleMaps', 'https://maps.googleapis.com/maps/api/js?v=3&libraries=drawing&language=' . substr(get_locale(), 0, 2) . $key_str, array(), false, true);
 
 		//JQuery UI
 		wp_register_style('im_jquery-ui-style', IM_PLUGIN_URL . 'lib/css/jquery-ui.min.css');
@@ -123,16 +136,17 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_style('im_qtip_style', IM_PLUGIN_URL . '/lib/js/qtip/jquery.qtip.min.css');
 		
 		//Font Awesome
-		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/font-awesome-4.7.0/css/font-awesome.min.css');
+		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/fontawesome-free-5.0.8/web-fonts-with-css/css/fontawesome-all.min.css');
 
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
 		wp_register_script('im_colorpicker', IM_PLUGIN_URL . '/lib/js/colorpicker/jqColorPicker.min.js');
 
 		//hungarian method
-		wp_register_script('im_munkres', IM_PLUGIN_URL . '/lib/js/munkres/munkres.js');
+		// wp_register_script('im_munkres', IM_PLUGIN_URL . '/lib/js/munkres/munkres.js');
 		
-		$dependencies = array(	
+		$dependencies = array(
+			
 				'jquery-ui-dialog',
 				'jquery-ui-tabs',
 				'im_chosen_order',
@@ -145,7 +159,12 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'im_qtip',
 				'im_colors',
 				'im_colorpicker',
-				'im_munkres'
+				'im_select2',
+				'im_select2_de',
+				'im_select2_fr',
+				'im_select2_it',
+				'im_select2_sl'
+				
 		);
 
 		//Main map script
@@ -161,10 +180,14 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	public function enqueue_scripts (){
 		
 		if($this->add_scripts){
+
+			wp_enqueue_script('im_callback');
+
 			wp_enqueue_style("im_jquery-ui-style");
 			wp_enqueue_style("im_jquery-ui-style2");
 				
 			wp_enqueue_style('im_chosen_style');
+			wp_enqueue_style('im_select2_style');
 
 			wp_enqueue_style('im_context-menu-style');
 				
@@ -255,7 +278,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'mapName' => $this->name,
 				'tk' => isset($_REQUEST['tk'])? $_REQUEST['tk'] : null,
 				'single' => isset($_REQUEST['single'])? $_REQUEST['single'] : null,
-				'tkUrl' => add_query_arg('tk', '§§§', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request )))
+				'tkUrl' => add_query_arg('tk', '§§§', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request ))),
+				'options' => []
 		);
 		
 		//Send
@@ -315,7 +339,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'REMOVE' => __('Remove'),
 				'WITHOUT_TAG' => __('(without)', 'interactive-map'),
 				'FILTER_NOT_POSSIBLE' => __('This selection will return no data!', 'interactive-map'),
-				'GRADIENT_HELP' => __('English text gradient help', 'interactive-map')
+				'GRADIENT_HELP' => __('English text gradient help', 'interactive-map'),
+				'SEARCH_LOADING' => __('Loading, please wait...', 'interactive-map'),
+				'SEARCH_PLACEHOLDER' => __('Please enter searchterm...', 'interactive-map')
 		);
 		
 		$translations = apply_filters ('im_translation_list', $translations); //TODO document
@@ -400,6 +426,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 					}
 			});
 			});
+
+
 		</script>
 		<br />
 		<br />

@@ -192,7 +192,7 @@
 		$box = imagettfbbox($font_size, 0, $font, $_REQUEST['letter']);
 		$width = abs($box[4] - $box[0]);
 		$height = abs($box[5] - $box[1]);
-		$text_x = ceil($size / 2) - ceil($width / 2);
+		$text_x = floor(($size - $width) / 2);
 		switch($shape){
 			case 'triangle':
 			case 'house':

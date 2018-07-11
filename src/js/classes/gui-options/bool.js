@@ -6,13 +6,20 @@
  * @param {boolean} defaultValue
  * @param {string} name
  * @param {function(boolean, Object<string,?>=)} changeListener
+ * @param {boolean} isSaved
  */
-function BoolOption (defaultValue, name, changeListener){
+function BoolOption (defaultValue, name, changeListener, isSaved){
 	
 	/**
 	 * @type {boolean}
 	 */
 	this.defaultValue = defaultValue;
+	
+	/**
+	 * @private
+	 * @type {boolean}
+	 */
+	this.save = isSaved;
 	
 	/**
 	 * @type {string}
@@ -38,6 +45,15 @@ function BoolOption (defaultValue, name, changeListener){
 	this.elements.push(checkbox);
 	this.elements.push(document.createTextNode(name));
 	this.elements.push(document.createElement("br"));
+	
+	/**
+	 * @override
+	 * 
+	 * @return boolean
+	 */
+	this.isSaved = function (){
+		return this.save;
+	};
 	
 	/**
 	 * @override

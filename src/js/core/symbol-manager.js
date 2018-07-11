@@ -24,8 +24,9 @@ function SymbolManager(colorScheme) {
 
 	var/** number */ numMain = colorScheme.getNumCombinations(features_classes.main);
 	var/** number */ numSub = colorScheme.getNumCombinations(features_classes.sub);
+	var/** number */ numAdd = colorScheme.getNumCombinations(features_classes.add);
 
-	var/** number */ numCols = colorScheme.getNumColors();
+	var/** number */ numCols = colorScheme.getNumPolygonColors();
 
 	//Point Symbols
 	var/** number */
@@ -43,7 +44,7 @@ function SymbolManager(colorScheme) {
 	}
 	
 	//Parameters a and b for the function 2 (a log(x) + b) + 1 that is used to compute the symbol size from the number of symbols
-	var /** number */ x1 = maxIdenticalIcons + 1;
+	var /** number */ x1 = 2;
 	var /** number */ y1 = symbolSize * (1 + minimumSymbolEnlargement / 100) / 2;
 	var /** number */ x2 = 100;
 	var /** number */ y2 = symbolSize * (1 + decSymbolEnlargement / 100) / 2;
@@ -57,6 +58,13 @@ function SymbolManager(colorScheme) {
 	for (i = 1; i < num_types; i++) {
 		freeColors[i] = new Array(numCols);
 	}
+	
+	/**
+	 * @private
+	 * 
+	 * @type {Map<string, string>}
+	 */
+	this.symbolBuffer = new Map();
 
 	this.resetFreeFeatures = function() {
 
@@ -154,8 +162,25 @@ function SymbolManager(colorScheme) {
 	 *
 	 *  @return {string} 
 	 */
-	this.getColorString = function (index){
-		var /** Array<number> */ colorArray = colorScheme.getColor(index % numCols);
+	this.getPolygonColorString = function (index){
+		var /** Array<number> */ colorArray = colorScheme.getPolygonColor(index % numCols);
+		return '#' + decimalToHex(colorArray[0]) + decimalToHex(colorArray[1]) + decimalToHex(colorArray[2]);
+	};
+	
+	/** @param {number} index
+	 *
+	 *  @return {Array<number>} 
+	 */
+	this.getMarkingColor = function (index){
+		return /**@type{Array<number>}*/ (colorScheme.getSingleFeature(features_classes.add, index)["mcolor"]); //TODO make this more flexible!!!!!
+	};
+	
+	/** @param {number} index
+	 *
+	 *  @return {string} 
+	 */
+	this.getMarkingColorString = function (index){
+		var /** Array<number>*/ colorArray = this.getMarkingColor(index);
 		return '#' + decimalToHex(colorArray[0]) + decimalToHex(colorArray[1]) + decimalToHex(colorArray[2]);
 	};
 
@@ -322,7 +347,7 @@ function SymbolManager(colorScheme) {
 		for (var i = 0; i < numSub; i++) {
 			if (subArray[i]) {
 				subArray[i] = false;
-				res[foundIndexes++] = [mainIndex, i, 15];
+				res[foundIndexes++] = [mainIndex, i, 0];
 				if (foundIndexes == numSubComb)
 					break;
 			}
@@ -351,33 +376,667 @@ function SymbolManager(colorScheme) {
 		}
 	};
 
+
+	/**
+	 * @param {string} hex
+	 * @param {number} lum
+	 */
+
+     this.ColorLuminance = function(hex, lum) {
+
+			hex = String(hex).replace(/[^0-9a-f]/gi, '');
+			if (hex.length < 6) {
+			hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+			}
+			lum = lum || 0;
+
+			var rgb = "#", c, i;
+			for (i = 0; i < 3; i++) {
+			c = parseInt(hex.substr(i*2,2), 16);
+			c = Math.round(Math.min(Math.max(0, c + (c * lum)), 255)).toString(16);
+			rgb += ("00"+c).substr(c.length);
+			}
+
+			return rgb;
+      }
+
+
+	/**
+	 * @param {Array<number>|number} color_array
+	 */
+
+      this.checkContrast = function(color_array) {
+
+		// http://www.w3.org/TR/AERT#color-contrast
+		var o = Math.round(((parseInt(color_array[0],10) * 299) +
+		              (parseInt(color_array[1],10) * 587) +
+		              (parseInt(color_array[2],10) * 114)) / 1000);
+
+		return o;
+
+		}
+
+
+	/**
+	 * @param {string} hex_color
+	 * @param {Array<number>|number} color_array
+	 */
+
+		this.getContrastColor = function(hex_color,color_array){
+			      		
+	              var w3_contrast = this.checkContrast(color_array);
+				  var contrast_color;
+
+			      	if(w3_contrast < 125) {
+						contrast_color =  this.ColorLuminance(hex_color, 0.65 + w3_contrast/100);				         		           
+					}
+					else {
+						contrast_color =  this.ColorLuminance(hex_color, -0.45); 
+					}
+
+					if(hex_color=="#000000")contrast_color = "#d1d1d1";
+					if(hex_color=="#FFFFFF")contrast_color = "#777777";
+
+		    return contrast_color;			
+		}
+
+
+	/**
+	 * @param {Array<number>|null|undefined|number} color_array
+	 */	
+
+		this.rgbToHex = function(color_array) {
+		    return "#" + ((1 << 24) + (color_array[0] << 16) + (color_array[1] << 8) + color_array[2]).toString(16).slice(1);
+		};
+
+
+     /**
+	 * @param {number} size
+	 * @param {string} label
+ 	 * @param {Array<number>} color
+ 	 * @param {string} form
+ 	 * @param {boolean} outline_only
+	 * @param {number=} markingSize
+	 * @param {Array<number>=} markingcolor
+ 	 * @param {boolean=} active
+	 *
+	 * @return {string}
+	 */
+
+		this.createMarkerImage = function(size,label,color,form,outline_only,markingSize,markingcolor,active){
+
+				var fontsize = this.getImageFontSize(size,label,form);
+
+				size*=symbolRescaleFactor;
+
+				var hex_color = this.rgbToHex(color);
+
+
+				var strokewidth = 3;
+	
+
+				var canvas = document.createElement('canvas');
+				var context = canvas.getContext("2d");
+
+				var add_for_marking = 0;
+
+				if(markingSize==0){
+
+				canvas.width = size;
+				canvas.height = size;
+
+				}
+
+				else{
+					add_for_marking = markingSize*4;
+					canvas.width = size +add_for_marking;
+					canvas.height = size +add_for_marking;
+				}
+
+				var centerX = canvas.width / 2;
+				var centerY = canvas.height / 2;
+
+
+	              var contrast_color;
+	              if(!outline_only)contrast_color = this.getContrastColor(hex_color,color);
+	              else contrast_color = hex_color;
+
+    	         if(markingSize>0){
+	      		      context.beginPath();
+	      		      var new_center = this.drawForm(form,centerX,centerY,context,size+add_for_marking,strokewidth); // REPLLACE MARKINSIZE *4 with variable
+  		              if(new_center!=null){centerX = new_center[0];centerY=new_center[1];}
+	           		  context.lineWidth = strokewidth;
+				      context.strokeStyle = this.rgbToHex(markingcolor);
+				      context.closePath();
+				      context.stroke();
+
+			      }
+
+
+		 	      context.beginPath();
+
+		         if(markingSize>0){
+		         	 if(form=="house")centerY-= 0.14 * centerY;
+		         	 if(form=="house_i")centerY+= 0.23 * centerY;
+	         	     if(form=="triangle")centerY-= 0.18 * centerY;
+	         	     if(form=="triangle_i")centerY+= 0.3 * centerY;
+		         }
+
+			      var new_center = this.drawForm(form,centerX,centerY,context,size,strokewidth);
+			      if(new_center!=null){centerX = new_center[0];centerY=new_center[1];}
+
+
+			      if(!active){
+			      	contrast_color ='rgba(97,97,97,0.40)';
+			      	hex_color = "rgba(225,225,225,0.77)";
+			      }
+			
+			      if(!outline_only){  	
+				      context.fillStyle = hex_color;
+				      context.fill();
+		      	      context.font =  fontsize+"px Arial";
+			   	 	  context.fillStyle = contrast_color;
+		              context.textAlign="center"; 
+		          	  context.textBaseline="middle"; 
+		              context.fillText(label, centerX, centerY);
+			      } 
+
+			      context.lineWidth = strokewidth;
+			      context.strokeStyle = contrast_color;
+			      context.closePath();
+			      context.stroke();
+
+		
+			      
+		          var url = canvas.toDataURL();
+			     
+		          return url;
+			};
+
+
+
+     /**
+	 * @param {string} form
+ 	 * @param {number} centerX
+ 	 * @param {number} centerY
+ 	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 *
+	 * @return {Array<number>|null}
+	 */		
+
+	this.drawForm = function(form,centerX,centerY,context,size,strokewidth){
+
+		var newcenter = null;
+
+		      switch(form){
+						case "circle":
+							this.drawCircle(centerX,centerY,context,size,strokewidth);
+						break;
+
+						case "rect":
+							this.drawRect(centerX,centerY,context,size,strokewidth);
+						break;
+
+						case "triangle":
+							newcenter = this.drawTriangle(centerX,centerY,context,size,strokewidth);
+						break;
+
+						case "triangle_i":
+							newcenter = this.drawTriangle_i(centerX,centerY,context,size,strokewidth);
+						break;
+
+						case "hex_flat":
+							this.drawHex(centerX,centerY,context,size,strokewidth,true);
+						break;
+
+						case "hex_pointy":
+							this.drawHex(centerX,centerY,context,size,strokewidth,false);
+						break;
+
+					    case "rhomb":
+							this.drawRhomb(centerX,centerY,context,size,strokewidth);
+						break;
+
+					    case "house":
+						  newcenter= this.drawHouse(centerX,centerY,context,size,strokewidth);
+						break;
+
+
+					    case "house_i":
+						  newcenter= this.drawHouse_i(centerX,centerY,context,size,strokewidth);
+						break;
+
+						case "rectcutoffbr":
+							this.drawCutOffRectBR(centerX,centerY,context,size,strokewidth);				  			
+						break;
+
+						case "rectcutofftr":
+							this.drawCutOffRectTR(centerX,centerY,context,size,strokewidth);				  			
+						break;
+
+						case "rectcutofftl":
+							this.drawCutOffRectTL(centerX,centerY,context,size,strokewidth);				  			
+						break;
+
+						case "rectcutoffbl":
+							this.drawCutOffRectBL(centerX,centerY,context,size,strokewidth);				  			
+						break;
+			         }
+
+         return newcenter;
+	}		
+
+
+
+ 	 /**
+	 * @param {number} size
+ 	 * @param {string} label
+ 	 * @param {string} form
+	 *
+	 * @return  {number}
+	 */		
+
+	this.getImageFontSize = function(size,label,form){
+
+		var fsize;
+
+		if(form == "circle" || form=="rect" || form == "rectcutoffbr"  || form == "rectcutofftr" || form == "rectcutofftl" || form == "rectcutoffbl") {
+			if(size==symbolSize  && label.length==1) fsize = 12;	
+			if(size==symbolSize  && label.length==2) fsize = 10;
+
+			if(size> symbolSize  && label.length==1) fsize = 15;		
+			if(size> symbolSize  && label.length==2) fsize = 13;
+		}
+
+		if(form == "triangle" || form=="triangle_i"){
+
+			if(size==symbolSize  && label.length==1)  fsize = 8.5;
+		    if(size==symbolSize  && label.length==2)  fsize = 7.5;	
+
+			if(size >symbolSize  && label.length==1)  fsize = 13;	    
+			if(size >symbolSize  && label.length==2)  fsize = 9;
+
+		}
+
+		if(form == "hex_flat" || form=="hex_pointy"){
+
+			if(size==symbolSize  && label.length==1)  fsize = 11.5;
+		    if(size==symbolSize  && label.length==2)  fsize = 9.5;	
+
+			if(size >symbolSize  && label.length==1)  fsize = 14.5;	    
+			if(size >symbolSize  && label.length==2)  fsize = 12.5;
+
+		}
+
+		if(form=="rhomb"){
+
+			if(size==symbolSize  && label.length==1)  fsize = 9.5;
+		    if(size==symbolSize  && label.length==2)  fsize = 7.5;	
+
+			if(size >symbolSize  && label.length==1)  fsize = 12.5;	    
+			if(size >symbolSize  && label.length==2)  fsize = 10.5;
+
+		}
+
+
+
+		if(form == "house" || form=="house_i"){
+
+			if(size==symbolSize  && label.length==1)  fsize = 10.5;
+		    if(size==symbolSize  && label.length==2)  fsize = 8.5;	
+
+			if(size >symbolSize  && label.length==1)  fsize = 13;	    
+			if(size >symbolSize  && label.length==2)  fsize = 12;
+
+		}
+
+
+
+	return fsize*symbolRescaleFactor;	
+	
+	}
+
+
+ 	 /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawCircle = function(centerX,centerY,context,size,strokewidth){
+
+		 var radius = (size/2)- strokewidth/2;
+    	 context.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+	}	
+
+ 	 /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawRect =	function(centerX,centerY,context,size,strokewidth){
+   	    context.moveTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+    	context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.closePath();
+	}
+
+	 /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+    this.drawRhomb = function(centerX,centerY,context,size,strokewidth){
+	    context.moveTo(centerX-size/2+strokewidth/2, centerY);
+    	context.lineTo(centerX, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY);
+	    context.lineTo(centerX, centerY+size/2-strokewidth/2);
+	    context.closePath();
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawTriangle =	function(centerX,centerY,context,size,strokewidth){
+
+		context.moveTo(centerX, centerY-size/2+strokewidth/2);
+		context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+		context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+		context.closePath();
+
+		var newCenterX = (centerX + centerX+size/2-strokewidth/2 + centerX-size/2+strokewidth/2) / 3;
+		var newCenterY = (centerY-size/2+strokewidth/2 + centerY+size/2-strokewidth/2 + centerY+size/2-strokewidth/2) / 3;
+
+	     return [newCenterX,newCenterY];
+
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawTriangle_i =	function(centerX,centerY,context,size,strokewidth){
+
+		context.moveTo(centerX, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+    	context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+		context.closePath();
+
+		var newCenterX = (centerX +centerX-size/2+strokewidth/2 + centerX+size/2-strokewidth/2) / 3;
+		var newCenterY = (centerY+size/2-strokewidth/2 + centerY-size/2+strokewidth/2 + centerY-size/2+strokewidth/2) / 3;
+
+	     return [newCenterX,newCenterY];
+
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawHouse = function(centerX,centerY,context,size,strokewidth){
+	    context.moveTo(centerX, centerY-size/2+strokewidth/2);
+    	context.lineTo(centerX+size/2-strokewidth/2, centerY);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY);
+	    context.closePath();
+	    var add = 0.15;
+	    if(size>34)add = 0.22;
+
+	    var newCenterY = centerY + add * centerY; //TODO: find eq for correct center;
+	    return[centerX,newCenterY]
+
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+
+	this.drawHouse_i = function(centerX,centerY,context,size,strokewidth){
+
+	    context.moveTo(centerX, centerY+size/2-strokewidth/2);
+    	context.lineTo(centerX-size/2+strokewidth/2, centerY);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY);
+	    context.closePath();
+	    var add = -0.15;
+	    if(size>34)add = -0.22;
+
+	    var newCenterY = centerY + add * centerY; //TODO: find eq for correct center;
+	    return[centerX,newCenterY]
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+	this.drawCutOffRectBR = function(centerX,centerY,context,size,strokewidth){
+
+   	    context.moveTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+        context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, (centerY+size/2-strokewidth/2)-size/2*0.35);
+	    context.lineTo((centerX+size/2-strokewidth/2)-size/2*0.35, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.closePath();
+
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+	this.drawCutOffRectTR = function(centerX,centerY,context,size,strokewidth){
+
+		context.moveTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+    	context.lineTo((centerX+size/2-strokewidth/2)-size/2*0.35, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, (centerY-size/2+strokewidth/2)+size/2*0.35);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.closePath();
+
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+	this.drawCutOffRectTL = function(centerX,centerY,context,size,strokewidth){
+
+		context.moveTo((centerX-size/2+strokewidth/2)+size/2*0.35, centerY-size/2+strokewidth/2);
+        context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+        context.lineTo(centerX-size/2+strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, (centerY-size/2+strokewidth/2)+size/2*0.35);
+	    context.closePath();
+	}
+
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+	 */	
+	this.drawCutOffRectBL = function(centerX,centerY,context,size,strokewidth){
+
+		context.moveTo(centerX-size/2+strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY-size/2+strokewidth/2);
+	    context.lineTo(centerX+size/2-strokewidth/2, centerY+size/2-strokewidth/2);
+	    context.lineTo((centerX-size/2+strokewidth/2)+size/2*0.35, centerY+size/2-strokewidth/2);
+	    context.lineTo(centerX-size/2+strokewidth/2, (centerY+size/2-strokewidth/2)-size/2*0.35);
+	    context.closePath();
+	}
+   
+     /**
+	 * @param {number} centerX
+	 * @param {number} centerY
+	 * @param {Object} context
+	 * @param {number} size
+	 * @param {number} strokewidth
+ 	 * @param {boolean} flat
+	 */	
+	this.drawHex = function(centerX,centerY,context,size,strokewidth,flat){
+		var points = this.calculateHexPoints(centerX,centerY,size/2,flat);
+
+		//switch + / - for full size but stretch
+
+		if(flat){
+
+			context.moveTo(points[0].x-strokewidth/2,points[0].y);
+			context.lineTo(points[1].x,points[1].y-strokewidth/2);  
+			context.lineTo(points[2].x,points[2].y-strokewidth/2);  
+			context.lineTo(points[3].x+strokewidth/2,points[3].y);
+			context.lineTo(points[4].x,points[4].y+strokewidth/2); 
+		    context.lineTo(points[5].x,points[5].y+strokewidth/2);  
+
+	    }
+
+	    else{
+			context.moveTo(points[0].x,points[0].y-strokewidth/2);
+			context.lineTo(points[1].x-strokewidth/2,points[1].y);  
+			context.lineTo(points[2].x-strokewidth/2,points[2].y);  
+			context.lineTo(points[3].x,points[3].y+strokewidth/2);
+			context.lineTo(points[4].x+strokewidth/2,points[4].y);  
+		    context.lineTo(points[5].x+strokewidth/2,points[5].y);   
+	    }
+
+		context.closePath();
+	}
+
+
+   
+	 /**
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} r
+	 * @param {boolean} flat
+	 */	
+	this.calculateHexPoints = function(x,y,r,flat){
+	     
+	  var result = [];  
+
+	     for (var i = 0; i < 6; i++) {
+	 
+	      var point = {x:0,y:0};
+	      if(flat){
+		      point.x = x + r * Math.cos(2 * Math.PI * i / 6); 
+		      point.y = y + r * Math.sin(2 * Math.PI * i / 6); 
+	      }  
+
+	      else{
+	      	 point.x = x + r * Math.sin(2 * Math.PI * i / 6); 
+		     point.y = y + r * Math.cos(2 * Math.PI * i / 6); 
+	      }
+
+	      result.push(point);
+	    }
+
+	    return result;
+
+	  };
+
+
+
 	/**
 	 * @param {Array<number>} indexArray
 	 * @param {number=} size
 	 * @param {number=} markingSize
+	 * @param {boolean=} active
 	 *
 	 * @return {string}
 	 */
-	this.createSymbolURL = function(indexArray, size, markingSize) {
+	this.createSymbolURL = function(indexArray, size, markingSize, active) {
 		if (size == null)
 			size = symbolSize;
+
 		
 		if (markingSize == null){
 			markingSize = 0;
 		}
+
+
+
 		
-		var /** Object<string, *> */ symbolInfo = colorScheme.getFeatureCombination(indexArray, markingSize);
-		var /** string */ url = PATH["symbolGenerator"] + "?size=" + size;
-		for (var /** string */ prop in symbolInfo) {
-			url += "&" + prop + "=" + encodeURIComponent(/** @type{string} */ (symbolInfo[prop]));
+		if (active === undefined)
+			active = true;
+		
+		var /** string */ key = this.createSymbolKey  (indexArray, size, markingSize, active);
+		var /** string|undefined */ bufferedVal = this.symbolBuffer.get(key);
+
+		if(bufferedVal !== undefined){
+			return bufferedVal;
 		}
-		
-		return url;
+
+		var /** Object<string, *> */ symbolInfo = colorScheme.getFeatureCombination(indexArray, markingSize * symbolRescaleFactor);
+			
+	    var /** string */ url  = this.createMarkerImage(size, /** @type{string} */(symbolInfo['letter']),  /** @type{Array<number>} */(symbolInfo['color']), /** @type{string} */(symbolInfo['shape']), false, markingSize, /** @type{Array<number>} */(symbolInfo['mcolor']),active);
+		this.symbolBuffer.set(key, url);
+	    
+	    return url;
 	};
 	
+	/**
+	 * @param {Array<number>} indexArray
+	 * @param {number=} size
+	 * @param {number=} markingSize
+	 * @param {boolean=} active
+	 *
+	 * @return {string}
+	 */
+	this.createSymbolKey = function (indexArray, size, markingSize, active){
+		return indexArray.join(".") + "." + size + "." + markingSize + "." + (active? "1": "0");
+	};
+	
+	/**
+	 * @param {number} count
+	 * 
+	 * @return {number}
+	 */
 	this.getLogSizeForCount = function (count){
+		if(count == 1){
+			return symbolSize;
+		}
+		
 		return 2 * Math.round(a * Math.log(count) + b) + 1;
-	}
+	};
 	
 	/**
 	 * @param {number} mainIndex
@@ -389,10 +1048,7 @@ function SymbolManager(colorScheme) {
 		if (size == null)
 			size = symbolSize;
 		var /** Object<string, *> */ symbolInfo = colorScheme.getSingleFeature(features_classes.main, mainIndex);
-		var /** string */ url = PATH["symbolGenerator"] + "?size=" + size;
-		for (var /** string */ prop in symbolInfo) {
-			url += "&" + prop + "=" + encodeURIComponent(/** @type{string} */ (symbolInfo[prop]));
-		}
+		var /** string */ url  = this.createMarkerImage(size,"",[119,119,119],/** @type{string} */(symbolInfo['shape']),true,0,null,true);
 		return url;
 	};
 
@@ -402,9 +1058,9 @@ function SymbolManager(colorScheme) {
 	 * @return {string}
 	 */
 	this.createColorURL = function(index) {
-		var /** Array<number> */ color = colorScheme.getColor(index % numCols);
-		var /** string */ url = PATH["symbolGenerator"] + "?size=" + symbolSize + "&shape=circle";
-		url += "&color=" + color;
+		var /** Array<number> */ color = colorScheme.getPolygonColor(index % numCols);
+	    var /** string */ url  = this.createMarkerImage(symbolSize, "", color, "circle", false, 0, null, true);
+
 		return url;
 	};
 	
@@ -416,11 +1072,8 @@ function SymbolManager(colorScheme) {
 	 */
 	this.createSymbolURLForMarking = function(mainIndex, colorIndex) {
 		var /** Object<string, *> */ symbolInfo = colorScheme.getSingleFeature(features_classes.main, mainIndex);
-		var /** string */ url = PATH["symbolGenerator"] + "?size=" + symbolSize
-			+ "&msize=" + markingSize + "&mcolor=" + colorScheme.getColor(colorIndex % numCols);
-		for (var /** string */ prop in symbolInfo) {
-			url += "&" + prop + "=" + encodeURIComponent(/** @type{string} */ (symbolInfo[prop]));
-		}
+	    var /** string */ url  = this.createMarkerImage(symbolSize,"",[119,119,119], /** @type{string} */(symbolInfo['shape']), true, markingSize, symbolManager.getMarkingColor(colorIndex),true);
+
 		return url;
 	};
 	
@@ -450,8 +1103,15 @@ function SymbolManager(colorScheme) {
 	/**
 	 * @return {number}
 	 */
-	this.getNumColors = function (){
+	this.getNumPolygonColors = function (){
 		return numCols;
+	}
+	
+	/**
+	 * @return {number}
+	 */
+	this.getNumMarkingColors = function (){
+		return numAdd;
 	}
 }
 
@@ -498,7 +1158,7 @@ var features_classes = {
  * @param {Array<Feature<string|Array<number>>>} main main features
  * @param {Array<Feature<string|Array<number>>>} sub sub-features
  * @param {Array<Feature<string|Array<number>>>} add additional features
- * @param {Array<Array<number>>} colors addional pointer to the color array, since it is needed for polygons and line strings
+ * @param {Array<Array<number>>} colors for polygons and line strings
  */
 function ColorScheme(main, sub, add, colors) {
 
@@ -509,19 +1169,9 @@ function ColorScheme(main, sub, add, colors) {
 	var ranges = [computeRange(main), computeRange(sub), computeRange(add)];
 
 	/**
-	 * @param {Feature<string|Array<number>>} e
-	 *
-	 */
-	var delVal = function(e) {
-		delete e.values;
-	};
-
-	/**
 	 * @type {Array<Array<Feature<string|Array<number>>>>}
 	 */
 	var descriptions = [main, sub, add];
-	for (var/** number */ i = 0; i < descriptions.length; i++)
-		descriptions[i].map(delVal);
 
 	/**
 	 * @param {number} fclass
@@ -554,7 +1204,7 @@ function ColorScheme(main, sub, add, colors) {
 		}
 		
 		if (markingSize > 0){
-			res["msize"] = markingSize;
+			res["msize"] = markingSize * markingScaleFunction(res);
 		}
 		
 		return res;
@@ -572,20 +1222,19 @@ function ColorScheme(main, sub, add, colors) {
 	/**
 	 * @return {number}
 	 */
-	this.getNumColors = function() {
+	this.getNumPolygonColors = function() {
 		return colors.length;
 	};
-
+	
 	/**
 	 * @param {number} index
 	 *
 	 * @return {Array<number>}
 	 */
-	this.getColor = function(index) {
+	this.getPolygonColor = function(index) {
 		return colors[index];
 	};
-
-
+	
 	/**
 	 * @param {Array<Feature<string|number|Array<number>>>} arr
 	 *
@@ -668,6 +1317,32 @@ function ColorScheme(main, sub, add, colors) {
 		}
 		return res;
 	}
+	
+	/**
+	 * @return {string}
+	 */
+	this.exportScheme = function (){
+		var result = {};
+		
+		result["main"] = [];
+		for (var i = 0; i < main.length; i++){
+			result["main"].push(main[i].exportFeature());
+		}
+		
+		result["sub"] = [];
+		for (var i = 0; i < sub.length; i++){
+			result["sub"].push(sub[i].exportFeature());
+		}
+		
+		result["add"] = [];
+		for (var i = 0; i < add.length; i++){
+			result["add"].push(add[i].exportFeature());
+		}
+		
+		result["colors"] = colors;
+		
+		return JSON.stringify(result);
+	};
 
 }
 
@@ -688,10 +1363,20 @@ function ColorScheme(main, sub, add, colors) {
 function Feature(name, values, independent, overflow) {
 	/** @type{string} */
 	this.name = name;
+	
 	/** @type{Array<string|number|Array<number>>} */
 	this.values = values;
+	
 	/** @type{number} */
 	this.overflow = overflow == null ? values.length : overflow;
+	
 	/** @type{boolean} */
 	this.independent = independent == null? false: independent;
+	
+	/**
+	 * @return {Object<string, ?>}
+	 */
+	this.exportFeature = function (){
+		return {"name" : this.name, "values" : this.values, "overflow" : this.overflow, "independent" : this.independent};
+	};
 }

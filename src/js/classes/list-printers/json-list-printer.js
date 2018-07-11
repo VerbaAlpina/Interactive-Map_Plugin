@@ -9,6 +9,10 @@ function JsonListPrinter(){
     this.getType = function(){
         return "application/json;charset=utf8"
     }
+    /**
+     * 
+     * @return {string}
+     */
     this.buildList = function(data){
         return JSON.stringify(data);
     }

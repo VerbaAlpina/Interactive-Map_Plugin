@@ -70,6 +70,11 @@ function GoogleMapsInterface (){
 	 */
 	 this.windowClosedFun;
 	 
+	 /**
+	  * @type{function(string)}
+	  */
+	 this.locationWindowClosedFun;
+	 
 	/**
 	 * @private
 	 * @const
@@ -94,6 +99,16 @@ function GoogleMapsInterface (){
 	 * @type {Element}
 	 */
 	this.undoComponent;
+	
+	/**
+	 * @type {google.maps.Data.Feature} 
+	 */
+	this.current_polygon;
+
+	/**
+	 * @type {boolean}
+	 */
+	this.dragging = false;
 	
 	/**
 	 * @override
@@ -121,7 +136,6 @@ function GoogleMapsInterface (){
 
 		
 		map.data.setStyle(function (feature){
-			
 			var /** MapShape */ shape = /**@type{MapShape}*/ (feature.getProperty("mapShape"));
 			
 			if(shape){
@@ -142,6 +156,13 @@ function GoogleMapsInterface (){
 	
 			  return /** @type {google.maps.Data.StyleOptions} */(popts);
 			}
+			else if (optionManager.getOptionState("print")){ //TODO has to move to VA!!
+				return /** @type {google.maps.Data.StyleOptions} */({
+					"fillOpacity" : 0,
+					"strokeColor" : "black",
+					"strokeWeight" : 1
+			    });
+			}
 			else {
 				//Only for tests
 				return /** @type {google.maps.Data.StyleOptions} */({
@@ -154,7 +175,7 @@ function GoogleMapsInterface (){
 		});
 
 		map.data.addListener ("click", function (event){
-			event.feature.getProperty("mapShape").openInfoWindow(event);
+			event.feature.getProperty("mapShape").openInfoWindow(event.latLng);
 	        event.feature.setProperty("clicked", true);		
 		});
 	    
@@ -162,36 +183,36 @@ function GoogleMapsInterface (){
 		map.data.addListener('mouseover', function(event) {
 			event.feature.setProperty('hovered', true);
 			event.feature.setProperty('highlighted', true);
-			current_polygon = event.feature;
+			this.current_polygon = event.feature;
 		});
 
 		map.data.addListener('mouseout', function(event) {
 			if(event != null){	
 				event.feature.setProperty('hovered', false);
 
-				if(!event.feature.getProperty('clicked') && !dragging){
+				if(!event.feature.getProperty('clicked') && !this.dragging){
 					event.feature.setProperty('highlighted',false);
 				}
 			}
 			else {
-				if(current_polygon){
-					current_polygon.setProperty('highlighted',false);
+				if(this.current_polygon){
+					this.current_polygon.setProperty('highlighted',false);
 				}
 			}
 		//case for manual trigger of mouseout in symbol_clusterer if closeclick on single symbol richmarker
 		});
 
 		map.data.addListener('mousedown', function(event) {
-			dragging = true;
+			this.dragging = true;
 		});
 
 		map.data.addListener('mouseup', function(event) {
-			dragging = false;	
+			this.dragging = false;	
 		});
 
 		jQuery('body').on('mouseup',function(){
-			if(dragging)
-				dragging = false;
+			if(this.dragging)
+				this.dragging = false;
 		})
 		
 		callback();
@@ -215,10 +236,11 @@ function GoogleMapsInterface (){
 	 * @param {google.maps.Marker} marker
 	 * @param {Array<{url: string, size: number}>} icons
 	 * @param {MapSymbol} mapSymbol
+ 	 * @param {number} zIndex
 	 * 
 	 * @return {google.maps.Marker}
 	 */
-	this.updateMarker = function (marker, icons, mapSymbol){
+	this.updateMarker = function (marker, icons, mapSymbol, zIndex){
 		var /** GoogleMapsInterface */ thisObject = this;
 		
 		//Count number of update requests for one mapSymbol, only process the latest in the callback, since there is no guaranty which image is ready first.
@@ -231,13 +253,16 @@ function GoogleMapsInterface (){
 		}
 		this.markerImagesLoading.set(mapSymbol, numberLoading);
 		
-		this.createMultiSymbol(icons, function (url, x, y, layout){
+		this.createMultiSymbol(icons, function (url, width, height, layout){
 			if(thisObject.markerImagesLoading.get(mapSymbol) === numberLoading){
 				marker.setIcon(/** @type{google.maps.Icon}*/({
-					url : url,
-					anchor : new google.maps.Point(x, y)
+					"url" : url,
+					"anchor" : new google.maps.Point(width / 2, height / 2),
+					"scaledSize" : new google.maps.Size(width, height)
 				}));
 				marker.setShape(layout == null? null: layout.getMarkerShape());
+				marker.setZIndex(Math.max(marker.getZIndex(), zIndex));
+
 				thisObject.markerImagesLoading.delete(mapSymbol);
 				if(layout == null)
 					thisObject.markerLayouts.delete(mapSymbol);
@@ -261,8 +286,7 @@ function GoogleMapsInterface (){
 		var /** number */ numIcons = icons.length;
 		
 		if(numIcons == 1){
-			var /** number */ center = icons[0].size / 2;
-			callback(icons[0].url, center, center, null);
+			callback(icons[0].url, icons[0].size, icons[0].size, null);
 			return;
 		}
 		
@@ -270,8 +294,8 @@ function GoogleMapsInterface (){
 		var /**MultiSymbolLayout */ layout = new MultiSymbolLayout(icons);
 		
 		var /**HTMLCanvasElement*/ canvas = /** @type{HTMLCanvasElement}*/ (document.createElement("canvas"));
-		canvas.width = layout.getWidth();
-		canvas.height = layout.getHeight();
+		canvas.width = layout.getWidth() * symbolRescaleFactor;
+		canvas.height = layout.getHeight() * symbolRescaleFactor;
 		var /** CanvasRenderingContext2D */ context = /** @type{CanvasRenderingContext2D}*/ (canvas.getContext("2d"));
 		
 		var /** number */ imagesLoading = 0;
@@ -279,9 +303,9 @@ function GoogleMapsInterface (){
 		
 		var /** function()*/ drawImages = function (){
 			for (var i = 0; i < images.length; i++){
-				context.drawImage(images[i], layout.getXPosition(i), layout.getYPosition(i));
+				context.drawImage(images[i], layout.getXPosition(i) * symbolRescaleFactor, layout.getYPosition(i) * symbolRescaleFactor);
 			}
-			callback(canvas.toDataURL("image/png"), canvas.width / 2, canvas.height / 2, layout);
+			callback(canvas.toDataURL("image/png"), layout.getWidth(), layout.getHeight(), layout);
 		};
 		
 		//Load images
@@ -328,17 +352,30 @@ function GoogleMapsInterface (){
 	/**
 	 * @override
 	 * 
+	 * @param {google.maps.Marker} marker
+	 * 
+	 * @return {{lat: number, lng: number}}
+	 */
+	this.getMarkerPosition = function (marker){
+		var /** google.maps.LatLng */ pos = marker.getPosition();
+		return {"lat": pos.lat(), "lng": pos.lng()};
+	};
+	
+	/**
+	 * @override
+	 * 
 	 * @param {number} lat
 	 * @param {number} lng
 	 * @param {string} icon
 	 * @param {number} size
 	 * @param {boolean} movable
 	 * @param {!MapSymbol} mapSymbol
+ 	 * @param {number} zIndex
 	 * 
 	 * @return {google.maps.Marker}
 	 */
-	this.createMarker = function (lat, lng, icon, size, movable, mapSymbol){
-		var /**!google.maps.Marker*/ marker = this.createNewSingleMarker(new google.maps.LatLng(lat, lng), icon, size, movable);
+	this.createMarker = function (lat, lng, icon, size, movable, mapSymbol, zIndex){
+		var /**!google.maps.Marker*/ marker = this.createNewSingleMarker(new google.maps.LatLng(lat, lng), icon, size, movable, zIndex);
 		
 		this.addListenersToMarker(marker, mapSymbol, movable);
 		
@@ -416,18 +453,21 @@ function GoogleMapsInterface (){
 	 * @param {string} symbol
 	 * @param {number} size
 	 * @param {boolean} movable
+ 	 * @param {number} zIndex
 	 * 
 	 * @return {!google.maps.Marker}
 	 * 
 	 */
-	this.createNewSingleMarker = function (position, symbol, size, movable){
+	this.createNewSingleMarker = function (position, symbol, size, movable,zIndex){
 		return new google.maps.Marker({
 			"position" : position,
 			icon : {
 				"url" : symbol,
 				"origin" : new google.maps.Point(0, 0),
-				"anchor" : new google.maps.Point(size / 2, size / 2)
+				"anchor" : new google.maps.Point(size / 2, size / 2),
+				"scaledSize" : new google.maps.Size(size, size)
 			},
+			"zIndex": zIndex,
 			"draggable" : movable
 		});
 	};
@@ -470,7 +510,8 @@ function GoogleMapsInterface (){
 		var /** InfoBubble*/ infoWindow = new InfoBubble({
 			 "map" : map,
 			 "minWidth" : 50,
-			 "maxHeight" : 600
+			 "maxHeight" : 500,
+			 "maxWidth" : 500
 		});
 			
 		var /**GoogleMapsInterface*/ thisObject = this;
@@ -498,7 +539,7 @@ function GoogleMapsInterface (){
 			}
 			
 			for(i = 0; i < elements.length; i++){
-				infoWindow.addTab('<div style="height: ' + maxSize + 'px;"><img src="' + symbols[i].url + '" /></div>', elements[i]);
+				infoWindow.addTab('<div style="height: ' + maxSize + 'px;"><img src="' + symbols[i].url + '" style="width ' + symbols[i].size + 'px; height: ' + symbols[i].size + 'px;" /></div>', elements[i]);
 			}
 		}
 		
@@ -517,7 +558,7 @@ function GoogleMapsInterface (){
 	this.openInfoWindow = function (marker, infoWindow, tabIndex){
 		infoWindow.open(undefined, marker);
 		window.setTimeout(function() {
-			infoWindow.setTabActive(tabIndex + 1);
+			infoWindow.setTabActive(tabIndex + 1, false);
 		}, 10);
 	};
 	
@@ -527,13 +568,15 @@ function GoogleMapsInterface (){
 	 * @param{function(Element, number, MapSymbol, InfoBubble, SomeOverlay)} tabOpenedFun
 	 * @param{function(Element, number, MapSymbol)} tabClosedFun
 	 * @param{function(Element, MapSymbol)} windowClosedFun
+	 * @param{function(string)} locationWindowClosedFun
 	 * 
 	 * @return {undefined}
 	 */
-	this.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun){
+	this.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun, locationWindowClosedFun){
 		this.tabOpenedFun = tabOpenedFun;
 		this.tabClosedFun = tabClosedFun;
 		this.windowClosedFun = windowClosedFun;
+		this.locationWindowClosedFun = locationWindowClosedFun;
 	};
 	
 	/**
@@ -616,6 +659,8 @@ function GoogleMapsInterface (){
 	 */
 	this.destroyInfoWindow = function (infoWindow){
 		infoWindow.close();
+		google.maps.event.trigger(infoWindow, 'tab_closed', infoWindow.activeTab_.index, infoWindow.content_);
+		google.maps.event.trigger(infoWindow, 'closeclick');
 	};
 	
 	/**
@@ -855,7 +900,7 @@ function GoogleMapsInterface (){
 			markerOptions: {
 				icon : {
 					url : PATH["symbolGenerator"] + "?size=20&shape=circle&color=255,255,255", //TODO remove constant size
-					anchor : new google.maps.Point(10,10)
+					anchor : new google.maps.Point(10,10) //TODO scaling?
 				},
 				zIndex : 9999,
 				draggable : true
@@ -1024,6 +1069,49 @@ function GoogleMapsInterface (){
 		console.log((lat1 + lat2) / 2 + ", " + (lng1 + lng2) / 2);
 		map.setZoom(zoom)
 		map.setCenter(new google.maps.LatLng((lat1 + lat2) / 2, (lng1 + lng2) / 2));
+	};
+	
+	/**
+	 * @override
+	 * 
+	 * @param {number} lat
+	 * @param {number} lng
+	 * @param {string} text
+	 * @param {string} id
+	 * @param {boolean} zoom
+	 * 
+	 * @return {google.maps.Marker}
+	 */
+	this.addLocationMarker = function (lat, lng, text, id, zoom){
+		var thisObject = this;
+		
+		var infowindow = new google.maps.InfoWindow({
+			"content" : text
+		});
+
+		var point = new google.maps.LatLng(lat, lng);
+		var marker = new google.maps.Marker({
+			position: point,
+		    map: map,
+		    title: text,
+	        animation: google.maps.Animation.DROP
+		});
+
+		setTimeout(function() {
+			infowindow.open(map, marker);
+		}, 750);
+
+		google.maps.event.addListener(infowindow, "closeclick", function(){
+			thisObject.locationWindowClosedFun(id);
+			marker.setMap(null);
+		});
+		
+		if(zoom){
+			map.setCenter(point);
+			map.setZoom(10);
+		}
+		
+		return marker;
 	};
 }
 

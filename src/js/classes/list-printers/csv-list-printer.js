@@ -9,6 +9,10 @@ function CsvListPrinter(){
     this.getType = function(){
         return "text/csv;charset=utf8"
     }
+    /**
+     * 
+     * @return {string}
+     */
     this.buildList = function(data){
         return CsvBuildList(data, "\t", "");
     }
@@ -31,6 +35,10 @@ function ExcelCsvListPrinter(){
     this.getType = function(){
         return "text/csv;charset=utf-16"
     }
+    /**
+     * 
+     * @return {string}
+     */
     this.buildList = function(data){
         return "\ufeff"+CsvBuildList(data, ";", '"');
     }
@@ -42,6 +50,10 @@ function ExcelCsvListPrinter(){
     }
 }
 
+/**
+ * 
+ * @return {string}
+ */
 function CsvBuildList(data, delimiter, fieldEscape){
     var result = "";
     if(data.length>0){

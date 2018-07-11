@@ -45,10 +45,15 @@ function im_ajax_handler_users (){
 					$whereA = array($_POST['key_field'] => $_POST['id']);
 					$formatA = json_decode($_POST['format']);
 					
-					if(!$db->update($_POST['table'], array_combine($rowsA, $valuesA), $whereA, $formatA)){
+					if($db->update($_POST['table'], array_combine($rowsA, $valuesA), $whereA, $formatA) === false){
 						echo 'Error: ' . $db->last_error;
 						die;
 					}
+					
+					foreach($_POST['defaultFields'] as $col){
+						$db->query($db->prepare('UPDATE ' . $_POST['table'] . ' SET ' . $col . ' = DEFAULT WHERE ' . $_POST['key_field'] . ' = %s', $_POST['id']));
+					}
+					
 					echo $_POST['id'];
 					break;
 				
@@ -85,10 +90,12 @@ function im_ajax_handler_users (){
 			if(!current_user_can_for_blog(1, 'im_edit_comments'))
 				die;
 			
+			$key = apply_filters('im_comment_key', $_POST['key']); //TODO document
+			
 			switch($_POST['mode']){
 				case 'update':
 					if ($_POST['content'] == ''){ //Delete entry from table
-						$sql = $db->prepare('DELETE FROM im_comments WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']);
+						$sql = $db->prepare('DELETE FROM im_comments WHERE Id = %s AND Language = %s', $key, $_POST['lang']);
 						$db->query($sql);
 					}
 					else {
@@ -96,7 +103,7 @@ function im_ajax_handler_users (){
 						$db->query($db->prepare(
 							"INSERT INTO im_comments (Id, Source, Author, Language, Comment) 
 							VALUES(%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE Comment = %s, Locked = NULL", 
-							$_POST['key'],
+							$key,
 							$_POST['name'],
 							wp_get_current_user()->user_login,
 							$_POST['lang'],
@@ -110,24 +117,24 @@ function im_ajax_handler_users (){
 					}
 					
 					$ret = stripslashes($_POST['content']);
-					echo apply_filters('im_comment', $ret, $_POST['key']);
+					echo apply_filters('im_comment', $ret, $key, $_POST['lang']); //TODO document
 					break;
 					
 				case 'get':
-					$locked =  $db->get_var($db->prepare('SELECT NOW() - Locked FROM im_comments WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
+					$locked =  $db->get_var($db->prepare('SELECT NOW() - Locked FROM im_comments WHERE Id = %s AND Language = %s', $key, $_POST['lang']));
 					
 					if($locked != NULL && $locked < 3600){
 						echo '§§§LOCKED§§§';
 						break;
 					}
 
-					$db->query($db->prepare('UPDATE im_comments SET Locked = NOW() WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
-					$sql = $db->prepare('SELECT Comment FROM im_comments WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']);
+					$db->query($db->prepare('UPDATE im_comments SET Locked = NOW() WHERE Id = %s AND Language = %s', $key, $_POST['lang']));
+					$sql = $db->prepare('SELECT Comment FROM im_comments WHERE Id = %s AND Language = %s', $key, $_POST['lang']);
 					echo json_encode($db->get_var($sql));
 					break;
 					
 				case 'removeLock':
-					$db->query($db->prepare('UPDATE im_comments SET Locked = NULL WHERE Id = %s AND Language = %s', $_POST['key'], $_POST['lang']));
+					$db->query($db->prepare('UPDATE im_comments SET Locked = NULL WHERE Id = %s AND Language = %s', $key, $_POST['lang']));
 					break;
 			}
 		break;
@@ -159,15 +166,49 @@ function im_ajax_handler_all (){
 			echo $result->createResultString();
 			
 			break;
+
+			case 'load_loc_data':
+				check_ajax_referer('im_load_data', '_wpnonce', true);
+				
+				$result = [];
+				if(is_callable(IM_Initializer::$instance->search_location_function)){
+					$result = call_user_func(IM_Initializer::$instance->search_location_function, $_POST['search']);
+				}
+				echo json_encode($result);
+			break;
+
+			case 'goto_loc':
+				check_ajax_referer('im_load_data', '_wpnonce', true);
+				
+				$result = NULL;
+				if(is_callable(IM_Initializer::$instance->get_location_function)){
+					$result = call_user_func(IM_Initializer::$instance->get_location_function, $_POST['loc_id']);
+				}
+				echo json_encode($result);
+			break;
+
+			case 'global_search':
+				check_ajax_referer('im_load_data', '_wpnonce', true);
+
+				$result = [];
+				if(is_callable(IM_Initializer::$instance->global_search_function)){
+					$result = call_user_func(IM_Initializer::$instance->global_search_function, $_POST['search'], $_POST['lang']);
+				}
+				echo json_encode($result);
+			break;
+
 		
 		case 'load_syn_map':
 			check_ajax_referer('im_load_data', '_wpnonce', true);
 			
-			$query1 = 'SELECT Zoom, Center_Lat, Center_Lng FROM im_syn_maps WHERE Id_Syn_Map = ' . $_POST['key'];
+			$query1 = 'SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers FROM im_syn_maps WHERE Id_Syn_Map = ' . $_POST['key'];
 			$query2 = 'SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = ' . $_POST['key'] . ' ORDER BY Position ASC';
 			$map_main_data = $db->get_row($query1, 0);
-			
+
 			if($map_main_data){
+				$map_main_data->Options = $map_main_data->Options == null? []: json_decode($map_main_data->Options);
+				$map_main_data->Info_Windows = $map_main_data->Info_Windows == null? []: json_decode($map_main_data->Info_Windows);
+				$map_main_data->Location_Markers = $map_main_data->Location_Markers == null? []: json_decode($map_main_data->Location_Markers);
 				echo json_encode(array(
 					$map_main_data, 
 					array_map('json_decode', $db->get_col($query2, 0))
@@ -202,7 +243,13 @@ function im_ajax_handler_all (){
 						'Center_Lat' => $_POST['center_lat'],
 						'Center_Lng' => $_POST['center_lng'],
 						'Author' => $_POST['author'],
-						'Released' => $_POST['release']
+						'Released' => $_POST['release'],
+						'Colors' =>  $_POST['colors'],
+						'Opened' => $_POST['opened'],
+				        'Options' => isset($_POST['options']) && $_POST['options']? json_encode($_POST['options']): null,
+						'Quant' => $_POST['quant'],
+				        'Info_Windows' => isset($_POST['info_windows']) && $_POST['info_windows']? json_encode($_POST['info_windows']): null,
+				        'Location_Markers' => isset($_POST['location_markers']) && $_POST['location_markers']? json_encode($_POST['location_markers']): null
 				),
 						array ('%s', '%s', '%d', '%s', '%s', '%s'));
 		
@@ -218,7 +265,7 @@ function im_ajax_handler_all (){
 							array(
 									'Id_Syn_Map' => $map_id,
 									'Position' => $index,
-									'Data' => json_encode($value)
+									'Data' => json_encode(array_map('stripslashes_deep', $value))
 							),
 							array('%d', '%d', '%s'));
 						
@@ -247,8 +294,15 @@ class IM_Result {
 	
 	private $element_data = array();
 	private $comments = array();
+	private $extra_data = array();
 	
 	private $debug_data;
+	
+	private $key;
+	
+	function __construct($key){
+		$this->key = $key;
+	}
 	
 
 	/**
@@ -346,6 +400,14 @@ class IM_Result {
 		$this->element_data[$sub_id][] = array ($data, $geo_data, $bounding_box, ($quant_info? $quant_info->getAjaxData(): NULL), $marking_color);
 	}
 	
+	function addExtraData($key, $data){
+		$this->extra_data[$key] = $data;
+	}
+	
+	function isEmpty (){
+		return empty($this->element_data);
+	}
+	
 	function setDebugData($str){
 		$this->debug_data = $str;
 	}
@@ -360,12 +422,14 @@ class IM_Result {
 	}
 	//TODO comment the comment filter
 	function addComments ($id, $db){
+		$id_filtered = apply_filters('im_comment_key', $id);
+		
 		//Get main element comments
-		$mainComments = $this->getAllLangComments($id, $db);
+		$mainComments = $this->getAllLangComments($id_filtered, $db);
 		if(count($mainComments) > 0){
 			$mcommentList = array();
 			foreach ($mainComments as $lc){
-				$ctext = apply_filters('im_comment', $lc[1], $id);
+				$ctext = apply_filters('im_comment', $lc[1], $id_filtered, $lc[0]);
 				$mcommentList[$lc[0]] = $ctext;
 			}
 			$this->comments[$id] = $mcommentList;
@@ -375,19 +439,32 @@ class IM_Result {
 		foreach ($this->element_data as $id => $data) {
 			if($id == -1)
 				continue;
-			$id_splited = explode('+', $id);
+
+			$id_splited = explode('+', $id); //TODO document plus
 			foreach ($id_splited as $id_p){
-				$currentSubComments = $this->getAllLangComments($id_p, $db);
+				$id_p_filtered = apply_filters('im_comment_key', $id_p);
+				
+				$currentSubComments = $this->getAllLangComments($id_p_filtered, $db);
 				if(count($currentSubComments) > 0){
 					$scommentList = array();
 					foreach ($currentSubComments as $lc){
-						$ctext = apply_filters('im_comment', $lc[1], $id_p);
+						$ctext = apply_filters('im_comment', $lc[1], $id_p_filtered, $lc[0]);
 						$scommentList[$lc[0]] = $ctext;
 					}
 					$this->comments[$id_p] = $scommentList;
 				}
 			}
 		}
+	}
+	
+	/**
+	 * @param string $newKey
+	 * 
+	 * Can be used if the key that should be used by the map js code is not the same
+	 * as originally sent, e.g. for backwards compability if the key format has changed.
+	 */
+	function updateKey ($newKey){
+		$this->key = $newKey;
 	}
 	
 	private function getAllLangComments ($id, &$db){
@@ -398,35 +475,28 @@ class IM_Result {
 	function createResultString (){
 	
 		$result_data = array ();
-		$num_point_sub_categories = 0;
-		$num_polygon_sub_categories = 0;
-		$num_line_string_sub_categories = 0;
+
 		foreach ($this->element_data as $sub_id => $data){
 			//Find out the overlay type of the result for visualization. As soon as there are two types of overlays it is treated like a point symbol.
 			if($this->contains_point_symbols[$sub_id]){
 				$overlay_type = 0; //Point
-				$num_point_sub_categories++;
 			}
 			else {
 				if($this->contains_line_strings[$sub_id] && !$this->contains_polygons[$sub_id]){
 					$overlay_type = 2; //Line string
-					$num_line_string_sub_categories++;
 				}
 				else if ($this->contains_polygons[$sub_id] && !$this->contains_line_strings[$sub_id]){
 					$overlay_type = 1; //Polygon
-					$num_polygon_sub_categories++;
 				}
 				else {
 					$overlay_type = 0; //Point as default
-					$num_point_sub_categories++;
 				}
 			}
 			
 			$result_data[$sub_id] = array ($overlay_type, $data);
 		}
 		
-		$num_types_per_category = array($num_point_sub_categories, $num_polygon_sub_categories, $num_line_string_sub_categories);
-		$result = array($num_types_per_category, $result_data, $this->comments);
+		$result = array($result_data, $this->comments, $this->key, $this->extra_data);
 		 if($this->debug_data){
 		 	$result[] = $this->debug_data;
 		 }

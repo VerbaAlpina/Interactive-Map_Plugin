@@ -51,16 +51,11 @@ var symbolClusterer;
  */
 var categoryManager = new CategoryManager ();
 
-
 /**
- * @type {google.maps.Data.Feature} 
+ * @type {MapState}
+ * @const
  */
-var current_polygon;
-
-/**
- * @type {boolean}
- */
-var dragging = false;
+var mapState = new MapState();
 
 /**
  * @type {Object}
@@ -82,7 +77,7 @@ function init (){
 	
 	legend = new Legend();
 	symbolManager = new SymbolManager(colorScheme);
-	
+
 	initGuiElements();
 	
 	//TODO move threshold to settings.js
@@ -90,6 +85,7 @@ function init (){
  	 * That corresponds to 100m in north/south direction and ca. 70m in east/west direction (at the average latitude of the alpine convention)
  	 */
 	symbolClusterer = new SymbolClusterer(43.43132018706552, 4.884734173789496, 4.93608093568811, 11.586466768725804, 16, 16, 0.000898315284119521435127501256466);
+	//symbolClusterer.visualize();
 	
 	optionManager = new OptionManager();
 	
@@ -120,14 +116,15 @@ function init (){
 	jQuery(document).trigger("im_map_initialized"); //TODO document this, also stuff like addXY in categoryManager
 
 	if(PATH["tk"] != undefined){
-		categoryManager.loadSynopticMap(PATH["tk"] * 1);
+		categoryManager.loadSynopticMap(PATH["tk"] * 1, "URL");
 	}
 	else if (PATH["single"] != undefined){
 		var /** number */ catNum = categoryManager.getCategoryFromPrefix(PATH["single"][0]);
 		if(catNum != -1)
-			categoryManager.loadData(catNum, PATH["single"]);
+			categoryManager.loadData(catNum, PATH["single"], "custom");
 	}
 }
+
 
 function initEvents (){
 	mapInterface.addMarkerListeners(
@@ -143,7 +140,7 @@ function initEvents (){
 		 * @this {!MapSymbol}
 		 */
 		function (){ //Right click
-			if(this.getNumOwners() > 1){
+			if(this.getNumParts() > 1){
 				this.openSplitMultiSymbol();
 			}
 		},
@@ -162,16 +159,14 @@ function initEvents (){
 		 * @param {number} iconIndex
 		 */
 		function (iconIndex){ //Mouse over
-			if(!optionManager.inEditMode())
-				this.focusOnEntryTo(iconIndex);
+			
 		},
 		/**
 		 * @this {!MapSymbol}
 		 * 
 		 */
 		function (){ //Mouse out
-			if(!optionManager.inEditMode())
-				this.removeFocus();
+		
 		}
 	);
 
@@ -183,23 +178,37 @@ function initEvents (){
 		 * @param {Object} infoWindow
 		 * @param {Object} overlay
 		 */
-		function (tabElement, tabIndex, mapSymbol, infoWindow, overlay){
-			mapSymbol.infoWindowContents[mapSymbol.iconIndexToOwnerIndex(tabIndex)].onOpen(tabElement, tabIndex, infoWindow, overlay);
+		function (tabElement, tabIndex, mapSymbol, infoWindow, overlay){ //Tab opened
+			mapSymbol.currentTabIndex = tabIndex;
+
+			var /** Array<InfoWindowContent> */ infoWindowContents = mapSymbol.parts[tabIndex].infoWindows;
+			for (let i = 0; i < infoWindowContents.length; i++){
+				infoWindowContents[i].onOpen(tabElement, tabIndex, infoWindow, overlay);
+			}
+			mapSymbol.parts[tabIndex].owner.highlight();
 		},
 		/**
 		 * @param {Element} tabElement
 		 * @param {number} tabIndex
 		 * @param {MapSymbol} mapSymbol
 		 */
-		function (tabElement, tabIndex, mapSymbol){
-			mapSymbol.infoWindowContents[mapSymbol.iconIndexToOwnerIndex(tabIndex)].onClose(tabElement);
+		function (tabElement, tabIndex, mapSymbol){ //Tab closed
+			var /** Array<InfoWindowContent> */ infoWindowContents = mapSymbol.parts[tabIndex].infoWindows;
+			for (let i = 0; i < infoWindowContents.length; i++){
+				infoWindowContents[i].onClose(tabElement);
+			}
+			mapSymbol.parts[tabIndex].owner.unhighlight();
 		},
 		/**
 		 * @param {Element} windowElement
 		 * @param {MapSymbol} mapSymbol
 		 */
-		function (windowElement, mapSymbol){
+		function (windowElement, mapSymbol){ //Window closed
 			google.maps.event.trigger(map.data, 'mouseout');
+			mapState.removeInfoWindowOwnerFromList(mapSymbol);
+		},
+		function (id){ //Location info window closed
+			mapState.removeLocationMarker(id);
 		}
 	);
 }

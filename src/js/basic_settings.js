@@ -1,10 +1,13 @@
 //----------------------------------------------MAP SETTINGS-------------------------------------------------------------------------------------
-
+//TODO move from plugin somehow
 var mapData = {
     center : new google.maps.LatLng(46.059547, 11.132220),
     zoom : 7,
     minZoom : 6,
     mapTypeId : google.maps.MapTypeId.TERRAIN,
+    fullscreenControlOptions:{
+      position: google.maps.ControlPosition.TOP_RIGHT
+    },
     streetViewControl: false,
     mapTypeControl:false,
     styles: [
@@ -23,28 +26,79 @@ var mapData = {
 //----------------------------------------------------SYMBOL APPEARANCE-------------------------------------------------------------------------
 
 /**
-     * @type {Array<Array<number>>}
-     * @const
-     */
-    var colors = new Array(15);
-    colors[0] = [255, 0, 0];
-    colors[1] = [0, 255, 0];
-    colors[2] = [0, 0, 255];
-    colors[3] = [255, 255, 0];
-    colors[4] = [255, 0, 255];
-    colors[5] = [0, 255, 255];
-    colors[6] = [255, 128, 0];
-    colors[7] = [255, 0, 128];
-    colors[8] = [0, 128, 255];
-    colors[9] = [128, 0, 255];
-    colors[10] = [255, 192, 0];
-    colors[11] = [255, 0, 192];
-    colors[12] = [0, 192, 255];
-    colors[13] = [192, 0, 255];
-    colors[14] = [192, 255, 0];
-    colors[15] = [0, 0, 0];
-    colors[16] = [192, 192, 192];
-    colors[17] = [255, 255, 255];
+ * @type {Array<Array<number>>}
+ * @const
+ */
+var colorsPolygons = new Array(15);
+colorsPolygons[0] = [251,128,114];
+colorsPolygons[1] = [179,222,105];
+colorsPolygons[2] = [128,177,211];
+colorsPolygons[3] = [255,237,111];
+colorsPolygons[4] = [190,186,218];
+colorsPolygons[5] = [141,211,199];
+colorsPolygons[6] = [253,180,98];
+colorsPolygons[7] = [188,128,189];
+colorsPolygons[8] = [255,255,179];
+colorsPolygons[9] = [252,205,229];
+colorsPolygons[10] = [217,217,217];
+colorsPolygons[11] = [204,235,197];
+colorsPolygons[12] = [0, 0, 0];
+colorsPolygons[13] = [192, 192, 192];
+colorsPolygons[14] = [255, 255, 255];
+colorsPolygons[15] = [0, 0, 0];
+colorsPolygons[16] = [192, 192, 192];
+colorsPolygons[17] = [255, 255, 255];
+
+var colorsPoints = new Array(26);
+colorsPoints[0] = [251,128,114];
+colorsPoints[1] = [179,222,105];
+colorsPoints[2] = [128,177,211];
+colorsPoints[3] = [255,237,111];
+colorsPoints[4] = [190,186,218];
+colorsPoints[5] = [141,211,199];
+colorsPoints[6] = [253,180,98];
+colorsPoints[7] = [188,128,189];
+colorsPoints[8] = [255,255,179];
+colorsPoints[9] = [252,205,229];
+colorsPoints[10] = [217,217,217];
+colorsPoints[11] = [204,235,197];
+colorsPoints[12] = [166,206,227];
+colorsPoints[13] = [255, 233, 214];
+colorsPoints[14] = [178,223,138];
+colorsPoints[15] = [243, 224, 255];
+colorsPoints[16] = [249, 175, 174];
+colorsPoints[17] = [242, 185, 89];
+colorsPoints[18] = [252, 176, 213];
+colorsPoints[19] = [219, 219, 201];
+colorsPoints[20] = [173, 184, 237];
+colorsPoints[21] = [206, 237, 173];
+colorsPoints[22] = [255,255,153];
+colorsPoints[23] = [142, 124, 124];
+colorsPoints[24] = [205, 229, 244];
+colorsPoints[25] = [239, 153, 110];
+
+var colorsMarking = new Array(19);
+colorsMarking[0] = [227,26,28];
+colorsMarking[1] = [31,120,180];
+colorsMarking[2] = [51,160,44];
+colorsMarking[3] = [255,127,0];
+colorsMarking[4] = [106,61,154];
+colorsMarking[5] = [177,89,40];
+colorsMarking[6] = [255,255,153];
+colorsMarking[7] = [251,154,153];
+colorsMarking[8] = [166,206,227];
+colorsMarking[9] = [178,223,138];
+colorsMarking[10] = [253,191,111];
+colorsMarking[11] = [202,178,214];
+
+colorsMarking[12] = [255,0,0];
+colorsMarking[13] = [0,255,0];
+colorsMarking[14] = [0,0,255];
+colorsMarking[15] = [255,255,0];
+colorsMarking[16] = [0,255,255];
+colorsMarking[17] = [0,0,0];
+colorsMarking[18] = [255,255,255];
+
 
     /**
      * @type {Array<string>}
@@ -92,20 +146,99 @@ var letters = [ "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
  * @type {Array<string>}
  * @const
  */
-var shapes = ['circle', 'rect', 'triangle', 'triangle_i', 'rhomb', 'house', 'house_i', 'stripe_l', 'stripe_r'];
+var shapes = [
+    'circle',
+    'rect',
+    'hex_flat',
+    'hex_pointy',
+    'house',
+    'house_i', 
+    'rectcutoffbr',
+    'rectcutofftr',
+    'rectcutofftl',
+    'rectcutoffbl',
+    'rhomb',
+    'triangle',
+    'triangle_i',
+];
+
+
+
 
 
 /**
  * @const
  * @type {number}
  */
-var symbolSize = 15;
+var symbolSize = 18;
 
 /**
  * @const
  * @type {number}
  */
-var markingSize = 4;
+var markingSize = 3;
+
+/**
+ * @param {Object<string, ?>} symbolInfo
+ * 
+ * @return {number}
+ */
+function markingScaleFunction (symbolInfo){
+    switch(symbolInfo["shape"]){
+		case "circle":
+			return 1.0;
+		break;
+	
+		case "rect":
+			return 1.0;
+		break;
+	
+		case "triangle":
+			return 2.0;
+		break;
+	
+		case "triangle_i":
+			return 2.0;
+		break;
+	
+		case "hex_flat":
+			return 1.3;
+		break;
+	
+		case "hex_pointy":
+			return 1.3;
+		break;
+	
+	    case "rhomb":
+	    	return 1.7;
+		break;
+	
+	    case "house":
+	    	return 1.3;
+		break;
+
+	    case "house_i":
+	    	return 1.3;
+		break;
+	
+		case "rectcutoffbr":
+			return 1.3;	  			
+		break;
+	
+		case "rectcutofftr":
+			return 1.3;
+		break;
+	
+		case "rectcutofftl":
+			return 1.3;			  			
+		break;
+	
+		case "rectcutoffbl":
+			return 1.3;
+		break;
+    }
+    return 1;
+}
 
 /**
  *
@@ -121,8 +254,8 @@ var showSliders = false;
  */
 var colorScheme = new ColorScheme(
     [new Feature("shape", shapes)], 
-    [new Feature("color", colors, false, 3), new Feature("letter", letters)], 
-    [new Feature("mcolor", colors)], colors);
+    [new Feature("color", colorsPoints, false, 26), new Feature("letter", letters)], 
+    [new Feature("mcolor", colorsMarking)], colorsPolygons);
 
 /**
  * @type{number}
@@ -136,18 +269,9 @@ var multiSymbolTableSize = 40;
  * @type{number}
  * @const
  * 
- * The maximum number of identical symbols within one multi symbol. If there are more only one symbol will be shown
- * for this type which will be appropriately emphasized.
- */
-var maxIdenticalIcons = 1;
-
-/**
- * @type{number}
- * @const
- * 
  * in percent; symbol enlargement for maxIdenticalIcons + 1 symbols
  */
-var minimumSymbolEnlargement = 33;
+var minimumSymbolEnlargement = 34;
 
 /**
  * @type{number}
@@ -170,12 +294,19 @@ var chosenSettings = {
  * @type{{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}}
  */
 var polygonSettings = function (fillColor, highlighted){
-	var hex = optionManager.getOptionState("polymode") == "hex";
+	var hex = optionManager.getOptionState("polymode") !== "phy";
 	
 	return {
 		"strokeWeight" : hex? (highlighted? 4 : 2) : (highlighted? 2 : 1),
 		"strokeColor" : hex? "GhostWhite" : fillColor,
-		"fillOpacity" : hex? 1: (highlighted? 0.6 : 0.4)
+		"fillOpacity" : hex? 1: (highlighted? 0.75 : 0.55)
 	}
 }
 
+/**
+ * @const
+ * @type {number}
+ * 
+ * All symbols created are upscaled by that factor and afterwards downscaled for visualisation on the map to support e.g. retina displays
+ */
+var symbolRescaleFactor = 2;

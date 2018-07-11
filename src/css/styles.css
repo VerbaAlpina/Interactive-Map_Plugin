@@ -15,12 +15,60 @@
 	color : red;
 }
 
-#IM_legend {
-	/*font-size : 14px;*/
- /*   max-height: 500px;*/
-/*    overflow-y: auto;
-    overflow-x: initial;*/
-/*    overflow-x: hidden;*/
+.im_loc_nav{
+    bottom: 127px;
+}
+
+.loc_data_select{
+/*    min-width: 95%;*/
+}
+
+.custom_option_pane{
+    display:none;
+    position:absolute;
+    bottom:-67px;
+    right:30px;
+    background:#fff;
+    border: 2px solid #fff;
+    border-radius:3px 0px 3px 3px;
+    margin-right: 5px;
+    min-width: 320px;
+    text-align: left;
+    padding:10px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+
+
+
+.custom_control_base{
+
+    color: #666666;
+    font-family:Roboto,Arial,sans-serif;
+    font-size: 16px;
+    background-color: rgb(255, 255, 255);
+    border: 2px solid rgb(255, 255, 255);
+    border-radius: 3px;
+    margin-right: 10px;
+    text-align: center;
+    z-index: 0;
+    position: absolute;
+    right: 0px;
+    line-height: 25px;
+    cursor: pointer;
+    padding-left: 5px;
+    padding-right: 5px;
+    font-weight: bold;
+
+}
+
+.custom_control_base:hover{
+  color: black;
+}
+
+.custom_control_shadow{
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 1px 4px -1px;
 }
 
 
@@ -29,13 +77,12 @@
 }
 
 .im_map_modal_content{
-
     position: relative;
 }
 
 /*IMPORTANT FOR HEIGHT RESPONSIVENESS*/
 .im_map_modal_body{
-    max-height: calc(100vh - 132px);
+    max-height: calc(100vh - 168px);
     overflow-y:auto;
 }
 
@@ -53,6 +100,101 @@
         font-size: 16px;
     }
 
+}
+
+
+.search_container{
+    width: 100%;
+    padding-top: 8px;
+    padding-left: 0px !important;
+    background: #227fad;
+    color: white;
+-webkit-box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.19);
+-moz-box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.19);
+box-shadow: 0px 4px 8px 0px rgba(0,0,0,0.19);
+
+}
+
+.search_container input{
+    background-position: 5px 75% !important;
+    background-repeat: no-repeat !important;
+    background-size: 15px 15px !important;
+    padding-left: 28px !important;
+    margin-top: 3px !important;
+    color: white !important;
+}
+
+.search_container input::placeholder{
+color: white;
+opacity: 1;
+}
+
+
+#global_search_dropdown li.select2-results__option--highlighted{
+    background-color: #1a688e !important;
+}
+
+
+
+#global_search_dropdown > span{
+ background: #227fad !important;
+ color: white !important;
+ border: none !important;
+ border-radius: 0px !important;
+ border-top: 1px solid white !important;
+-webkit-box-shadow: 0px 7px 10px -2px rgba(0,0,0,0.22);
+-moz-box-shadow: 0px 7px 10px -2px rgba(0,0,0,0.22);
+box-shadow: 0px 7px 10px -2px rgba(0,0,0,0.22);
+}
+
+#global_search_dropdown strong{
+  padding-left: 15px !important;
+  /*background:  #156b96 !important;*/
+}
+
+
+
+#global_search_dropdown ul.select2-results__options--nested > li{
+  padding-left: 25px !important;
+  color: #f7f7f7 !important;
+}
+
+#global_search_dropdown .select2-results__option.loading-results{
+ color: white !important;
+ padding-left: 15px !important;
+}
+
+#global_search_dropdown .select2-results__option.select2-results__message{
+  padding-left: 15px !important;
+}
+
+.select2-dropdown{
+-webkit-box-shadow: 2px 2px 3px 0px rgba(0,0,0,0.1);
+-moz-box-shadow: 2px 2px 3px 0px rgba(0,0,0,0.1);
+box-shadow: 2px 2px 3px 0px rgba(0,0,0,0.1);
+}
+
+.search_container .select2-selection__choice{
+    display: none !important;
+}
+
+.gm-style > button[aria-label="Vollbildansicht ein/aus"]{
+    top: 27px !important;
+    right: -4px !important;
+}
+
+.gm-style > button:last-child{
+    top: 27px !important;
+    right: -4px !important;
+}
+
+
+.search_container .select2-selection{
+    border: 1px solid transparent !important;
+    /*border-bottom: 1px solid rgb(170, 170, 170) !important;*/
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+    background-color: transparent !important;
 }
 
 
@@ -152,6 +294,19 @@
     width: 25%;
 }
 
+.ifw_row:hover{
+    cursor: pointer;
+    opacity: 0.75;
+}
+
+.ifw_row img{
+   width: 18px;
+}
+
+.ifw_row span{
+    font-size: 10px;
+}
+
 .ifw_parent{
   max-width: 325px !important;
 }
@@ -207,12 +362,28 @@
     color:#ff0000;
 }
 
+.legend_checkbox{
+    position: relative;
+    top: 2px;
+}
+
 .im_parent_legend_element {
-	background: lightgray;
+	background: #efefef;
   	font-size: 13px;
   	overflow:hidden;
-  	border-bottom: 1px solid AliceBlue;
+  	border-bottom: 1px solid #e6e6e6;
 }
+
+.im_parent_legend_element:hover{
+    cursor: pointer;
+    background:#eaeaea;
+}
+
+.im_parent_legend_element:hover .fa.fa-circle.qcheck.q-stack.fa-stack-1x{
+    color:#eaeaea;
+}
+
+
 
 .im_parent_legend_element td:nth-child(2){
 
@@ -221,10 +392,13 @@
  }
 
 .im_single_legend_element {
- 	background: lightgray;
  	font-size: 13px;
  	overflow: hidden;
- 	border-bottom: 1px solid AliceBlue;
+}
+
+.im_single_legend_element:hover{
+cursor: pointer;
+background: #f5f5f5;
 }
 
 .im_child_legend_element{
@@ -232,9 +406,17 @@
     overflow:hidden;
 }
 
+.im_child_legend_element.toggle:hover{
+    cursor: pointer;
+    background: #f5f5f5;
+}
+
 
 #IM_Syn_Map_Cotainer{
     padding-top: 15px;
+    -webkit-box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
+    -moz-box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
+    box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
 }
 
 #IM_Save_Syn_Map_Button{
@@ -243,22 +425,44 @@
 
 .legendtable tbody{
 	max-height: 500px;
-	overflow: auto;
+	overflow-y: auto;
 	float: left;
 	width: 100%;
-    overflow-x: hidden;
-   
+    overflow-x: hidden;   
 }
+
 
 .legendtable td{
     padding: 8px;
     line-height: 16px;
     text-align: left;
     vertical-align: middle;
+    min-width: 34px;
+  
 }
+
+
+#leftTable .menu_grp:nth-child(2) .menu_collapse > *:not(i)
+{
+    padding-left: 14px;
+}
+
+#leftTable .menu_grp:nth-child(2) > .menu_collapse{
+    -webkit-box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
+    -moz-box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
+    box-shadow: inset 0px 14px 18px -14px rgba(0,0,0,0.18);
+}
+
+
+#leftTable .menu_grp:last-child .menu_collapse > *:not(a)
+{
+    padding-left: 14px;
+}
+
 
 #IM_legend img {
 	max-width : none;
+    vertical-align: top;
 }
 
 .IM_main_div th, .IM_main_div td {
@@ -328,11 +532,17 @@ outline: none;
 .helpsymbol{
     color: #0997d2;
     font-size: 14pt!important;
-    margin-left: 5px;
+    margin-left: 6px;
 }
 
 .helpsymbol:hover{
 cursor: pointer;
+}
+
+@media only screen and (max-width: 300px) {
+    .helpsymbol {
+        margin-left: 0px;
+    }
 }
 
 .gradient_help{
@@ -350,7 +560,7 @@ cursor: pointer;
 .map_mode_selection{
  display: inline-block;
  position: absolute;
- right: 12px;
+ right: 9px;
 }
 
 .map_mode_selection label{
@@ -361,13 +571,37 @@ cursor: pointer;
 }
 
 .collapsesymbol_icon{
-    color: white;
-    font-size: 14pt!important;
+    color: #c7c7c7;
+    font-size: 14px!important;
+    padding-top: 2px;
+    padding-left: 8px;
 }
 
 .collapsesymbol_icon:hover{
 opacity: 0.6;
 cursor: pointer;
+}
+
+.activate_symbol_icon{
+    color: #d8d8d8;
+    font-size: 8px;
+    margin-left: 9px;
+    top: -1px;
+    position: relative;
+}
+
+.activate_symbol_icon.active{
+    color: #0990f3;
+}
+
+
+.mark_parent{
+    font-weight: normal;
+    margin-top: 12px;
+}
+
+.mark_item {
+  margin-top: 5px;
 }
 
 .qcheck{
@@ -376,7 +610,7 @@ cursor: pointer;
 
 .q-span{
     top: 10px;
-    margin-left: 1px;
+    margin-left: 2px;
     position: absolute !important;
     width: 10px !important;
     height: 10px !important;
@@ -385,13 +619,18 @@ cursor: pointer;
 
  .q-stack{
     font-size: 12pt !important;
-    color: lightgray;
+    color: #efefef;
     line-height: 10px !important;
     width: 10px;
     height: 10px;
     margin-left: -1px;
     margin-top: 2px;
  }
+
+.qButtonParent{
+    padding-right: 10px;
+    padding-top: 5px;
+}
 
 .quantifyButton{
 
@@ -408,15 +647,18 @@ cursor: pointer;
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
+     color: #9a9a9a;
 }
 
 .quantifyButton .ring{
     position: absolute;
     font-size: 29px;
-    left: -3px;
-    top: -6px;
-    color: #666;
+    left: -5px;
+    top: -5px;
+    color: #9a9a9a;
 }
+
+
 
 .quantifyButton:hover{
     color: black;
@@ -457,14 +699,36 @@ color:black;
   margin-bottom:20px;
 }
 
+#gradient_startblock{
+    height: 35px;
+    position: absolute;
+    width: 6px;
+    top: 0px;
+    left: -8px;
+    background-color: rgba(70, 70, 70, 0.5);
+    border: 1px solid;
+    cursor: pointer;
+    margin-right: 2px;
+    border-color: #6f6f6f;
+}
+
+#gradient_startblock:hover{
+   opacity: 0.86;
+   border-color: white;
+}
+
+
 .canvas_list{
+
   position: absolute;
   padding: 0;
   list-style: none;
   margin: 0;
   display: none;
   bottom: 35px;
+
 }
+
 
 .canvas_list > li > canvas {
  /*border : 2px solid grey;*/
@@ -485,35 +749,33 @@ cursor: pointer;
 }
 
 
-#activediv > canvas {
- /*border : 2px solid;*/
- border-radius: 2px;
+#activediv canvas {
+ cursor: pointer;
 }
 
 
 
 .hoverdiv{
-    border-radius: 2px;
+    display: none;
     background: black;
     opacity: 0.5;
-    display: none;
     position: absolute;
     width: 256px;
     height: 35px;
     top:0px;
+    cursor: pointer;
 }
 
 .canvastext{
+     display: none; 
     border-radius: 2px;
     text-align: center;
     z-index: 1;
-    margin-top: -37px;
-    display: none;
     position: absolute;
-    width: 258px;
-    height: 20px;
+    width: 256px;
+    height: 15px;
+    top: 11px;
     color: white;
-    padding-top: 10px;
     font-family: sans-serif;
     font-size: 10pt;
     text-transform: uppercase;
@@ -522,12 +784,12 @@ cursor: pointer;
     -khtml-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
-    user-select: none;                                       
+    user-select: none;                                     
 }
 
 .canvas_icon{
     position: absolute;
-    right: -13px;
+    right: -18px;
     color: white;
     margin-top: 8px;
     font-size: 17pt !important;
@@ -591,7 +853,7 @@ opacity: 1.0;
   }
 
   #colorbarlegend_left{
-    left: -1px;
+    left: -9px;
   }
 
   #colorbarlegend_right{
@@ -636,4 +898,14 @@ opacity: 1.0;
 
 #IM_filter_popup_content input[type=radio]{
 	 margin-right : 2px;
+}
+
+#IM_OptionsPane input[type=button]{
+ margin-bottom: 10px;
+}
+
+#IM_OptionsPane input[type=checkbox]{
+    position: relative;
+    top: 3px;
+    margin-right: 3px;
 }

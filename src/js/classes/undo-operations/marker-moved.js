@@ -45,17 +45,20 @@ function MarkerDragOperation (mapSymbol, oldLat, oldLng){
 	 */
 	this.getCommitInformation = function (){
 		var /** Array<{operation : string, id : string, category : number}> */ result = [];
-		for (var i = 0; i < this.mapSymbol.infoWindowContents.length; i++){
-			var /** LegendElement */ owner = mapSymbol.getOwner(i);
-			result.push({
-				"operation" : "markerMoved",
-				"id" : /** @type{EditableInfoWindowContent} */ (this.mapSymbol.infoWindowContents[i]).markerID,
-				//For new markers no category information is needed, since this operation will be joined with
-				//the create operation anyway
-				"category" : (owner? owner.category: -1),
-				"newPosition" : mapInterface.getWKTStringForOverlay(this.mapSymbol.getMarker()),
-				"oldPosition" : "POINT(" + this.oldLng + " " + this.oldLat + ")"
-			});
+		for (var i = 0; i < this.mapSymbol.parts.length; i++){
+			var /** MapSymbolPart */ part = mapSymbol.parts[i];
+			var /** LegendElement */ owner = part.owner;
+			for (var j = 0; j < part.infoWindows.length; j++){
+				result.push({
+					"operation" : "markerMoved",
+					"id" : /** @type{EditableInfoWindowContent} */ (part.infoWindows[j]).markerID,
+					//For new markers no category information is needed, since this operation will be joined with
+					//the create operation anyway
+					"category" : (owner? owner.category: -1),
+					"newPosition" : mapInterface.getWKTStringForOverlay(this.mapSymbol.getMarker()),
+					"oldPosition" : "POINT(" + this.oldLng + " " + this.oldLat + ")"
+				});
+			}
 		}
 		
 		return result;

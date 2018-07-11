@@ -63,7 +63,7 @@ function SplitMarkerOperation (originalSymbol, index, infoSplittedSymbol, ownerS
 	this.getCommitInformation = function (){
 		return [{
 			"operation" : "markerMoved",
-			"id" : /** @type{EditableInfoWindowContent} */ (this.newSymbol.infoWindowContents[0]).markerID,
+			"id" : /** @type{EditableInfoWindowContent} */ (this.newSymbol.parts[0].infoWindows[0]).markerID, //TODO check
 			"category" : this.ownerSplittedSymbol.category,
 			"newPosition" : mapInterface.getWKTStringForOverlay(this.newSymbol.getMarker()),
 			"oldPosition" : this.oldPosition

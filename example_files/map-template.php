@@ -53,6 +53,7 @@ function im_show_test_map (){
 //TODO add synoptic map
 
 //Hidden stuff
+
 im_create_filter_popup_html(); //Needed for the popup windows which enable to apply filters to the visualized data
 im_create_save_map_popup_html();
 im_create_comment_popup_html();

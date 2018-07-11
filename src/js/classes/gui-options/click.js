@@ -43,6 +43,15 @@ function ClickOption (name, clickListener){
 	/**
 	 * @override
 	 * 
+	 * @return {boolean}
+	 */
+	this.isSaved = function (){
+		return false;
+	};
+	
+	/**
+	 * @override
+	 * 
 	 * @param{boolean} val
 	 * 
 	 * @return {undefined}

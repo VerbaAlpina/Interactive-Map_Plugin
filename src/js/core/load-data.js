@@ -2,19 +2,37 @@
 /**
  * @const{number} 
  */
-var NUM_PER_CATEGORY = 0;
+var DATA = 0;
+
 /**
  * @const{number} 
  */
-var DATA = 1;
+var COMMENTS = 1;
+
 /**
  * @const{number} 
  */
-var COMMENTS = 2;
+var KEY = 2;
+
 /**
  * @const{number} 
  */
-var DEBUG_DATA = 3;
+var EXTRA_DATA = 3;
+
+/**
+ * @const{number} 
+ */
+var DEBUG_DATA = 4;
+
+/**
+ * @typedef{Object<string, Array<number>|number>}
+ */
+var MultiColorIndex;
+
+/**
+ * @typedef{({fun: function(MultiColorIndex=), data: !Array, singular: boolean, sortedKeys: Array<string>}|null)}
+ */
+var WaitingData;
 
 /**
  * 
@@ -54,7 +72,7 @@ function CategoryManager (){
 	
 	/**
 	 *  @private
-	 *  @type {Object<number, CategoryInformation>}
+	 *  @type {Object<number, !CategoryInformation>}
 	 */
 	this.categories = {};
 	this.categories["-1"] = new CategoryInformation (-1,"?",TRANSLATIONS["ALL_DISTINCT"],""); //Pseudo category for using every element as a sub-category
@@ -64,16 +82,38 @@ function CategoryManager (){
 	this.categories["-4"] = new CategoryInformation (-4,"$","distinct",""); //Pseudo category for distinctly colored neigbours
 	
 	/**
+	 * @private
+	 * @type {Object<string, number>}
+	 */
+	this.prefixToIdMapping = {};
+	
+	/**
 	 * @param {CategoryInformation} info
 	 * 
 	 * @return {undefined}
 	 */
 	this.registerCategory = function (info){
-		this.categories[info.categoryID] = info;
+		this.prefixToIdMapping[info.categoryPrefix] = info.categoryID; //Don't check for overlaps for efficiency reasons
 		
+		this.categories[info.categoryID] = info;
+
 		if(info.element != null){
-			info.element.change(this.showFilterScreen.bind(this, info.element, info.categoryID, info.filterComponents));
+			info.element.change(this.handleGuiSelection.bind(this, info.element, info.categoryID, info.filterComponents));
 		}
+	};
+	
+	/**
+	 * @param {string} elementID
+	 * 
+	 * @return {number}
+	 */
+	this.categoryFromId = function (elementID){
+		for (var /** string*/ prefix in this.prefixToIdMapping){
+			if (elementID.startsWith(prefix)){
+				return this.prefixToIdMapping[prefix];
+			}
+		}
+		return -1;
 	};
 	
 	/**
@@ -89,10 +129,12 @@ function CategoryManager (){
 	/**
 	 * @param {string} key
 	 * 
-	 * @return {undefined}
+	 * @return {?}
 	 */
 	this.removeAjaxData = function (key){
+		var val = this.additionalAjaxData[key];
 		delete this.additionalAjaxData[key];
+		return val;
 	};
 	
 	/**
@@ -102,6 +144,7 @@ function CategoryManager (){
 	 * @return {undefined}
 	 */
 	this.setElementID = function (categoryID, elementID){
+
 		var /** CategoryInformation */ info = this.categories[categoryID];
 		var /** jQuery|null */ oldElement = info.element;
 		
@@ -111,7 +154,7 @@ function CategoryManager (){
 		
 		if(elementID != null){
 			info.element = jQuery("#" + elementID);
-			info.element.change(this.showFilterScreen.bind(this, info.element, info.categoryID, info.filterComponents));
+			info.element.change(this.handleGuiSelection.bind(this, info.element, info.categoryID, info.filterComponents));
 		}
 		else {
 			info.element = null;
@@ -194,20 +237,33 @@ function CategoryManager (){
 	 * @return {string}
 	 */
 	this.getElementName = function (categoryID, key){
-		var /** CategoryInformation */ cat = this.categories[categoryID];
+		var /** !CategoryInformation */ cat = this.categories[categoryID];
 		
 		if(cat.costumGetNameFunction == undefined){
-			var /** jQuery */ element = cat.element;
-			if(element == null){
-				return key;	
-			}
-			
-			return  /** @type{function(string):string} */ (element.data("getName"))(key);
+			return this.getRegularElementName(cat, key);
 		}
 		else {
-			return cat.costumGetNameFunction(key);
+			return cat.costumGetNameFunction(key, this.getRegularElementName.bind(this, cat));
 		}
 	};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {!CategoryInformation} cat 
+	 * @param {string} key
+	 * 
+	 * @return {string}
+	 */
+	this.getRegularElementName = function (cat, key){
+		var /** jQuery */ element = cat.element;
+		
+		if(element == null){
+			return key;	
+		}
+		
+		return  /** @type{function(string):string} */ (element.data("getName"))(key);
+	}
 	
 	/**
 	 * @param {string} key
@@ -308,17 +364,28 @@ function CategoryManager (){
 	 * 
 	 * @return {undefined} 
 	 */
-	this.showFilterScreen = function (element, categoryID, filterComponents){
-		
+	this.handleGuiSelection = function (element, categoryID, filterComponents){
 		var /** string */ value = this.getCategoryPrefix(categoryID) + /** @type{function():string} */ (element.data("getSelectedValue"))();
-
-		/** @type {function():undefined} */ (element.data("reset"))();
 		
-		if(value == 0 || optionManager.inEditMode() && legend.getMainElement(categoryID, value))
+		/** @type {function():undefined} */ (element.data("reset"))();
+		this.showFilterScreen(categoryID, value);
+	};
+	
+	
+	/**
+	 * 
+	 * @param {number} categoryID
+	 * @param {string} elementID
+	 * 
+	 * @return {undefined} 
+	 */
+	this.showFilterScreen = function (categoryID, elementID){
+		if(elementID == 0 || optionManager.inEditMode() && legend.getMainElement(categoryID, elementID))
 			return;
 
+		var /** Array<FilterComponent>|undefined */ filterComponents = this.categories[categoryID].filterComponents;
 		
-		if(optionManager.inEditMode() && !this.categoryAllowsFieldDataEditingForElement(categoryID, value) && !this.categoryAllowsGeoDataEditingForElement(categoryID, value)){
+		if(optionManager.inEditMode() && !this.categoryAllowsFieldDataEditingForElement(categoryID, elementID) && !this.categoryAllowsGeoDataEditingForElement(categoryID, elementID)){
 			alert(TRANSLATIONS["NO_EDITING_CATEGORY"]);
 			return;
 		}
@@ -333,14 +400,14 @@ function CategoryManager (){
 			
 			var /** Array<Element> */ newElements = new Array (filterComponents.length);
 			for (var i = 0; i < filterComponents.length; i++){
-				newElements[i] = filterComponents[i].getFilterScreenElement(categoryID, value);
+				newElements[i] = filterComponents[i].getFilterScreenElement(categoryID, elementID);
 				
 				if(newElements[i] == null)
 					continue;
 				
 				jQuery("#IM_filter_popup_content").append(newElements[i]);
 
-				filterComponents[i].afterAppending(newElements[i], categoryID, value);
+				filterComponents[i].afterAppending(newElements[i], categoryID, elementID);
 				noElements = false;
 			}
 			
@@ -348,45 +415,49 @@ function CategoryManager (){
 				jQuery("#IM_filter_popup_submit").unbind("click");
 				jQuery("#IM_filter_popup_submit").click(function () {
 					
-					var /** Object<string,?> */ filterData = {};
+					var /** Object<string,?> */ filterData = {"id" : elementID}; //TODO document that id can be changed with filter components
 					for (var i = 0; i < filterComponents.length; i++){
 						if(newElements[i] != null)
-							if(!filterComponents[i].storeData(filterData, newElements[i], categoryID, value)){
+							if(!filterComponents[i].storeData(filterData, newElements[i], categoryID, elementID)){
 								alert(TRANSLATIONS["FILTER_NOT_POSSIBLE"]);
 								return;
 							}
 					}
 					jQuery("#IM_filter_popup_div").modal('hide');		
 					
-					jQuery(document).trigger("im_load_data", [categoryID, value, filterData]);
-					thisObject.loadData (categoryID, value, filterData);
+					var /**string */ updatedId = filterData["id"];
+					delete filterData["id"];
+					thisObject.loadData (categoryID, updatedId, "menu", filterData, undefined, undefined, true);
 				});
 
 				 var that = this;
 
 				jQuery('#IM_filter_popup_div').off().on('show.bs.modal', function (e) {
 					var name = that.getCategoryName(categoryID);
-					var m_title = jQuery('<span class="im_concept_hl">'+name+'</span><span class="im_name_hl">'+that.getElementName(categoryID, value)+'</span>');
+					var m_title = jQuery('<span class="im_concept_hl">'+name+'</span><span class="im_name_hl">'+that.getElementName(categoryID, elementID)+'</span>');
 					jQuery('#IM_filter_popup_div .modal-title').empty().append(m_title);
 				}) 	
 
-				jQuery("#IM_filter_popup_div").modal('show');
+				jQuery("#IM_filter_popup_div").modal('show').data("element-id", elementID);
 			}
 		}
 		
 		if(noElements){
 			//Directly load data
-			jQuery(document).trigger("im_load_data", [categoryID, value]); //TODO document
-			this.loadData (categoryID, value);
+			this.loadData (categoryID, elementID, "menu", undefined, undefined, undefined, true);
 			
 		}
 	};
 	
 	/**
-	 * @param {number} id 
+	 * @param {number} id
+	 * @param {string} context USER OR URL
 	 */
-	this.loadSynopticMap = function (id){
+	this.loadSynopticMap = function (id, context){
 
+		legend.removeAll();
+		mapState.clean();
+	
 		var /**Object<string,string>*/ ajaxData = {
 			"action" : "im_a",
 			"namespace" : "load_syn_map",
@@ -406,18 +477,80 @@ function CategoryManager (){
 			}
 			
 			var data = JSON.parse(response);
-			
 			var mapInfos = data[0];
+			
+			mapInfos["continue"] = true;
+			mapInfos["context"] = context;
+			mapInfos["id"] = id;
+			
+			jQuery(document).trigger("im_syn_map_before_loading", mapInfos, data[1]);
+			if(!mapInfos["continue"])
+				return;
+			
+			for (var option in mapInfos["Options"]){
+				//Url parameter overwrite parameters saved for synoptic maps
+				if (!PATH["options"][option]){
+					optionManager.setOption(option, mapInfos["Options"][option]);
+				}
+			}
+			
+			//TODO load color scheme somehow???
 	
 			//Zoom and position
 			map.setCenter(new google.maps.LatLng(mapInfos["Center_Lat"], mapInfos["Center_Lng"]));
 			map.setZoom(mapInfos["Zoom"] * 1);
 			
 			var /** number */ numElements = data[1].length;
-			for (var /** number */ i = 0; i < numElements; i++){
-				var currElement = data[1][i];
-				categoryManager.loadData(currElement["category"] * 1, currElement["key"], currElement["filter"], currElement["fixedColors"]);
+			var /** number */ notReady = numElements;
+			var /** function () */ singleCallback = function (){
+				notReady--;
+				
+				if(notReady == 0){
+					if(mapInfos["Quant"]){
+						jQuery("#qbutton_" + mapInfos["Quant"]).trigger("click");
+					}
+					
+					for (let i = 0; i < mapInfos["Info_Windows"].length; i++){
+						var /** {legendIndex: number, elementIndex: number, lat: number, lng: number} */ iWindow = /** @type {{legendIndex: number, elementIndex: number, lat: number, lng: number}}*/ (mapInfos["Info_Windows"][i]);
+						var /**MapShape|MapSymbol */ mapElement = symbolClusterer.findMapElement(
+							legend.getElementByIndexes(iWindow["legendSubIndex"], iWindow["legendIndex"]), 
+							iWindow["elementIndex"],
+							iWindow["lat"],
+							iWindow["lng"]);
+						
+						if(mapElement instanceof MapSymbol){
+							mapElement.openInfoWindow(iWindow["tabIndex"] * 1);
+						}
+						else {
+							mapElement.openInfoWindow(new google.maps.LatLng(iWindow["lat"], iWindow["lng"]));
+						}
+					}
+					
+					for (let i = 0; i < mapInfos["Location_Markers"].length; i++){
+						gotoLocation(mapInfos["Location_Markers"][i], false);
+					}
+				}
+			};
+			
+			if(numElements == 0){
+				notReady = 1;
+				singleCallback();
 			}
+			else {
+				for (var /** number */ i = 0; i < numElements; i++){
+					var currElement = data[1][i];
+					var /** boolean|Array<number> */ active = Array.isArray(currElement["active"])? currElement["active"].map(x => x * 1): currElement["active"] == "true";
+					categoryManager.loadData(currElement["category"] * 1, currElement["key"], "synMap", currElement["filter"], currElement["fixedColors"], singleCallback, undefined, active);
+				}
+			}
+			
+			if (mapInfos["Opened"]){
+				categoryManager.showFilterScreen(categoryManager.categoryFromId(mapInfos["Opened"]), mapInfos["Opened"]);
+			}
+			
+			var /** {tk: number}*/ state = {"tk" : id};
+			history.pushState(state, "", addParamToUrl(window.location.href, "tk", id + ""));
+			jQuery(document).trigger("im_url_changed", state); //TODO document
 		});
 	};
 	
@@ -425,16 +558,55 @@ function CategoryManager (){
 	 *
 	 * @param {number} category
 	 * @param {string} key
+	 * @param {string} trigger Possible values: "synMap", "menu", "stateChange", "reload", "repeated", "custom"
 	 * @param {Object<string, ?>=} filterData
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
-	 * @param {function ()=} callback
+	 * @param {function ((LegendElement|MultiLegendElement))=} callback
+	 * @param {boolean=} popState
+	 * @param {boolean|Array<number>=} active
+	 * @param {Array<WaitingData>=} waitingList If a waiting list is given the legend element is not immediately created after the server response, but
+	 * when all elements in the waiting list are loaded. Also the subelement colors are adjusted
+	 * 
 	 */
-	this.loadData = function (category, key, filterData, fixedColors, callback) {
+	this.loadData = function (category, key, trigger, filterData, fixedColors, callback, popState, active, waitingList) {
 		if(optionManager.inEditMode() && !categoryManager.categoryAllowsFieldDataEditingForElement(category, key)
 				&& !categoryManager.categoryAllowsGeoDataEditingForElement(category, key))
 			return;
+
+		if(key.indexOf("+") != -1){ //Multiple keys
+			//TODO document, especially that B1+2 has to be used and not B1+B2
+			var prefix = key[0];
+			var /** Array<string> */ keys = key.substring(1).split("+");
+			var /** Array<WaitingData>= */ newWaitingList = [];
+			for (let i = 0; i < keys.length; i++){
+				if (trigger == "menu" && i > 0){
+					trigger = "repeated";
+				}
+				
+				this.loadData(category, prefix + keys[i], trigger, (filterData === undefined? undefined: Object.assign({}, /** @type{!Object} */ (filterData))), fixedColors, callback, popState, active, newWaitingList);
+			}
+			return;
+		}
+		
+		var /** boolean */ adjustSubSymbols = false;
+		if(filterData && filterData["adjustSubElementSymbols"]){ //TODO document
+			adjustSubSymbols = filterData["adjustSubElementSymbols"] === true;
+			delete filterData["adjustSubElementSymbols"];
+		}
+
+		if(waitingList !== undefined){
+			var /** number */ indexWaitingList = waitingList.length;
+			waitingList.push(null); //Add placeholder
+		}
 		
 		var/** MultiLegendElement|LegendElement */ element = legend.getMainElement(category, key);
+		
+		if(element != null){
+			element.setActive(false);
+			if(legend.numActive == 0){
+				symbolClusterer.repaintPointSymbols(); //TODO maybe inefficient for synoptic maps??
+			}
+		}
 		
 		//Already there?
 		if(element != null && fixedColors == null){ //fixedColors is set if symbols are simply reloaded (or a synoptic map is loaded)
@@ -468,8 +640,17 @@ function CategoryManager (){
 			ajaxData['editMode'] = true;
 		}
 		
+		var eventData = { 
+			"category" : category, 
+			"key" : key, 
+			"ajaxData" : ajaxData, 
+			"trigger" : trigger
+		};
+			
+		jQuery(document).trigger("im_before_load_data", eventData); //TODO document
+		
 		var /** boolean */ newLegendElementCreated = false;
-		var /** boolean */ singular = filterData === undefined || filterData["subElementCategory"] === undefined || filterData["subElementCategory"] == -2;
+		var /** boolean */ singular = filterData === undefined || filterData["subElementCategory"] === undefined || filterData["subElementCategory"] == -2; //TODO document subElementCategory as key
 		
 		if (element == null) {
 			if(singular)
@@ -486,6 +667,7 @@ function CategoryManager (){
 			newLegendElementCreated = true;
 
 		}
+		
 		legend.update();
 
 		var /**CategoryManager */ thisObject = this;
@@ -493,31 +675,121 @@ function CategoryManager (){
 			if(response == -1){
 				alert("Loading error! No Sever response!");
 				legend.removeElement(element, true);
+				if (waitingList !== undefined){
+					waitingList.splice(indexWaitingList, 1);
+				}
 				return;
 			}
 			else if (response.substring(0, 5) == "Error"){
 				alert(response);
+				element.setLoading(false); //Needed to reenable disabled options
 				legend.removeElement(element, true);
+				if (waitingList !== undefined){
+					waitingList.splice(indexWaitingList, 1);
+				}
 				return;
 			}
 			
 			var /** !Array */ result = /** @type{!Array} */ (JSON.parse(response));
 			
-			if(result[DEBUG_DATA]){
-				jQuery("#im_debug_area").html(result[DEBUG_DATA])
+			if(!singular){
+				var /** Array<string> */ sortedKeys = thisObject.sortSubElementKeys(element.category, result[DATA], filterData);
 			}
 			
-			element.filterData = filterData;
+			var /** function(MultiColorIndex=) */  doRest = function (computedColors){
+				if(result[EXTRA_DATA] && Object.keys(result[EXTRA_DATA]).length > 0){
+					jQuery(document).trigger("im_server_extra_data", result[EXTRA_DATA]); //TODO document
+				}
+				
+				if(result[DEBUG_DATA]){
+					jQuery("#im_debug_area").html(result[DEBUG_DATA])
+				}				
+				
+				element.filterData = filterData;
+				element.key = result[KEY];
 
-			if(singular){
-				thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), fixedColors, !newLegendElementCreated);
+				if(singular){
+					thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), computedColors, !newLegendElementCreated, /** @type{boolean} */ (active));
+				}
+				else {
+					thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), sortedKeys, /** @type{Object<string, ?>}*/ (filterData), computedColors, !newLegendElementCreated, /** @type{Array<number>}*/ (active));
+				}
+				
+				if(callback)
+					callback(element);
+				
+				if(popState)
+					history.pushState({"content" : legend.getCompleteExport(true)}, "");
+			};
+			
+			if(waitingList === undefined){
+				//No waiting list:
+				doRest(fixedColors);
 			}
 			else {
-				thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), /** @type{Object<string, ?>}*/ (filterData), fixedColors, !newLegendElementCreated);
+				waitingList[indexWaitingList] = {fun : doRest, data: result, singular: singular, sortedKeys: sortedKeys};
+				
+				//Last element of waiting list => handle all elements
+				if(waitingList.indexOf(null) == -1){
+					var /** number */ elementCount = 0;				
+					var /** Array<Array<string>> */ idList = [];
+					for (let i = 0; i < num_types; i++){
+						idList[i] = [];
+					}
+					
+					if(adjustSubSymbols){
+						//Find different sub elements and number of overlay types
+						for (let i = 0; i < waitingList.length; i++){
+							if(!waitingList[i].singular){
+								
+								var /** !Object */ resultData = waitingList[i].data[DATA];
+								var /** Array<string> */ currentsubElementKeys = Object.keys(resultData);
+								var /** Array<string> */ currentSortedKeys = waitingList[i].sortedKeys;
+								
+								for (let j = 0; j < currentSortedKeys.length; j++){
+									var /** number */ overlayType = resultData[currentSortedKeys[j]][0];
+									if(idList[overlayType].indexOf(currentSortedKeys[j]) == -1){
+										idList[overlayType].push(currentSortedKeys[j]);
+										elementCount++;
+									}
+								}
+							}
+						}
+					}
+					
+					//If symbols have to  be adjusted
+					var /**Array<MultiColorIndex> */ indexes = [];
+					if(elementCount > 1){
+						for (let i = 0; i < waitingList.length; i++){
+							try {
+								indexes.push(thisObject.createIndexesForMultiElement(idList).indexes);
+							}
+							catch (e){
+								alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + elementCount + ")");
+								return;
+							}
+						}
+						
+						//Immediatly unblock color indexes, since not all of them will be used in most cases
+						for (let k = 0; k < waitingList.length; k++){
+							for (let i = 0; i < idList.length; i++){
+								for (let j = 0; j < idList[i].length; j++){
+									var /** string */ key = idList[i][j];
+									if (i == OverlayType.PointSymbol) {
+										symbolManager.unblockFeatureCombination(/** @type {Array<number>}*/ (indexes[k][key])[0], /** @type {Array<number>}*/ (indexes[i][key])[1]);
+									} else {
+										symbolManager.unblockColor(element.overlayType, /** @type {number}*/ (indexes[k][key]));
+									}
+								}
+							}
+						}
+					}
+					
+					for (let i = 0; i < waitingList.length; i++){
+						waitingList[i].fun(indexes[i]);
+					}
+				}
 			}
-			
-			if(callback)
-				callback();
 		});
 	};
 	
@@ -542,7 +814,6 @@ function CategoryManager (){
 		}
 		
 		//TODO adjust elements to potentially deselected sub-elements!!!
-		//TODO save color scheme!!!
 			
 		var /** string */ name = /** @type{string}*/ (jQuery("#IM_Syn_Map_Name").val());
 		if(name == ""){
@@ -554,6 +825,8 @@ function CategoryManager (){
 		var /**boolean */ release = /** @type{boolean}*/ (jQuery("#IM_Syn_Map_Release").prop("checked"));
 	
 		var /**google.maps.LatLng */ center = map.getCenter();
+		var /** string|null */ id_open = jQuery("#IM_filter_popup_div").hasClass("in")? /** @type{string} */ (jQuery("#IM_filter_popup_div").data("element-id")) : null;
+		var /** boolean|LegendElement|MultiLegendElement*/ cq = symbolClusterer.checkQuantify();
 		
 		jQuery.post(ajaxurl, {
 				"action" : "im_a",
@@ -565,6 +838,12 @@ function CategoryManager (){
 				"center_lat" : center.lat(),
 				"center_lng" : center.lng(),
 				"author" : PATH.userName,
+				"colors" : colorScheme.exportScheme(),
+				"opened" : id_open,
+				"info_windows" : mapState.getOpenInfoWindows(),
+				"location_markers" : mapState.getLocationMarkers(),
+				"options" : optionManager.getAllOptionValues(),
+				"quant" : cq? cq.key: null,
 				"data" : legend.getCompleteExport(allElements),
 				"_wpnonce" : jQuery("#_wpnonce_syn_map_save").val()
 			}, function (id){
@@ -592,6 +871,8 @@ function CategoryManager (){
 	this.saveAnonymousMap = function (callback){
 		var /**google.maps.LatLng */ center = map.getCenter();
 		
+		var /** boolean|LegendElement|MultiLegendElement*/ cq = symbolClusterer.checkQuantify();
+		
 		jQuery.post(ajaxurl, {
 				"action" : "im_a",
 				"namespace" : "save_syn_map",
@@ -602,7 +883,13 @@ function CategoryManager (){
 				"center_lat" : center.lat(),
 				"center_lng" : center.lng(),
 				"author" : PATH.userName,
+				"colors" : colorScheme.exportScheme(),
 				"data" : legend.getCompleteExport(true),
+				"opened" : jQuery("#IM_filter_popup_div").hasClass("in")? /** @type{string} */ (jQuery("#IM_filter_popup_div").data("element-id")) : null,
+				"info_windows" : mapState.getOpenInfoWindows(),
+				"location_markers" : mapState.getLocationMarkers(),
+				"options" : optionManager.getAllOptionValues(),
+				"quant" : cq? cq.key: null,
 				"_wpnonce" : jQuery("#_wpnonce_syn_map_save").val()
 			}, function (id){
 				if(isNaN(id)){
@@ -640,11 +927,23 @@ function CategoryManager (){
 	 * @param {LegendElement} element
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
 	 * @param {boolean=} reload
+	 * @param {boolean=} active
 	 * 
 	 * @return {undefined}
 	 */
-	this.createSingularLegendEntry = function (result, element, fixedColors, reload){
+	this.createSingularLegendEntry = function (result, element, fixedColors, reload, active){
 
+		if(Object.getPrototypeOf(Object(result[DATA])) === Object.getPrototypeOf([])){
+			legend.removeElement(element, true);
+			element.setLoading(false);
+			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
+			return;
+		}
+		
+		if(active){
+			element.setActive(true);
+		}
+		
 		//Get color index
 		var /** number|Array<number> */ colorIndex;
 		try {
@@ -653,7 +952,7 @@ function CategoryManager (){
 				colorIndex  = fixedColors["-1"];
 			}
 			
-			colorIndex = this.createSingularIndex(result[NUM_PER_CATEGORY], element, colorIndex, reload);
+			colorIndex = this.createSingularIndex(result[DATA]["-1"][0], element, colorIndex, reload); //There can only be one category
 		}
 		catch (e){
 			alert(TRANSLATIONS["NO_SYMBOLS_LEFT"]);
@@ -664,7 +963,7 @@ function CategoryManager (){
 		if(!reload){
 			if(element.overlayType == OverlayType.PointSymbol){
 				element.symbolStandard = symbolManager.createSymbolURL(/** @type{Array<number>}*/ (colorIndex));
-				element.symbolHighlighted = symbolManager.createSymbolURL(symbolManager.createHighlightedIndex(/** @type{Array<number>}*/ (colorIndex)));
+				element.symbolInactive = symbolManager.createSymbolURL(/** @type{Array<number>}*/ (colorIndex), undefined, undefined, false);
 			}
 			else {
 				element.symbolStandard = symbolManager.createColorURL(/** @type{number}*/ (colorIndex));	
@@ -672,13 +971,6 @@ function CategoryManager (){
 			
 		}
 		var /** boolean */ addToMap = !reload || element.visible();
-	
-		if(Object.getPrototypeOf(Object(result[DATA])) === Object.getPrototypeOf([])){
-			legend.removeElement(element, true);
-			element.setLoading(false);
-			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
-			return;
-		}
 		
 		var /** Array */ dataArray = result[DATA]["-1"][1]; //There can only be one category
 		
@@ -749,7 +1041,7 @@ function CategoryManager (){
 			
 			var/** OverlayInfo */ overlayInfo = new OverlayInfo(
 				this.createInfoWindowContents(currentShape[0], element.category, element.key, element.overlayType), 
-				geoObject, qinfo, currentShape[4]);
+				geoObject, qinfo, currentShape[4], i);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
@@ -798,7 +1090,7 @@ function CategoryManager (){
 	/**
 	 * @private
 	 * 
-	 * @param {Array<number>} categoryNumber
+	 * @param {OverlayType} overlayType
 	 * @param {LegendElement} element
 	 * @param {Array<number>|number=} colorIndex
 	 * @param {boolean=} reload
@@ -806,15 +1098,15 @@ function CategoryManager (){
 	 * @return {Array<number>|number}
 	 * 
 	 */
-	this.createSingularIndex = function (categoryNumber, element, colorIndex, reload){
+	this.createSingularIndex = function (overlayType, element, colorIndex, reload){
 		var /** number|Array<number> */ index;
 		
 		if(colorIndex == null){ //"Normal" data loading
-			if(categoryNumber[OverlayType.PointSymbol] > 0){
+			if(overlayType == OverlayType.PointSymbol){
 				index = symbolManager.blockFeatureCombinations(1, true)[0];
 				element.overlayType = OverlayType.PointSymbol;
 			}
-			else if (categoryNumber[OverlayType.Polygon] > 0){
+			else if (overlayType == OverlayType.Polygon){
 				index = symbolManager.blockColor(OverlayType.Polygon);
 				element.overlayType = OverlayType.Polygon;
 			}
@@ -829,15 +1121,7 @@ function CategoryManager (){
 			}					
 			else { //Synoptic map
 				index = symbolManager.blockExplicitSingularIndex(colorIndex);
-				if(categoryNumber[OverlayType.PointSymbol] > 0){
-					element.overlayType = OverlayType.PointSymbol;
-				}
-				else if (categoryNumber[OverlayType.Polygon] > 0){
-					element.overlayType = OverlayType.Polygon;
-				}
-				else {
-					element.overlayType = OverlayType.LineString;
-				}
+				element.overlayType = overlayType;
 			}
 				
 		}
@@ -851,13 +1135,14 @@ function CategoryManager (){
 	 * 
 	 * @param {!Array} result
 	 * @param {MultiLegendElement} element
+	 * @param {Array<string>} sortedKeys
 	 * @param {Object<string, ?>} filterData
 	 * @param {Object<string, Array<number>|number>=} fixedColors Defines the color indexes for certain legend elements (e.g. for a synoptic map)
 	 * @param {boolean=} reload
+	 * @param {Array<number>=} active Only for synoptic maps
 	 * 
 	 */
-	this.createMultiLegendEntry = function (result, element, filterData, fixedColors, reload){
-		
+	this.createMultiLegendEntry = function (result, element, sortedKeys, filterData, fixedColors, reload, active){
 		//Store sub-element visibilities
 		var /** Object<string,boolean> */ visibilities = {};
 		for (var si = 0; si < element.getNumSubElements(); si++){
@@ -868,50 +1153,36 @@ function CategoryManager (){
 		//Sub-elements are always newly build, even if they exist, since the data might have changed
 		element.removeSubElements();
 		
-		var /** number */ length = Object.keys(result[DATA]).length;
-		if (length > 0) {
-			
-			//Sort the keys according to the given sorter
-			var /**Sorter|undefined */ sorter = categoryManager.getSorter(element.category);
-			var /** Array<string> */ sortedKeys;
-			if(sorter == undefined){
-				if(filterData["subElementCategory"] == -3){ //Tags used but no sorter => sort by alphabet
-					sortedKeys = new Sorter([new AlphabetSorter()]).getSortedKeys(result[DATA], 0, 0, -3);
-				}
-				else {
-					sortedKeys = Sorter.createKeyArray(result[DATA]);
-				}
-			}
-			else {
-				sortedKeys = sorter.getSortedKeys(result[DATA], filterData["sorter"]["sortType"], filterData["sorter"]["sortOrder"], filterData["subElementCategory"]);
-			}
-			
-			var numSubElements = sortedKeys.length;
-			
+		var /** number */ numSubElements = Object.keys(result[DATA]).length;
+		if (numSubElements > 0) {
 			//Create sub-legend-entries for each sub-category
 			//If the element is contained in fixedColors the color index is assigned
 			var /** number= */ mainIndex = undefined;
-			var /** Array<number> */ numOverlayTypes = [];
+			var /** Array<Array<string>> */ restIdList = []; //Lists all sub-elements without a fixed color
 			for (var oi = 0; oi < num_types; oi++){
-				numOverlayTypes[oi] = result[NUM_PER_CATEGORY][oi];
+				restIdList[oi] = [];
 			}
+			
 			for (var ki = 0; ki < numSubElements; ki++){
 				
 				var /** string */ id = sortedKeys[ki];
 				var /** OverlayType */ overlayType =  result[DATA][id][0];
 				
-				var /** LegendElement */ currentElement = new LegendElement(filterData["subElementCategory"], id, element);
-
+				var /** LegendElement */ currentElement = new LegendElement(filterData["subElementCategory"], id, element); //TODO document subElementCategory as reserved key
 				if(fixedColors != undefined){
 					var /** Array<number>|number */ currentIndex = fixedColors[id];
-
-					if(currentIndex != undefined){
+					if(currentIndex !== undefined){
 						currentElement.colorIndex = symbolManager.blockExplicitIndex(fixedColors[id]);
 						if(overlayType == OverlayType.PointSymbol){
 							mainIndex = currentIndex[features_classes.main];
 						}
-						numOverlayTypes[overlayType]--;
 					}
+					else {
+						restIdList[overlayType].push(id);
+					}
+				}
+				else {
+					restIdList[overlayType].push(id);
 				}
 				
 				currentElement.overlayType = overlayType;
@@ -919,21 +1190,19 @@ function CategoryManager (){
 				
 				element.addSubElement(currentElement);
 				element.subElementsVisible++;
+				
+				if(active && active.indexOf(ki) != -1){
+					currentElement.setActive(true);
+				}
 			}
-			
+
 			//Block color indexes for all remaining sub-elements (not contained in fixedColors)
-			var /**Array<Array<Array<number>>|Array<number>> */ indexes = [];
-			
-			try{
-				indexes[OverlayType.PointSymbol] = symbolManager.blockFeatureCombinations(numOverlayTypes[OverlayType.PointSymbol], false, mainIndex);
-				if(mainIndex == undefined && indexes[OverlayType.PointSymbol].length > 0){
-					mainIndex = indexes[OverlayType.PointSymbol][0][features_classes.main];
-				};
-				indexes[OverlayType.Polygon] = symbolManager.blockColors(OverlayType.Polygon, numOverlayTypes[OverlayType.Polygon]);
-				indexes[OverlayType.LineString] = symbolManager.blockColors(OverlayType.LineString, numOverlayTypes[OverlayType.LineString]);
+			try {
+				var /** MultiColorIndex */ indexes;
+				({indexes, mainIndex} = this.createIndexesForMultiElement(restIdList, mainIndex));
 			}
 			catch (e){
-				alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + length + ")");
+				alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + numSubElements + ")");
 				legend.removeElement(element, true);
 				return;
 			}
@@ -941,7 +1210,6 @@ function CategoryManager (){
 			var /** boolean */ overlaysMovable = optionManager.inEditMode() && this.categoryAllowsGeoDataEditingForElement(element.category, element.key, overlayType);
 			
 			//Iterate over the sub-legend-entries again to add the map overlays and set the rest of the color indexes
-			numOverlayTypes.fill(0);
 			for (var li = 0; li < numSubElements; li++){
 
 				id = sortedKeys[li];
@@ -950,13 +1218,13 @@ function CategoryManager (){
 				
 				//Assign color index if it does not exist, yet
 				if(currentElement.colorIndex == undefined){
-					currentElement.colorIndex = indexes[overlayType][numOverlayTypes[overlayType]++];
+					currentElement.colorIndex = indexes[id];
 				}
 				
 				//Create Symbols
 				if(overlayType == OverlayType.PointSymbol){
 					currentElement.symbolStandard = symbolManager.createSymbolURL(/** @type{Array<number>} */ (currentElement.colorIndex));
-					currentElement.symbolHighlighted = symbolManager.createSymbolURL(symbolManager.createHighlightedIndex(/** @type{Array<number>} */ (currentElement.colorIndex)));
+					currentElement.symbolInactive =  symbolManager.createSymbolURL(/** @type{Array<number>} */(currentElement.colorIndex), undefined, undefined, false);
 				}
 				else {
 					currentElement.symbolStandard = symbolManager.createColorURL(/** @type{number}*/ (currentElement.colorIndex));
@@ -990,7 +1258,7 @@ function CategoryManager (){
 						}
 					}
 					
-					var/** OverlayInfo */ overlayInfo = new OverlayInfo(this.createInfoWindowContents(currentShape[0], currentElement.category, element.key, currentElement.overlayType), geoObject, qinfo, currentShape[4]);
+					var/** OverlayInfo */ overlayInfo = new OverlayInfo(this.createInfoWindowContents(currentShape[0], currentElement.category, element.key, currentElement.overlayType), geoObject, qinfo, currentShape[4], j);
 					currentElement.overlayInfos.push(overlayInfo);
 					
 					if(filterData["subElementCategory"] == -1){ //Pseudo category
@@ -1032,6 +1300,67 @@ function CategoryManager (){
 			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
 		 }		
 	};
+	
+	/**
+	 * @private
+	 * 
+	 * @param {number} categoryID
+	 * @param {!Object} data
+	 * @param {Object=} filterData
+	 * 
+	 * @return {Array<string>}
+	 */
+	this.sortSubElementKeys = function (categoryID, data, filterData){
+		
+		//Sort the keys according to the given sorter
+		var /**Sorter|undefined */ sorter = categoryManager.getSorter(categoryID);
+		var /** Array<string> */ sortedKeys;
+		if(sorter == undefined){
+			if(filterData["subElementCategory"] == -3){ //Tags used but no sorter => sort by alphabet
+				sortedKeys = new Sorter([new AlphabetSorter()]).getSortedKeys(data, 0, 0, -3);
+			}
+			else {
+				sortedKeys = Object.keys(data);
+			}
+		}
+		else {
+			sortedKeys = sorter.getSortedKeys(data, filterData["sorter"]["sortType"], filterData["sorter"]["sortOrder"], filterData["subElementCategory"]);
+		}
+		
+		return sortedKeys;
+	}
+	
+	/**
+	 * @private
+	 * 
+	 * @param {Array<Array<string>>} idList
+	 * @param {number=} mainIndex
+	 * 
+	 * @return {{indexes: MultiColorIndex, mainIndex: (number|undefined)}}
+	 */
+	this.createIndexesForMultiElement = function (idList, mainIndex){
+		var /** MultiColorIndex */ indexes = {};
+
+		var /** Array<Array<number>> */ symbolIndexes = symbolManager.blockFeatureCombinations(idList[OverlayType.PointSymbol].length, false, mainIndex);
+		if(mainIndex == undefined && symbolIndexes.length > 0){
+			mainIndex = symbolIndexes[0][features_classes.main];
+		}
+		for (let i = 0; i < idList[OverlayType.PointSymbol].length; i++){
+			indexes[idList[OverlayType.PointSymbol][i]] = symbolIndexes[i];
+		}
+		
+		var /** Array<number> */ polygonColors = symbolManager.blockColors(OverlayType.Polygon, idList[OverlayType.Polygon].length);
+		for (let i = 0; i < idList[OverlayType.Polygon].length; i++){
+			indexes[idList[OverlayType.Polygon][i]] = polygonColors[i];
+		}
+		
+		var /** Array<number> */ lineStringColors = symbolManager.blockColors(OverlayType.LineString, idList[OverlayType.LineString].length);
+		for (let i = 0; i < idList[OverlayType.LineString].length; i++){
+			indexes[idList[OverlayType.LineString][i]] = lineStringColors[i];
+		}
+	
+		return {indexes: indexes, mainIndex: mainIndex};
+	}
 	
 	/**
 	 * @param {string} prefix
@@ -1165,7 +1494,7 @@ function CategoryManager (){
  * @param {string=} textForNewComment Text shown in the right-click menu to write a new comment about this type (default: undefined)
  * @param {string=} textForListRetrieval Text shown in the right-click menu to retrieve a list of the selected information (default: undefined)
  * @param {AbstractListBuilder=} listBuilder The list builder to be used for information of this category (default: undefined)
- * @param {function(string):string=} costumGetNameFunction Function to overwrite the getName functions provided by the gui elements
+ * @param {function(string, function(string):string):string=} costumGetNameFunction Function to overwrite the getName functions provided by the gui elements
  * @param {EditConfiguration=} editConfiguration If this paramter is set, users with the capability "im_edit_map_data" can edit the markers belonging to this category and add new markers to it
  * @param {boolean=} singleSelect If true only one element from this category can be visualized on the map at a time
  * @param {function(string):boolean=} forbidRemovingFunction If this function returns true for an element, it cannot be removed from the legend by the user
@@ -1238,7 +1567,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	}
 	
 	/**
-	 * @type{function(string):string|undefined} 
+	 * @type{function(string, function(string):string):string|undefined} 
 	 */
 	this.costumGetNameFunction = costumGetNameFunction;
 	
@@ -1298,7 +1627,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
  * 		textForNewComment: (string|undefined),
  * 		textForListRetrieval: (string|undefined),
  * 		listBuilder: (AbstractListBuilder|undefined),
- * 		costumGetNameFunction : (function(string):string|undefined),
+ * 		costumGetNameFunction : (function(string, function(string):string):string|undefined),
  * 		editConfiguration: (EditConfiguration|undefined),
  * 		singleSelect: (boolean|undefined),
  * 		forbidRemovingFunction: (function(string):boolean|undefined)

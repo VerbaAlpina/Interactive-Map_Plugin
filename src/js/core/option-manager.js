@@ -85,6 +85,19 @@ function OptionManager (){
 	};
 	
 	/**
+	 * @return {Object<string,(boolean|string)>}
+	 */
+	this.getAllOptionValues = function (){
+		var /** Object<string,(boolean|string)> */ res = {};
+		for (var key in this.options){
+			if(this.options[key].isSaved()){
+				res[key] = this.state[key];
+			}
+		}
+		return res;
+	};
+	
+	/**
 	 * @return {Array<{operation : string, id : string, category : number}>}
 	 */
 	this.getChangeList = function (){
@@ -272,6 +285,9 @@ function OptionManager (){
 		jQuery("#IM_Syn_Map_Cotainer").toggle(!activate);
 		
 		if(activate){
+
+			jQuery('.im_loc_nav').css('bottom','89px');
+
 			//Stop quantify mode
 			var /** boolean|LegendElement|MultiLegendElement */ cQuantify = symbolClusterer.checkQuantify();
 			if(cQuantify !== false){
@@ -350,9 +366,13 @@ function OptionManager (){
 			}
 			jQuery("#IM_Syn_Map_Selection").chosen({allow_single_deselect: true});
 			jQuery(document).trigger("im_edit_mode_stopped"); //TODO document
+
+			jQuery('.im_loc_nav').css('bottom','127px');
+
+
 		}
 		this.editMode = activate;
-		legend.reloadMarkers();
+		legend.reloadOverlays();
 	};
 	
 
@@ -367,7 +387,7 @@ function OptionManager (){
 		var /** EditableInfoWindowContent */ infoWin = new EditableInfoWindowContent(categoryID, "XXX", overlayType); //TODO element id here????
 
 		if(overlayType == OverlayType.PointSymbol){
-			var /** MapSymbol */ mapSymbol = new MapSymbol ([infoWin], null, -1);
+			var /** MapSymbol */ mapSymbol = new MapSymbol ([infoWin], null, -1, -1);
 			mapSymbol.setMarker(overlay);
 			mapSymbol.openInfoWindow(0);
 			var /** OverlayAddedOperation */ changeOp = new OverlayAddedOperation(overlay, categoryID, overlayType, mapSymbol.infoWindow);
@@ -380,6 +400,7 @@ function OptionManager (){
 		}
 	};
 
+
 	
 	/**
 	 * @returns {undefined}
@@ -388,22 +409,12 @@ function OptionManager (){
 		var /** OptionManager */ thisObject = this;
 
 		var /** Element */ result = document.createElement('div');
-		result.style.backgroundColor = '#fff';
-		result.style.border = '2px solid #fff';
-		result.style.borderRadius = '3px';
-		result.style.boxShadow = '0 2px 6px rgba(0,0,0,.3)';
-		result.style.marginRight = '10px';
+
+
 		result.style.textAlign = 'center';
+		result.className +=  'custom_control_base custom_control_shadow';
 		
 		var /** Element */ controlText = document.createElement('div');
-		controlText.style.color = 'rgb(25,25,25)';
-		controlText.style.fontFamily = 'Roboto,Arial,sans-serif';
-		controlText.style.fontSize = '16px';
-		controlText.style.lineHeight = '38px';
-		controlText.style.paddingLeft = '5px';
-		controlText.style.paddingRight = '5px';
-		controlText.style.fontWeight = "bold";
-		controlText.style.cursor = "pointer";
 		controlText.innerHTML = '<i class="fa fa-cog" aria-hidden="true"></i>';
 		result.appendChild(controlText);
 		
@@ -423,23 +434,13 @@ function OptionManager (){
 	 * @return {undefined}
 	 */
 	this.addOptionPane = function (){
+
 		var /** OptionManager */ thisObject = this;
 		
 		var /** Element */ optionPane = document.createElement('div');
-		optionPane.style.display = "none";
-		optionPane.style.position = "absolute";
-		optionPane.style.bottom = "-67px";
-		optionPane.style.right = "30px";
-		optionPane.style.background = "#fff";
-		optionPane.style.border = '2px solid #fff';
-		optionPane.style.borderRadius = "3px 0 3px 3px";
-		optionPane.style.marginRight = '5px';
-		optionPane.style.minWidth = "270px";
-		optionPane.style.textAlign = 'left';
-		optionPane.style.paddingTop = "10px";
-		optionPane.style.paddingBottom = "16px";
-		optionPane.style.boxShadow = "0 2px 6px rgba(0, 0, 0, 0.3)";
+
 		optionPane.id = "IM_OptionsPane";
+		optionPane.className = "custom_option_pane custom_control_shadow";
 		
 		this.editableCategories = categoryManager.getEditableCategories();
 		
@@ -448,7 +449,7 @@ function OptionManager (){
 		jQuery(document).trigger("im_show_edit_mode", [paramObject]); //TODO document
 		
 		if(paramObject.result && PATH["userCanEditMapData"] == "1" && this.editableCategories.length > 0){
-			this.addOption ("editMode", new BoolOption(false, TRANSLATIONS["EDIT_MODE"], this.setEditMode));
+			this.addOption ("editMode", new BoolOption(false, TRANSLATIONS["EDIT_MODE"], this.setEditMode, false));
 		}
 
 		for (var key in this.options){
@@ -472,13 +473,13 @@ function OptionManager (){
 		
 		this.optionsElement.addEventListener("mouseover", function (){
 			optionPane.style.display = "block";
-			optionPane.className = "visible";
+			optionPane.className += "visible";
 		});
 		
 		this.optionsElement.addEventListener("mouseout", function (){
-			optionPane.className = "";
+			optionPane.className = "custom_option_pane custom_control_shadow";
 			window.setTimeout(function (){
-				if(optionPane.className == "")
+				if(optionPane.className == "custom_option_pane custom_control_shadow")
 					optionPane.style.display = "none";
 			}, 100);
 		});
@@ -523,6 +524,11 @@ GuiOption.prototype.applyState = function (val, details){};
  * @return {undefined}
  */
 GuiOption.prototype.setEnabled = function (val){};
+
+/**
+ * @return {boolean}
+ */
+GuiOption.prototype.isSaved = function (){};
 
 /**
  * @constructor
