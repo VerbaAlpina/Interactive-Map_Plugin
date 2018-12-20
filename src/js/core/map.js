@@ -1,10 +1,27 @@
 //TODO change var-private to closure-private to allow inlining of setters etc.
 
 /**
- * @type {MapInterface}
- * @const
+ * @type{MapInterfaceType}
  */
-var mapInterface = new GoogleMapsInterface();
+var mapInterfaceType;
+
+switch (PATH["mapType"]){
+	case "gm":
+		mapInterfaceType = MapInterfaceType.GoogleMaps;
+		break;
+		
+	case "pixi":
+		mapInterfaceType = MapInterfaceType.PixiWebGL;
+		break;
+		
+	default:
+		throw "Invalid map type: " + PATH["mapType"];
+}
+
+/**
+ * type{MapInterface}
+ */
+var mapInterface;
 
 /**
  * @const
@@ -28,7 +45,7 @@ var symbolManager;
  * @type {CommentManager}
  * @const
  */
-var commentManager = new CommentManager();
+var commentManager;
 
 /**
  * @type {OptionManager}
@@ -52,15 +69,16 @@ var symbolClusterer;
 var categoryManager = new CategoryManager ();
 
 /**
+ * @type {GeoManager}
+ * @const
+ */
+var geoManager;
+
+/**
  * @type {MapState}
  * @const
  */
-var mapState = new MapState();
-
-/**
- * @type {Object}
- */
-var style_for_quantify = {};
+var mapState;
 
 /**
  * @type {Object}
@@ -68,9 +86,29 @@ var style_for_quantify = {};
 var style_for_hex_quantify = {};
 
 /**
+ * @param {MapPosition} mapPosition
+ * @param {ClustererOptions} clustererOptions
+ * @param {Object<string, ?>} constructorOptions Additional map type specific options
+ * 
  * @return {undefined} 
  */
-function init (){
+function initMap (mapPosition, clustererOptions, constructorOptions){
+	
+	switch (mapInterfaceType){
+		case MapInterfaceType.GoogleMaps:
+			mapInterface = new GoogleMapsInterface(mapPosition, constructorOptions);
+			break;
+			
+		case MapInterfaceType.PixiWebGL:
+			mapInterface = new PixiWebGLInterface(mapPosition, constructorOptions);
+			break;
+	}
+	
+	
+	commentManager = new CommentManager();
+	mapState = new MapState();	
+	geoManager = new GeoManager();
+	
 	mapDomElement = document.getElementById("IM_map_div");
 	
 	mapInterface.init(mapDomElement, initEvents, polygonSettings);
@@ -80,12 +118,7 @@ function init (){
 
 	initGuiElements();
 	
-	//TODO move threshold to settings.js
-	/* The threshold used here is a "lat/lng distance" of 0.000898315284119521435127501256466 
- 	 * That corresponds to 100m in north/south direction and ca. 70m in east/west direction (at the average latitude of the alpine convention)
- 	 */
-	symbolClusterer = new SymbolClusterer(43.43132018706552, 4.884734173789496, 4.93608093568811, 11.586466768725804, 16, 16, 0.000898315284119521435127501256466);
-	//symbolClusterer.visualize();
+	symbolClusterer = new SymbolClusterer(clustererOptions);
 	
 	optionManager = new OptionManager();
 	
@@ -169,48 +202,65 @@ function initEvents (){
 		
 		}
 	);
+		
+	mapInterface.addShapeListeners(
+		/**
+		 * @this {!MapShape}
+		 * 
+		 * @param {number} lat
+		 * @param {number} lng
+		 * 
+		 * @return {undefined}
+		 */
+		function (lat, lng){ //Click
+			this.openInfoWindow(lat, lng);
+		}	
+	);
 
 	mapInterface.addInfoWindowListeners(
 		/**
 		 * @param {Element} tabElement
 		 * @param {number} tabIndex
-		 * @param {MapSymbol} mapSymbol
+		 * @param {MapSymbol|MapShape} mapElement
 		 * @param {Object} infoWindow
 		 * @param {Object} overlay
 		 */
-		function (tabElement, tabIndex, mapSymbol, infoWindow, overlay){ //Tab opened
-			mapSymbol.currentTabIndex = tabIndex;
-
-			var /** Array<InfoWindowContent> */ infoWindowContents = mapSymbol.parts[tabIndex].infoWindows;
-			for (let i = 0; i < infoWindowContents.length; i++){
-				infoWindowContents[i].onOpen(tabElement, tabIndex, infoWindow, overlay);
+		function (tabElement, tabIndex, mapElement, infoWindow, overlay){ //Tab opened
+			if (mapElement instanceof MapSymbol){
+				mapElement.currentTabIndex = tabIndex;
+	
+				var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
+				for (let i = 0; i < infoWindowContents.length; i++){
+					infoWindowContents[i].onOpen(tabElement, tabIndex, infoWindow, overlay);
+				}
+				mapElement.parts[tabIndex].owner.highlight();
 			}
-			mapSymbol.parts[tabIndex].owner.highlight();
 		},
 		/**
 		 * @param {Element} tabElement
-		 * @param {number} tabIndex
-		 * @param {MapSymbol} mapSymbol
+		 * @param {number|undefined} tabIndex
+		 * @param {MapSymbol|MapShape} mapElement
 		 */
-		function (tabElement, tabIndex, mapSymbol){ //Tab closed
-			var /** Array<InfoWindowContent> */ infoWindowContents = mapSymbol.parts[tabIndex].infoWindows;
-			for (let i = 0; i < infoWindowContents.length; i++){
-				infoWindowContents[i].onClose(tabElement);
+		function (tabElement, tabIndex, mapElement){ //Tab closed
+			if (tabIndex !== undefined){
+				if (mapElement instanceof MapSymbol){
+					var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
+					for (let i = 0; i < infoWindowContents.length; i++){
+						infoWindowContents[i].onClose(tabElement);
+					}
+					mapElement.parts[tabIndex].owner.unhighlight();
+				}
 			}
-			mapSymbol.parts[tabIndex].owner.unhighlight();
 		},
 		/**
 		 * @param {Element} windowElement
-		 * @param {MapSymbol} mapSymbol
+		 * @param {MapSymbol|MapShape} mapElement
 		 */
-		function (windowElement, mapSymbol){ //Window closed
-			google.maps.event.trigger(map.data, 'mouseout');
-			mapState.removeInfoWindowOwnerFromList(mapSymbol);
+		function (windowElement, mapElement){ //Window closed
+			mapState.removeInfoWindowOwnerFromList(mapElement);
 		},
 		function (id){ //Location info window closed
 			mapState.removeLocationMarker(id);
 		}
 	);
 }
-
-jQuery(init);

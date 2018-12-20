@@ -295,8 +295,7 @@ function OptionManager (){
 				symbolClusterer.quantify(/** @type{LegendElement|MultiLegendElement}*/ (cQuantify), false);
 			}
 			
-			map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].pop();
-			
+			mapInterface.removeOptionElement();
 			mapInterface.addUndoComponent(
 			{
 				name : TRANSLATIONS["LEAVE_EDIT_MODE"],
@@ -339,10 +338,13 @@ function OptionManager (){
 			});
 			
 			//New elemets control:
-			var /**Array<{id : number, name: string}>*/ options = [];
+			var /**Array<{id : number, name: string, allowedOverlays: Array<boolean>}>*/ options = [];
 			for (var i = 0; i < this.editableCategories.length; i++){
 				if(categoryManager.categoryAllowsNewElements(this.editableCategories[i]) !== false){
-					options.push({id : this.editableCategories[i], name : categoryManager.getCategoryName(this.editableCategories[i])});
+					options.push({
+						"id" : this.editableCategories[i], 
+						"name" : categoryManager.getCategoryName(this.editableCategories[i]),
+						"allowedOverlays" : categoryManager.getOverlayTypes(this.editableCategories[i])});
 				}
 			}
 			if(options.length > 0)
@@ -357,9 +359,9 @@ function OptionManager (){
 		else{
 			mapInterface.removeUndoComponent();
 			mapInterface.removeNewOverlaysComponent();
+			mapInterface.addOptionElement(this.optionsElement);
 			
 			this.categoryForAdding = -1;
-			map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(this.optionsElement);
 			jQuery("#IM_OptionsPane").toggle(false);
 			for (var i = 0; i < legend.getLength(); i++){
 				legend.getElement(i).visible(true);
@@ -406,28 +408,16 @@ function OptionManager (){
 	 * @returns {undefined}
 	 */
 	this.createOptionsDiv = function (){
-		var /** OptionManager */ thisObject = this;
-
-		var /** Element */ result = document.createElement('div');
-
-
-		result.style.textAlign = 'center';
-		result.className +=  'custom_control_base custom_control_shadow';
-		
-		var /** Element */ controlText = document.createElement('div');
-		controlText.innerHTML = '<i class="fa fa-cog" aria-hidden="true"></i>';
-		result.appendChild(controlText);
-		
-		this.optionsElement = result;
+		this.optionsElement = mapInterface.createOptionElement();
 		
 		var /**Element */ optionsDiv = document.createElement('div');
 		optionsDiv.id = "IM_Options_Div";
-		optionsDiv.appendChild(result);
+		optionsDiv.appendChild(this.optionsElement);
 		optionsDiv.index = 1;
 		
 		jQuery(document).trigger("im_add_options"); //TODO document this, also stuff like addXY in categoryManager
 		
-		thisObject.addOptionPane();
+		this.addOptionPane();
 	}
 	
 	/**
@@ -464,7 +454,7 @@ function OptionManager (){
 		}
 		
 		if(!this.editMode){
-			map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(this.optionsElement);
+			mapInterface.addOptionElement(this.optionsElement);
 		}
 		
 		this.optionsElement.appendChild(optionPane);
@@ -646,22 +636,10 @@ function EditConfiguration (){
 	};
 	
 	/**
-	 * @return {Array<string>}
+	 * @return {Array<boolean>}
 	 */
-	this.getGoogleTypesForNewOverlays = function (){
-		var /** Array<string> */ result = [];
-
-		if(this.arrNewOverlays[OverlayType.PointSymbol]){
-			result.push(google.maps.drawing.OverlayType.MARKER);
-		}
-		if(this.arrNewOverlays[OverlayType.Polygon]){
-			result.push(google.maps.drawing.OverlayType.POLYGON);
-		}
-		if(this.arrNewOverlays[OverlayType.LineString]){
-			result.push(google.maps.drawing.OverlayType.POLYLINE);
-		}
-			
-		return result;
+	this.getTypesForNewOverlays = function (){
+		return this.arrNewOverlays;
 	};
 	
 	/**

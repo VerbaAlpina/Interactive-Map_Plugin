@@ -9,6 +9,8 @@ define ('DEFAULT_VALUE', '###DEFAULT###');
  */
 class IM_Initializer_Implementation extends IM_Initializer {
 	
+	public static $default_map_type = 'gm';
+	
 	private $add_scripts = false;
 
 	/**
@@ -23,6 +25,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 	public $load_function;
 	public $map_function;
+	
+	public $map_type;
 
 	private static $translations;
 	
@@ -30,6 +34,14 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		parent::__construct();
 		
 		$this->add_hooks();
+		
+		if (isset($_REQUEST['mapType']) && method_exists($this, $_REQUEST['mapType'] . '_function')){
+			$this->map_type = $_REQUEST['mapType'];
+		}
+		else {
+			$this->map_type = self::$default_map_type;
+		}
+		
 		$this->includes();
 		
 		//Options that have to be set
@@ -91,7 +103,28 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		include_once 'tree.php';
 
 		//Scripts
+		
+		$dependencies = [
+			'jquery-ui-dialog',
+			'jquery-ui-tabs',
+			'im_chosen_order',
+			'im_context-menu-script',
+			'im_linkify',
+			'im_linkify-html',
+			'im_superfish',
+			'im_superfishHI',
+			'im_qtip',
+			'im_colors',
+			'im_colorpicker',
+			'im_select2',
+			'im_select2_de',
+			'im_select2_fr',
+			'im_select2_it',
+			'im_select2_sl'
+		];
 
+		//Map types
+		$dependencies = call_user_func([$this, $this->map_type . '_function'], $dependencies);
 
 		//Chosen
 		wp_register_script('im_chosen', IM_PLUGIN_URL . 'lib/js/chosen/chosen.jquery.js');
@@ -108,16 +141,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_script('im_select2_it', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/it.js');
 		wp_register_script('im_select2_sl', IM_PLUGIN_URL . '/lib/js/select2/dist/js/i18n/sl.js');
 
-
-		//Google maps
-		$key = apply_filters('im_google_maps_api_key', '');
-		$key_str = ($key != ''? '&key=' . $key : '');
-		wp_register_script('im_googleMaps', 'https://maps.googleapis.com/maps/api/js?v=3&libraries=drawing&language=' . substr(get_locale(), 0, 2) . $key_str, array(), false, true);
-
 		//JQuery UI
-		wp_register_style('im_jquery-ui-style', IM_PLUGIN_URL . 'lib/css/jquery-ui.min.css');
-		wp_register_style('im_jquery-ui-style2', IM_PLUGIN_URL . 'lib/css/theme.css');
-		wp_register_style('im_tabs-css', IM_PLUGIN_URL . 'src/css/tab-style.css');
+		wp_register_style('im_jquery-ui-style', IM_PLUGIN_URL . 'lib/css/jquery-ui/jquery-ui.min.css');
+		wp_register_style('im_jquery-ui-style2', IM_PLUGIN_URL . 'lib/css/jquery-ui/jquery-ui.theme.min.css');
 
 		wp_register_script('im_context-menu-script', IM_PLUGIN_URL . 'lib/js/context-menu/dist/jquery.contextMenu.min.js');
 		wp_register_style('im_context-menu-style', IM_PLUGIN_URL . 'lib/js/context-menu/dist/jquery.contextMenu.min.css');
@@ -136,7 +162,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_style('im_qtip_style', IM_PLUGIN_URL . '/lib/js/qtip/jquery.qtip.min.css');
 		
 		//Font Awesome
-		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/fontawesome-free-5.0.8/web-fonts-with-css/css/fontawesome-all.min.css');
+		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/fontawesome-free-5.1.0-web/css/all.css');
 
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
@@ -144,37 +170,54 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 		//hungarian method
 		// wp_register_script('im_munkres', IM_PLUGIN_URL . '/lib/js/munkres/munkres.js');
-		
-		$dependencies = array(
-			
-				'jquery-ui-dialog',
-				'jquery-ui-tabs',
-				'im_chosen_order',
-				'im_googleMaps',
-				'im_context-menu-script',
-				'im_linkify',
-				'im_linkify-html',
-				'im_superfish',
-				'im_superfishHI',
-				'im_qtip',
-				'im_colors',
-				'im_colorpicker',
-				'im_select2',
-				'im_select2_de',
-				'im_select2_fr',
-				'im_select2_it',
-				'im_select2_sl'
-				
-		);
 
 		//Main map script
-		wp_register_script('im_map_script', IM_MAIN_JS_FILE, $dependencies, true);
+		wp_register_script('im_map_script', $this->add_map_type(IM_MAIN_JS_FILE), $dependencies, true);
 		
 		wp_register_script('im_example_config', IM_PLUGIN_URL . 'example_files/data-template.js', array('im_map_script'), true);
 		
 		wp_register_style('im_map_style', IM_MAIN_CSS_FILE);
-		wp_register_style('im_gm_style', IM_PLUGIN_URL . 'src/css/google-maps.css'); //TODO make this depend on MapInterface somehow
 		wp_register_style('im_easy_table_style', IM_PLUGIN_URL . 'lib/css/easy-table.css');
+	}
+	
+	private function add_map_type ($file){
+		return substr($file, 0, -3) . '_' . $this->map_type . '.js';
+	}
+	
+	private function gm_function ($dependencies){
+		$key = apply_filters('im_google_maps_api_key', '');
+		$key_str = ($key != ''? '&key=' . $key : '');
+		wp_register_script('im_googleMaps', 'https://maps.googleapis.com/maps/api/js?v=3.32&libraries=drawing&language=' . substr(get_locale(), 0, 2) . $key_str, array(), false, true);
+		$dependencies[] = 'im_googleMaps';
+		
+		wp_register_script('im_gm_contextmenu', IM_PLUGIN_URL . 'lib/js/contextmenuGM.js/ContextMenu.js');
+		$dependencies[] = 'im_gm_contextmenu';
+		
+		wp_register_script('im_gm_infobubble', IM_PLUGIN_URL . 'lib/js/js-info-bubble-gh-pages/src/infobubble.js');
+		$dependencies[] = 'im_gm_infobubble';
+		
+		wp_register_style('mapTypeStyle', IM_PLUGIN_URL . 'src/css/google-maps.css');
+		
+		return $dependencies;
+	}
+	
+	private function pixi_function ($dependencies){
+		wp_register_script('leaflet', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leaflet.js');
+		$dependencies[] = 'leaflet';
+
+		wp_register_style('mapTypeStyle', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/css/leaflet.css');
+
+		wp_register_script('pixi', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/pixi.min.js');
+		$dependencies[] = 'pixi';
+
+		wp_register_script('im_pixi_overlay', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/L.PixiOverlay.js');
+		$dependencies[] = 'im_pixi_overlay';
+
+		wp_register_script('im_pixi', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leafletPixi.js');
+		$dependencies[] = 'im_pixi';
+
+		
+		return $dependencies;
 	}
 
 	public function enqueue_scripts (){
@@ -196,7 +239,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			wp_enqueue_style('im_qtip_style');
 				
 			wp_enqueue_style('im_map_style');
-			wp_enqueue_style('im_gm_style'); //TODO make this depend on MapInterface somehow
+			wp_enqueue_style('mapTypeStyle');
 			wp_enqueue_style('im_easy_table_style');
 			
 			wp_enqueue_style('im_font_awesome');
@@ -238,9 +281,13 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	}
 	
 	//Is meant for external usage
-	public function enqueue_select2_library (){
+	public function enqueue_select2_library ($lang = NULL){
 		wp_enqueue_script('im_select2');
 		wp_enqueue_style('im_select2_style');
+		
+		if ($lang){
+			wp_enqueue_script('im_select2_' . $lang);
+		}
 	}
 
 	public function localize_scripts (){
@@ -261,16 +308,15 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'Plus' => IM_PLUGIN_URL . '/icons/Plus.png',
 				'Loading' => IM_PLUGIN_URL . '/icons/Loading.gif',
 				'Pencil' => IM_PLUGIN_URL . '/icons/pencil.svg',
+				'quantify' => IM_PLUGIN_URL . '/icons/qunatify_svg_m.svg',
 				'Commit' => IM_PLUGIN_URL . '/icons/Commit.png',
 				'Undo' => IM_PLUGIN_URL . '/icons/undo.png',
 				'Dot' => IM_PLUGIN_URL . '/icons/dot.png',
 				'Close' => IM_PLUGIN_URL . '/icons/iw_close.gif',
 				'symbolGenerator' => IM_PLUGIN_URL . 'src/php/createSymbol.php',
-				'gradientFile' => IM_PLUGIN_URL . '/lib/js/colorpicker/gradients.json',
+				'gradientFile' => IM_PLUGIN_URL . '/src/json/gradients.json',
 				'hexagonFolder' => IM_PLUGIN_URL . 'src/js/classes/hexagon_builder/hexagon_files',
-				'mapStyleDark' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black.json',
-				'mapStyleDarkSimple' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black_simple.json',
-				'mapStyleDarkSimpleNoLabels' => IM_PLUGIN_URL . '/lib/js/colorpicker/mapstyle_black_simple_no_labels.json',
+				'baseURL' => IM_PLUGIN_URL,
 				'userName' => wp_get_current_user()->user_login,
 				'userCanEditComments' => current_user_can_for_blog(1, 'im_edit_comments')? "1": "0",
 				'userCanEditMapData' => current_user_can_for_blog(1, 'im_edit_map_data')? "1": "0",
@@ -279,7 +325,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'tk' => isset($_REQUEST['tk'])? $_REQUEST['tk'] : null,
 				'single' => isset($_REQUEST['single'])? $_REQUEST['single'] : null,
 				'tkUrl' => add_query_arg('tk', '§§§', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request ))),
-				'options' => []
+				'options' => [],
+				'mapType' => $this->map_type
 		);
 		
 		//Send

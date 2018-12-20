@@ -88,3 +88,9 @@ function addParamToUrl (urlStr, param, value){
 	url.search = params.toString();
 	return url.toString()
 }
+
+
+
+function getKeyByValue(object, value) {
+  return Object.keys(object).find(key => object[key] === value);
+}

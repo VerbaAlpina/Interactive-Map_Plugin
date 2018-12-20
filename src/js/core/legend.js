@@ -75,22 +75,6 @@ function Legend() {
 			this.elements.push(element);
 		}
 	};
-	
-	/**
-	 * @param {LegendElement} owner
-	 * 
-	 * @return {undefined}
-	 */
-	this.destroyPolygonInfoWindowsForOwner = function (owner){
-		for (var i = mapState.getInfoWindowCount() - 1; i >= 0; i--){
-			var /** MapShape|MapSymbol */ mapElement = mapState.getInfoWindowOwner(i);
-			if (mapElement instanceof MapShape){
-				if(mapElement.owner == owner){
-					mapElement.destroyInfoWindow();
-				}
-			}
-		}
-	};
 
 	/**
 	 * @param {number} category
@@ -166,8 +150,6 @@ function Legend() {
 	 * @return{undefined} 
 	 */
 	this.update = function() {
-
-
 		jQuery(document).trigger("im_legend_before_rebuild", this); //TODO comment
 		
 		//Rebuild legend
@@ -196,8 +178,8 @@ function Legend() {
 		jQuery("#IM_legend").html(tablecontainer);
 			
 		jQuery(document).trigger("im_legend_after_update", this); //TODO comment
-		setTableRowWidth();
 
+		//TODO maybe not call this for every legend update
 		for (var/** number */ j = 0; j < mapState.getInfoWindowCount(); j++) {
 			mapState.getInfoWindowOwner(j).updateInfoWindow();
 		}
@@ -218,6 +200,7 @@ function Legend() {
 		if(qelement == element){
 			symbolClusterer.displayMarkers(true);
 			symbolClusterer.toggleQuantifyMode();
+			qelement = null;
 		}
 		
 		if(element instanceof MultiLegendElement){
@@ -227,14 +210,8 @@ function Legend() {
 		}
 		else {
 			symbolClusterer.removeOverlays(element);
+			element.unblockColorIndexes();
 			
-			if(element.colorIndex !== undefined){
-				if (element.overlayType == OverlayType.PointSymbol) {
-					symbolManager.unblockFeatureCombination(/** @type {Array<number>}*/ (element.colorIndex)[0], /** @type {Array<number>}*/ (element.colorIndex)[1]);
-				} else {
-					symbolManager.unblockColor(element.overlayType, /** @type {number}*/ (element.colorIndex));
-				}
-			}
 			if(element.parent != null){
 				element.parent.filterData = storeRemovedElement(element.parent.filterData, element.key);
 				
@@ -274,10 +251,10 @@ function Legend() {
 				}
 			}
 			this.update();
-		}
-		
-		if((qelement && element.overlayType == OverlayType.PointSymbol) || (qelement == element.parent && deleteFromArray)){
-			symbolClusterer.reQuantify();
+			
+			if(qelement){
+				symbolClusterer.reQuantify();
+			}
 		}
 	};
 	
@@ -544,10 +521,11 @@ function Legend() {
 	     	var /**Element */  qClickable  = /** @type{Element} */ (document.createElement("div"));
  	    	var /**Element */  qButtonIcon = /** @type{Element} */ (document.createElement("i"));
  	    	var /**Element */  qButtonIcon2 = /** @type{Element} */ (document.createElement("i"));
- 	    	var /**Element */  qButtonIcon3 = /** @type{Element} */ (document.createElement("i"));
+ 	    	var /**Element */  qButtonIcon3 = /** @type{Element} */ (document.createElement("img"));
  	    	var /**Element */  qIconSpan= /** @type{Element} */ (document.createElement("span"));
 
-
+ 	        qButtonIcon3["src"] = PATH["quantify"];
+ 	       // qButtonIcon3["type"] = "image/svg+xml";
 
      		if(!element.quantify){
      			qButtonIcon.className ="far fa-times-circle qcheck q-stack1 fa-stack-1x"; 
@@ -561,18 +539,19 @@ function Legend() {
 
      		}
 
-     		qButtonIcon3.className="far fa-circle ring";
+     		// qButtonIcon3.className="far fa-circle ring";
      		qButtonIcon2.className ="fa fa-circle qcheck q-stack fa-stack-1x"; 
      		qIconSpan.className ="q-span fa-stack";
      		qButton.title = "Quantify";
 			qButton["style"]["vertical_align"] = 'middle';
 			qButton["style"]["opacity"] = '0.6';
-			qButton.innerHTML = "Q";
+			// qButton.innerHTML = "Q";
 			qButton.className = "quantifyButton";
 			qButton["id"] = "qbutton_"+element.key;
 			qButtonParent.className="qButtonParent";
 
-			jQuery(qButton).on('click',function(event){  //second listener for clicks while loading
+
+			jQuery(qButton).on('click', function(event){  //second listener for clicks while loading
 
 			     event.stopPropagation();
 			     event.preventDefault();
@@ -587,7 +566,8 @@ function Legend() {
 					legend.deactivateAll();
 
 					hideAllOtherPolygonGrps(element);
-					if(!element.visible())element.visible(true,false);
+					if(!element.visible())
+						element.visible(true,false);
 
 					event.stopPropagation();
 					event.preventDefault();
@@ -620,6 +600,66 @@ function Legend() {
 			qIconSpan.appendChild(qButtonIcon);
 		    qIconSpan.appendChild(qButtonIcon2);
 			col.appendChild(qButtonParent);	
+		}
+
+		var builder = categoryManager.getListBuilder(element.category);
+
+		if(!element.loading && builder && (element instanceof MultiLegendElement || (element instanceof LegendElement && element.parent==null)) && !element.isQuantifiably()){
+			var /**Element */  exportIcon = /** @type{Element} */ (document.createElement("i"));
+	    	var /**Element */  expParent  = /** @type{Element} */ (document.createElement("div"));
+	 		exportIcon.className ="list_export_icon fas fa-file-download"; 
+			expParent.appendChild(exportIcon);	
+			expParent.className ="list_export_icon_parent"; 
+			col.appendChild(expParent);
+
+			jQuery(exportIcon).on( "click", function(event) {
+					event.stopPropagation();
+					event.preventDefault();
+
+					jQuery('.select_export_popup').modal();
+
+					var builder = categoryManager.getListBuilder(element.category);
+					var manager = new ListManager(builder, element);	
+
+					// var active_legend_icons = [];
+
+					// 	if(legend.numActive == 0){
+					// 		 active_legend_icons = [];
+					// 	}
+					// 	else{
+					// 			var /** number */ numSub = element.getNumSubElements();
+					// 			for(var j = 0; j < numSub; j++){
+					// 				var subelement_l = element.getSubElement(j);
+					// 				if(subelement_l.active){
+					// 					active_legend_icons.push(subelement_l);
+					// 				}
+					// 			}
+					// 	}
+
+						// TODO USE ACTIVE ELEMENTS FOR EXPORT 
+						// ALLOW EXPORT FOR OTHER CATEGORIES THAN INFORMANTS
+
+					jQuery('.select_export_popup').one('shown.bs.modal',function(){
+
+						jQuery('.select_export_popup #export_json').off().one('click',function(){
+							manager.showResult(0);
+							jQuery('.select_export_popup').modal('hide');
+						})
+
+						jQuery('.select_export_popup #export_csv').off().one('click',function(){
+							manager.showResult(2);
+							jQuery('.select_export_popup').modal('hide');
+						})
+
+						jQuery('.select_export_popup #export_list').off().one('click',function(){
+							manager.showResult(1);
+							jQuery('.select_export_popup').modal('hide');
+						})
+
+					})
+
+			})
+
 		}
 
 	    row.appendChild(col);
@@ -987,10 +1027,10 @@ function Legend() {
 			commentManager.openCommentWindow(element.category, id, true);
 		}
 		else if(key.indexOf("getList") === 0){
-			id = key.substring(7);
-			var builder = categoryManager.getListBuilder(element.category);
-			var manager = new ListManager(builder, element);
-			manager.showSelectionDialog();
+			// id = key.substring(7);
+			// var builder = categoryManager.getListBuilder(element.category);
+			// var manager = new ListManager(builder, element);
+			// manager.showSelectionDialog();
 		}
 	};
 
@@ -1214,10 +1254,6 @@ function LegendElement(category, key, parent) {
 
 	/** @type{Array<OverlayInfo>} */
 	this.overlayInfos = new Array();
-
-	//Is only filled for polygons
-	/** @type{!Object<string, google.maps.Data.Feature>}*/
-	this.googleFeatures = {};
 	
 	/** @type {jQuery} */
 	this.htmlElement = null;
@@ -1283,34 +1319,22 @@ function LegendElement(category, key, parent) {
 		if(visible != isVisible) {
 			isVisible = visible;
 			if(visible){
-				if(this.overlayType == OverlayType.Polygon && Object.keys(this.googleFeatures).length !== 0){
-					for (var id in this.googleFeatures){
-						map.data.add(this.googleFeatures[id]);
-					}
+				var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
+				var /** number */ len = this.overlayInfos.length;
+				for (i = 0; i < len; i++){
+					symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
 				}
-				else{
-					var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
-					var /** number */ len = this.overlayInfos.length;
-					for (i = 0; i < len; i++){
-						symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
-					}
-				}						
+
+				mapInterface.repaint();	
+				
 				if(this.parent != null){
 					this.parent.subElementsVisible++;
 					this.parent.visible(true, this.parent.subElementsVisible == 1, true);
 				}
 			}
 			else {
-				if(this.overlayType == OverlayType.Polygon){
-					for (var id in this.googleFeatures){
-						map.data.remove(this.googleFeatures[id]);
-					}
-					legend.destroyPolygonInfoWindowsForOwner(this);
-				}
-				else {
-					this.openInfoWindowsNumber = 0;
-					symbolClusterer.removeOverlays(this);
-				}
+				this.openInfoWindowsNumber = 0;
+				symbolClusterer.removeOverlays(this);
 				
 				if(this.parent != null){
 					this.parent.subElementsVisible--;
@@ -1365,13 +1389,6 @@ function LegendElement(category, key, parent) {
 		if (this.visible())
 			return this.overlayInfos;
 		return [];
-	};
-	
-	/**
-	 * @return {undefined}
-	 */
-	this.removeGoogleFeatures = function (){
-		this.googleFeatures = {};
 	};
 	
 	/**
@@ -1448,11 +1465,21 @@ function LegendElement(category, key, parent) {
 		}
 	
 		this.setLoading(true);
-		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
 		
+		this.unblockColorIndexes();
 		categoryManager.loadData(this.category, this.key, "reload", (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
 	};
+	
+	this.unblockColorIndexes = function (){
+		if(this.colorIndex !== undefined){
+			if (this.overlayType == OverlayType.PointSymbol) {
+				symbolManager.unblockFeatureCombination(/** @type {Array<number>}*/ (this.colorIndex)[0], /** @type {Array<number>}*/ (this.colorIndex)[1]);
+			} else {
+				symbolManager.unblockColor(this.overlayType, /** @type {number}*/ (this.colorIndex));
+			}
+		}
+	}
 	
 	/** 
 	* @return {Object<string, Array<number>|number>}
@@ -1466,6 +1493,7 @@ function LegendElement(category, key, parent) {
 	 * @return {string}
 	 */
 	this.getColorString = function (){
+		
 		if(this.overlayType == OverlayType.PointSymbol){
 			return symbolManager.getColorStringForSymbol(/** @type{Array<number>} */ (this.colorIndex));
 		}
@@ -1473,6 +1501,16 @@ function LegendElement(category, key, parent) {
 			return symbolManager.getPolygonColorString(/** @type{number} */ (this.colorIndex));
 		}
 	};
+	
+	/**
+	 * @return {string}
+	 */
+	this.getColorHex = function (){
+		var str = this.getColorString();
+		return "0x" + str.substring(1);
+	};
+	
+	
 	
 	/** 
 	* @return {undefined}
@@ -1641,15 +1679,6 @@ function MultiLegendElement(category, key) {
 		this.subElements.push(element);
 	};
 	
-	/**
-	 * @return {undefined}
-	 */
-	this.removeGoogleFeatures = function (){
-		for (var i = 0; i < this.subElements.length; i++){
-			this.subElements[i].googleFeatures = {};
-		}
-	};
-	
 	/** @type{number} */
 	this.subElementsVisible = 0;
 	
@@ -1790,10 +1819,16 @@ function MultiLegendElement(category, key) {
 		}
 		
 		this.setLoading(true);
-		this.removeGoogleFeatures();
 		this.removeOverlayInfo();
 		
+		this.unblockColorIndexes();		
 		categoryManager.loadData(this.category, this.key, "reload", (filterData? filterData: this.filterData), this.getColorAssignment(), callback);
+	};
+	
+	this.unblockColorIndexes = function (){
+		for (var i = 0; i < this.subElements.length; i++){
+			this.subElements[i].unblockColorIndexes();
+		}
 	};
 	
 	/** 

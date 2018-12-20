@@ -125,7 +125,7 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 			var /** OverlayInfo */
 			marker = markers[k];
 
-			if (marker.geomData instanceof google.maps.Data.Point) {
+			if (marker.geomData.type == IMGeoType.Point) {
 				if (marker.getQuantifyInfo(elementID) == polygonID) {
 					var /** number */
 					numData = marker.infoWindowContents.length;

@@ -480,18 +480,20 @@ function im_create_filter_popup_html (){
 				      </div>
 
 					<div class="modal-body im_map_modal_body">
-						<form id="IM_filter_popup_form">
+						<div id="IM_filter_popup_form">
 						<!-- 	<h1 id="IM_filter_popup_title"></h1> -->
 							<div id="IM_filter_popup_content">
 								
 							</div>
-						
-							<input type="button" id="IM_filter_popup_submit" class="btn btn-secondary im_custom_button" value="<?php _e('Show data', 'interactive-map');?>" />
-						</form>
+					
+						</div>
 					</div>	
 					
-				<div class="modal-footer im_custom_footer"></div>
+				<div class="modal-footer im_custom_footer_big">
+						<input type="button" id="IM_filter_popup_submit" class="btn btn-secondary im_custom_button" value="<?php _e('Show data', 'interactive-map');?>" />
+				</div>
 
+				
 			</div>
 
 	 </div>
@@ -781,4 +783,85 @@ function im_create_debug_area (){
 	<div id="im_debug_area" class="IM_error_message"></div>
 	<?php
 }
+
+function va_create_list_popup_html (&$Ue){
+	
+	?>
+	<div class="modal fade select_export_popup" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="true">
+	  <div class="modal-dialog modal-sm">
+	    <div class="modal-content">
+
+	   <div class="modal-header">
+
+        <h5 class="modal-title">
+	        <span>
+	        <?php
+	    		     echo __('Print List','interactive-map');
+		     ?>
+	    		   	
+	    	 </span>
+        </h5>
+
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+	       <div class="modal-body">
+
+	       <div class="btn-group-vertical" style="min-width: 100%;" role="group" aria-label="Vertical button group">
+					<button id="export_json" type="button" class="btn btn-secondary hex-modal-btn">Json</button>
+					<button id="export_csv" type="button" class="btn btn-secondary hex-modal-btn">CSV</button>
+					<button id="export_list" type="button" class="btn btn-secondary hex-modal-btn"> 
+					   <?php
+							echo __('Print as List','interactive-map');
+						?>
+		     </button>
+		   </div>
+
+
+	      </div>
+
+	    </div>
+	  </div>
+	</div>	
+<?php
+}
+
+function va_create_export_list_popup_html (&$Ue){
+	
+	?>
+	<div class="modal fade export_list_popup" tabindex="-1" role="dialog" aria-labelledby="mySmallModalLabel" aria-hidden="true">
+	  <div class="modal-dialog im_map_modal_content">
+	    <div class="modal-content">
+
+	   <div class="modal-header">
+
+        <h5 class="modal-title">
+	        <span>
+	        <?php
+	    		     echo __('Print List','interactive-map');
+		     ?>
+	    		   	
+	    	 </span>
+        </h5>
+
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+
+	       <div class="modal-body im_map_modal_body">
+
+	
+	      </div>
+
+	      <div class="modal-footer im_custom_footer"></div>
+
+	    </div>
+	  </div>
+	</div>	
+<?php
+}
+
 ?>

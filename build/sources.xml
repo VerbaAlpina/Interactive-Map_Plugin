@@ -1,4 +1,6 @@
 <sources dir="${basedir}">
+
+	<file name="src/js/typedefs.js" />
 	<file name="src/js/basic_settings.js" />
 	
 	<file name="src/js/core/map.js" />
@@ -31,7 +33,6 @@
 	<file name="src/js/classes/list-printers/csv-list-printer.js" />
 	<file name="src/js/classes/list-builders/simple.js" />
 	<file name="src/js/classes/edit-field-types/string.js" />
-	<file name="src/js/classes/map-interfaces/google-maps.js" />
 	<file name="src/js/classes/undo-operations/marker-moved.js" />
 	<file name="src/js/classes/undo-operations/marker-split.js" />
 	<file name="src/js/classes/undo-operations/overlay-added.js" />
@@ -40,7 +41,4 @@
 	<file name="src/js/classes/gui-options/click.js" />
 	<file name="src/js/classes/gui-options/hidden.js" />
     <!--<file name="src/js/classes/hexagon_builder/hex_builder.js"/>-->
-	
-	<file name="lib/js/js-info-bubble-gh-pages/src/infobubble.js" />
-	<file name="lib/js/contextmenuGM.js/ContextMenu.js" />
 </sources>

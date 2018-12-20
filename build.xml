@@ -3,9 +3,11 @@
 	<!ENTITY externs SYSTEM "build/externs.xml">
 	<!ENTITY sources SYSTEM "build/sources.xml">
 	<!ENTITY exports SYSTEM "build/exports.xml">
+	<!ENTITY sources_gm SYSTEM "build/sources_gm.xml">
+	<!ENTITY sources_pixi SYSTEM "build/sources_pixi.xml">
 ]>
 
-<project name="im_plugin" basedir="." default="compile">
+<project name="im_plugin" basedir="." default="compileGM">
 	<property name="jscomp.debug" value="${debugMode}" />
 	<condition property="jscomp.debug" value="false">
 	   	<not>  
@@ -16,18 +18,44 @@
   <taskdef name="jscomp" classname="com.google.javascript.jscomp.ant.CompileTask"
            classpath="build/compiler.jar"/>
 
-  <target name="compile">
+  <target name="compileGM">
 
-	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6_STRICT" output="compiled/interactive_map_compiled.js">
+	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6_STRICT" output="compiled/interactive_map_compiled_gm.js">
 
 		<!--<warning group="reportUnknownTypes" level="WARNING" />-->
 		<!--  prettyPrint="true"-->
 		
 		&externs;
 		&sources;
+		&sources_gm;
 		&exports;
+		
+		<externs dir="${basedir}/build/externs">
+			<file name="pixi_stub.js"/>
+		</externs>
     </jscomp>
 
   </target>
+	
+<target name="compilePixi">
+
+	<jscomp compilationLevel="advanced" warning="verbose" debug="${jscomp.debug}" languageIn="ECMASCRIPT6_STRICT" output="compiled/interactive_map_compiled_pixi.js">
+
+		<!--<warning group="reportUnknownTypes" level="WARNING" />-->
+		<!--  prettyPrint="true"-->
+		
+		&externs;
+		&sources;
+		&sources_pixi;
+		&exports;
+		
+		<externs dir="${basedir}/build/externs">
+			<file name="gm_stub.js"/>
+		</externs>
+    </jscomp>
+
+  </target>
+	
+	
 
 </project>

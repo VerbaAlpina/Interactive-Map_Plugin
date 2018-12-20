@@ -39,9 +39,9 @@ function ListManager(listBuilderParam, elementParam){
         return listDialog;
     }
 
-    this.showResult = function(event){
+    this.showResult = function(id){
         var printerSelect = document.getElementById("listManagerPrinterSelection");
-        var printerID = printerSelect.options[printerSelect.selectedIndex].value;
+        var printerID = id;
         var printerResult = self.listBuilder.retrieveList(printerID,self.element);
         if(printerResult[2]==true){
             var blob = new Blob([printerResult[1]], /** @type{BlobPropertyBag}*/ ({"type": printerResult[0]}));
@@ -65,14 +65,13 @@ function ListManager(listBuilderParam, elementParam){
             } else {
                 jQueryElement = jQuery("<div class='customTypeListView'><pre>"+printerResult[1]+"</pre></div>");
             }
-            jQueryElement.dialog({
-                "minWidth" : 700,
-                "maxHeight" : 700
-            });
+
+            jQuery(".export_list_popup .modal-body").empty().append(jQueryElement);
+
+            jQuery(".export_list_popup").modal();
         }
         printerResult = null;
-        jQuery(this).dialog("close");
-        jQuery(this).dialog("destroy");
+  
     }
 
     this.showSelectionDialog = function(){

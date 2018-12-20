@@ -1,0 +1,6 @@
+<sources dir="${basedir}">
+	<file name="src/js/classes/map-interfaces/google-maps/google-maps.js" />
+	<file name="lib/js/js-info-bubble-gh-pages/src/infobubble.js" />
+	<file name="lib/js/contextmenuGM.js/ContextMenu.js" />
+	<file name="lib/js/js-map-label-gh-pages/src/maplabel.js" />
+</sources>

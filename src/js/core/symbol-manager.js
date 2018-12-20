@@ -1,18 +1,4 @@
 /**
- * @enum {number}
- */
-var OverlayType = {
-	PointSymbol : 0,
-	Polygon : 1,
-	LineString : 2
-};
-/**
- * @const
- * @type {number}
- */
-var num_types = 3;
-
-/**
  * @constructor
  *
  * @param {ColorScheme} colorScheme
@@ -53,9 +39,9 @@ function SymbolManager(colorScheme) {
 	var /** number */ b = y1 - a * Math.log(x1);
 
 	//Other overlays
-	var/**Array<number> */ firstFreeColor = new Array(num_types);
-	var/**Array<Array<boolean>> */ freeColors = new Array(num_types);
-	for (i = 1; i < num_types; i++) {
+	var/**Array<number> */ firstFreeColor = new Array(num_overlay_types);
+	var/**Array<Array<boolean>> */ freeColors = new Array(num_overlay_types);
+	for (i = 1; i < num_overlay_types; i++) {
 		freeColors[i] = new Array(numCols);
 	}
 	
@@ -80,7 +66,7 @@ function SymbolManager(colorScheme) {
 		}
 
 		//Polygons and Line Strings
-		for (var i = 1; i < num_types; i++) {
+		for (var i = 1; i < num_overlay_types; i++) {
 			firstFreeColor[i] = 0;
 			for (var j = 0; j < numCols; j++) {
 				freeColors[i][j] = true;
@@ -1114,13 +1100,6 @@ function SymbolManager(colorScheme) {
 		return numAdd;
 	}
 }
-
-/**@enum {number}*/
-var features_classes = {
-	main : 0,
-	sub : 1,
-	add : 2
-};
 
 /**
  *

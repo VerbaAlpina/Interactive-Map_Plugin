@@ -1,28 +1,3 @@
-//----------------------------------------------MAP SETTINGS-------------------------------------------------------------------------------------
-//TODO move from plugin somehow
-var mapData = {
-    center : new google.maps.LatLng(46.059547, 11.132220),
-    zoom : 7,
-    minZoom : 6,
-    mapTypeId : google.maps.MapTypeId.TERRAIN,
-    fullscreenControlOptions:{
-      position: google.maps.ControlPosition.TOP_RIGHT
-    },
-    streetViewControl: false,
-    mapTypeControl:false,
-    styles: [
-                          {
-                            "featureType": "road.highway",
-                            "stylers": [
-                              {
-                                "visibility": "off"
-                              }
-                            ]
-                          }
-             ]
-};
-
-
 //----------------------------------------------------SYMBOL APPEARANCE-------------------------------------------------------------------------
 
 /**
@@ -289,6 +264,7 @@ var chosenSettings = {
 	"allow_single_deselect": true,
 };
 
+
 /**
  * @const
  * @type{{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}}
@@ -302,6 +278,27 @@ var polygonSettings = function (fillColor, highlighted){
 		"fillOpacity" : hex? 1: (highlighted? 0.75 : 0.55)
 	}
 }
+
+
+//TODO type
+/**
+ * @const
+ */
+var polygonSettingsBoth = function (fillColor){
+	var hex = optionManager.getOptionState("polymode") !== "phy";
+	
+	return {
+		"fill_alpha" : hex? 1: 0.55,
+		"stroke_color" : hex? "0xf8f8ff" : fillColor,
+		"line_width" : hex? 2: 1,
+		"hover_line_width" : hex? 4: 2,
+		"hover_fill_alpha" : hex? 1: 0.75,
+		"hover_stroke_color" : hex? "0xf8f8ff" : fillColor
+	}
+}
+
+
+
 
 /**
  * @const

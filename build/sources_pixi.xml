@@ -1,0 +1,3 @@
+<sources dir="${basedir}">
+	<file name="src/js/classes/map-interfaces/pixi-webgl/pixi-webgl.js" />
+</sources>

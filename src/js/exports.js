@@ -13,8 +13,6 @@ categoryManager["addInfoWindowContentConstructor"] = categoryManager.addInfoWind
 categoryManager["produceMapURL"] = categoryManager.produceMapURL;
 window["CategoryInformation"] = CategoryInformation;
 
-//InfoWindows
-window["MergeableTableInfoWindow"]=MergeableTableInfoWindow;
 //Filter components
 window["GroupingComponent"] = GroupingComponent;
 window["Sorter"] = Sorter;

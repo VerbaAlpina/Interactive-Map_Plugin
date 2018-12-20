@@ -1,3 +1,6 @@
+/**
+ * @enum {number}
+ */
 var selectModes = {
 	Chosen : 0,
 	Select2 : 1
@@ -353,7 +356,7 @@ function getJSONDataFromInputWindow (elements, table, suppressUserName, primaryK
 				if(updateId){
 					defaultFields.push(elements[i].name);
 				}
-				//Ignore, so that the default value is used
+				// Ignore, so that the default value is used
 			}
 			else if(elements[i]["dataset"]["type"] == 'B'){
 				values.push(elements[i]["checked"]? "1":"0");
@@ -481,34 +484,25 @@ function updateSelect(element, value, mode){
  * @returns {undefined}
  */
  function createLocNavigationDiv (){
+	 mapInterface.addLocationDiv(function(){
+		 jQuery('#IM_loc_nav_popup').modal();
+	 }, function (){
+		 jQuery('#IM_loc_nav_popup').one('shown.bs.modal',function(){
+			 var ajax_data_loc = getAjaxData("load_loc_data");
+			 var select2_lang = PATH["language"];
+			 if(select2_lang=="si")
+				 select2_lang="sl";
 
- 	google.maps.event.addListenerOnce(map, 'idle', function(){
-
-
-		var div = jQuery('<div class="im_loc_nav custom_control_base custom_control_shadow"><i class="fas fa-compass" aria-hidden="true"></i></div>');
-		jQuery('.gm-style').append(div);
-
-	    div.on('click',function(){
-	    	jQuery('#IM_loc_nav_popup').modal();
-	    });
-
-	    jQuery('#IM_loc_nav_popup').one('shown.bs.modal',function(){
-	    	var ajax_data_loc = getAjaxData("load_loc_data");
-	    	var select2_lang = PATH["language"];
-	    	if(select2_lang=="si")
-	    		select2_lang="sl";
-
-	    	var loc_select2 = jQuery('.loc_data_select').select2({
-	    	  "ajax": ajax_data_loc,
-	      	  "minimumInputLength": 3,
-	    	  "placeholder":  TRANSLATIONS['SEARCH_PLACEHOLDER'],
-	    	  "escapeMarkup": function (markup) { return markup; },
-	          "delay": 250,
-	          "templateResult": formatLocResults,
-	          "width" : "100%",
-	          "language": select2_lang
+			 var loc_select2 = jQuery('.loc_data_select').select2({
+				 "ajax": ajax_data_loc,
+				 "minimumInputLength": 3,
+				 "placeholder":  TRANSLATIONS['SEARCH_PLACEHOLDER'],
+				 "escapeMarkup": function (markup) { return markup; },
+				 "delay": 250,
+				 "templateResult": formatLocResults,
+				 "width" : "100%",
+				 "language": select2_lang
 	    	});
-
 
 			loc_select2.on('select2:select', function (e) {
 				jQuery('#IM_loc_nav_popup').modal('hide');
@@ -516,22 +510,18 @@ function updateSelect(element, value, mode){
 				gotoLocation(data['id'], true);
 			});
 
-
 			var ajax_data_lang = getAjaxData("global_search"); // change when ajax done
+		  })
 
-	  })
-
-	jQuery('#IM_loc_nav_popup').on('show.bs.modal',function(){
-		try {
-			jQuery('.loc_data_select').val('').trigger('change');
-		}
-		catch(e) {
-			    
-		}
-	})
-});
-
-
+		jQuery('#IM_loc_nav_popup').on('show.bs.modal',function(){
+			try {
+				jQuery('.loc_data_select').val('').trigger('change');
+			}
+			catch(e) {
+				    
+			}
+		})
+	 });
 }
 
 
@@ -710,23 +700,6 @@ function initCanvasMenu(){
 			createCanvasMenu(data);
 		}
 	});
-
-	jQuery.ajax({
-		dataType: "json",
-		url: PATH["mapStyleDarkSimple"],
-		success: function(data){
-			style_for_quantify = data;
-		}
-	});
-
-	 jQuery.ajax({
-		dataType: "json",
-		url: PATH["mapStyleDarkSimpleNoLabels"],
-		success: function(data){
-			style_for_hex_quantify = data;
-		}
-	});
-
 }
 
 /**
@@ -746,7 +719,7 @@ function createCanvasMenu (gradients){
 	
 	var canvas_size = 256;
 	
-	var icon = jQuery('<i style="display:none" class="fa fa fa-long-arrow-up canvas_icon" aria-hidden="true"></i>');
+	var icon = jQuery('<i style="display:none" class="fas fa-long-arrow-alt-up canvas_icon" aria-hidden="true"></i>');
 	container.append(icon);
 	
 	container.append(jQuery('<div id="activediv"></div>'));
@@ -756,153 +729,154 @@ function createCanvasMenu (gradients){
 	
 	for (var i=0; i<gradients.length;i++){
 	
-	var gradient = gradients[i];
-	
-	var gdiv = jQuery('<canvas id="barcanvas_'+i+'" class="barcanvas" width='+canvas_size+'" height="35" ></canvas>');
-	
-	
-	if(i==0){
-		var active = jQuery('#activediv');
-		var exchangeparent = jQuery('<div class="exchangeparent"></div>');
-
-		var legend_0 = jQuery('<div id="colorbarlegend_left" class="colorbarlegenditem">0</div>');
-		var legend_max = jQuery('<div id="colorbarlegend_right" class="colorbarlegenditem">142</div>');
-
-		active.append(legend_0);
-		active.append(legend_max);
-	
-		active.append(exchangeparent);
+		var gradient = gradients[i];
 		
-		exchangeparent.append(gdiv);
+		var gdiv = jQuery('<canvas id="barcanvas_'+i+'" class="barcanvas" width='+canvas_size+'" height="35" ></canvas>');
+		
+		
+		if(i == 0){
+			var active = jQuery('#activediv');
+			var exchangeparent = jQuery('<div class="exchangeparent"></div>');
 	
-		var hoverdiv = jQuery('<div class="hoverdiv"></div>');
-		exchangeparent.append(hoverdiv);
+			var legend_0 = jQuery('<div id="colorbarlegend_left" class="colorbarlegenditem">0</div>');
+			var legend_max = jQuery('<div id="colorbarlegend_right" class="colorbarlegenditem">142</div>');
 	
-		var canvastextdiv = jQuery('<div class="canvastext">'+gradient.name+'</div>');
-		exchangeparent.append(canvastextdiv);
+			active.append(legend_0);
+			active.append(legend_max);
+		
+			active.append(exchangeparent);
+			
+			exchangeparent.append(gdiv);
+		
+			var hoverdiv = jQuery('<div class="hoverdiv"></div>');
+			exchangeparent.append(hoverdiv);
+		
+			var canvastextdiv = jQuery('<div class="canvastext">'+gradient.name+'</div>');
+			exchangeparent.append(canvastextdiv);
+		
+			var canvas  = document.getElementById('barcanvas_'+i);
+			createCanvas(canvas,gradient,canvas_size);
+		
 	
-		var canvas  = document.getElementById('barcanvas_'+i);
-		createCanvas(canvas,gradient,canvas_size);
+		}
+		else {
+			var lidiv = jQuery('<li></li>'); 
+			lidiv.append(gdiv);
+			jQuery('.canvas_list').prepend(lidiv);
 	
-
+			var hoverdiv = jQuery('<div class="hoverdiv"></div>');
+			lidiv.append(hoverdiv);
+	
+			var canvastextdiv = jQuery('<div class="canvastext">'+gradient.name+'</div>');
+			lidiv.append(canvastextdiv);
+	
+			var canvas  = document.getElementById('barcanvas_'+i); 
+			createCanvas(canvas,gradient,canvas_size);
+		}
 	}
-	else {
-		var lidiv = jQuery('<li></li>'); 
-		lidiv.append(gdiv);
-		jQuery('.canvas_list').prepend(lidiv);
 
-		var hoverdiv = jQuery('<div class="hoverdiv"></div>');
-		lidiv.append(hoverdiv);
-
-		var canvastextdiv = jQuery('<div class="canvastext">'+gradient.name+'</div>');
-		lidiv.append(canvastextdiv);
-
-		var canvas  = document.getElementById('barcanvas_'+i); 
-		createCanvas(canvas,gradient,canvas_size);
-	}
-}
-
-jQuery(".canvas_list li").hover(function(){
-   jQuery(this).find('.hoverdiv').show();
-   jQuery(this).find('.canvastext').show();
-
-}, function(){
-   jQuery(this).find('.hoverdiv').hide();
-   jQuery(this).find('.canvastext').hide();
-  
-});	
-
-jQuery("#activediv").hover(function(){
-   jQuery(this).find('.hoverdiv').show();
-   jQuery(this).find('.canvastext').show();
-   jQuery('#listcontainer').find('.canvas_icon').show();
-   jQuery('.gradient_help').hide();
-
-
-}, function(){
-   jQuery(this).find('.hoverdiv').hide();
-   jQuery(this).find('.canvastext').hide();
-   jQuery('#listcontainer').find('.canvas_icon').hide();
-   jQuery('.gradient_help').show();
-});
-
-
-
-jQuery('#activediv').click(function() {
-  listout = adjustCanvasList(listout,true);
-
-});
-
-jQuery('#gradient_startblock').on('click',function(){
-    if(listout) listout = adjustCanvasList(listout,false);
-})
-
-
-jQuery('.canvas_list li').click(function(){
+	jQuery(".canvas_list li").hover(function(){
+	   jQuery(this).find('.hoverdiv').show();
+	   jQuery(this).find('.canvastext').show();
 	
-jQuery('.hoverdiv').hide();
-jQuery('.canvastext').hide();
+	}, function(){
+	   jQuery(this).find('.hoverdiv').hide();
+	   jQuery(this).find('.canvastext').hide();
+	  
+	});	
+	
+	jQuery("#activediv").hover(function(){
+	   jQuery(this).find('.hoverdiv').show();
+	   jQuery(this).find('.canvastext').show();
+	   jQuery('#listcontainer').find('.canvas_icon').show();
+	   jQuery('.gradient_help').hide();
+	
+	
+	}, function(){
+	   jQuery(this).find('.hoverdiv').hide();
+	   jQuery(this).find('.canvastext').hide();
+	   jQuery('#listcontainer').find('.canvas_icon').hide();
+	   jQuery('.gradient_help').show();
+	});
+	
+	
+	
+	jQuery('#activediv').click(function() {
+	  listout = adjustCanvasList(listout,true);
+	
+	});
+	
+	jQuery('#gradient_startblock').on('click',function(){
+	    if(listout) listout = adjustCanvasList(listout,false);
+	})
+	
+	
+	jQuery('.canvas_list li').click(function(){
+		
+		jQuery('.hoverdiv').hide();
+		jQuery('.canvastext').hide();
+		
+		 var clicked_canvas = jQuery(this).children();
+		
+		 var old_active = jQuery('.exchangeparent').children();
+		
+		 jQuery('.canvas_list').slideToggle();
+		 if(jQuery('.colorbarlegenditem').css('display','none'))
+			 setTimeout(function() {
+				 jQuery('.colorbarlegenditem').fadeIn('slow');
+			 }, 200);
+		 jQuery('.canvas_icon').toggleClass('fas fa-long-arrow-alt-up fas fa-long-arrow-alt-down');
+		
+		 jQuery('.exchangeparent').append(clicked_canvas);
+		
+		
+		jQuery(this).prepend(old_active);
+		 // jQuery(this).parent().append(old_active);
+		listout = false;
+		
+		symbolClusterer.changePolygonColor(false);
+	});
 
- var clicked_canvas = jQuery(this).children();
-
- var old_active = jQuery('.exchangeparent').children();
-
- jQuery('.canvas_list').slideToggle();
- if(jQuery('.colorbarlegenditem').css('display','none'))setTimeout(function() { jQuery('.colorbarlegenditem').fadeIn('slow');}, 200);
- jQuery('.canvas_icon').toggleClass('fa fa-long-arrow-up fa fa-long-arrow-down');
-
- jQuery('.exchangeparent').append(clicked_canvas);
 
 
-jQuery(this).prepend(old_active);
- // jQuery(this).parent().append(old_active);
-listout = false;
+	var colorpicker = jQuery('#gradient_startblock').colorPicker(
+	{	
+	    "doRender" : false,
+	    "opacity": true,
+	    "buildCallback": function(elm) {jQuery('#listcontainer').append(jQuery('.cp-color-picker'));},
+	    "renderCallback": /** @this{Object} */ function(elm, toggled) {
+	    	var colors = this['color']['colors']; // the whole color object
+	
+	    	var rgb = colors['RND']['rgb']; // the RGB color in 0-255
+	    	var alpha = colors['alpha'];   
+	    	var canvas  = document.querySelector("#activediv canvas");
+	
+	    	if (toggled) { // on show colorPicker
+	
+	    		var initial_color = jQuery('#gradient_startblock').css('background-color');
+	
+	    	    this['color']['setColor'](initial_color);
+	    	    this['render']();
+	
+	    	}
+	    	else{
+	    	  symbolClusterer.changePolygonColor(false);
+	    	}
+	
+	    	if(!toggled)changeStartColor(rgb,alpha,canvas,false);
+	
+	    }
+	});
 
-symbolClusterer.changePolygonColor(false);
-});
-
-
-
-var colorpicker = jQuery('#gradient_startblock').colorPicker(
-{	
-    "doRender" : false,
-    "opacity": true,
-    "buildCallback": function(elm) {jQuery('#listcontainer').append(jQuery('.cp-color-picker'));},
-    "renderCallback": /** @this{Object} */ function(elm, toggled) {
-    	var colors = this['color']['colors']; // the whole color object
-
-    	var rgb = colors['RND']['rgb']; // the RGB color in 0-255
-    	var alpha = colors['alpha'];   
-    	var canvas  = document.querySelector("#activediv canvas");
-
-    	if (toggled) { // on show colorPicker
-
-    		var initial_color = jQuery('#gradient_startblock').css('background-color');
-
-    	    this['color']['setColor'](initial_color);
-    	    this['render']();
-
-    	}
-    	else{
-    	  symbolClusterer.changePolygonColor(false);
-    	}
-
-    	if(!toggled)changeStartColor(rgb,alpha,canvas,false);
-
-    }
-});
-
-
-
-var help_symbol = jQuery('<i class="gradient_help fa fa-question-circle-o" aria-hidden="true"></i>');
-
-jQuery('#listcontainer').append(help_symbol);
-
-addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); // TODO cannot use stuff from VA!!!
-
-var thediv = document.getElementById('listcontainer');
-jQuery('#listcontainer').hide();
-map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(thediv);
+	var help_symbol = jQuery('<i class="gradient_help far fa-question-circle aria-hidden="true"></i>');
+	
+	jQuery('#listcontainer').append(help_symbol);
+	
+	addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); // TODO cannot use stuff from VA!!!
+	
+	var thediv = document.getElementById('listcontainer');
+	jQuery('#listcontainer').hide();
+	mapInterface.addQuantifyColorDiv(thediv);
 
 }// createCanvasMenu
 
@@ -918,7 +892,7 @@ map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(thediv);
 function adjustCanvasList(listout,keep_overlay){
 	listout= !listout;
     jQuery('.canvas_list').slideToggle();
-    jQuery('.canvas_icon').toggleClass('fa fa-long-arrow-up fa fa-long-arrow-down');
+    jQuery('.canvas_icon').toggleClass('fas fa-long-arrow-alt-up fas fa-long-arrow-alt-down');
     jQuery('.colorbarlegenditem').hide();
 
     if(!listout){

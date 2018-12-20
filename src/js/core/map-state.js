@@ -66,8 +66,8 @@ function MapState (){
 		for (var i = 0; i < this.currentInfowindowOwners.length; i++){
 			var /** MapShape|MapSymbol */ element = this.currentInfowindowOwners[i];
 			if(element instanceof MapShape){
-				var /** google.maps.LatLng */ latlng = element.infoWindow.getPosition();
-				let /** {elementIndex: number, lat: number, lng: number} */ data = {"elementIndex" : element.index, "lat" : latlng.lat(), "lng" : latlng.lng()};
+				var /** {lat: number, lng: number} */ latlng = mapInterface.getInfoWindowPosition(element.infoWindow);
+				let /** {elementIndex: number, lat: number, lng: number} */ data = {"elementIndex" : element.index, "lat" : latlng["lat"], "lng" : latlng["lng"]};
 				if (element.owner.parent == null){
 					data["legendIndex"] = element.owner.getIndex();
 				}

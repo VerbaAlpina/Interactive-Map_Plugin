@@ -83,23 +83,25 @@
 	background: linear-gradient(top, #ffffff 20%, #f6f6f6 50%, #eeeeee 52%, #f4f4f4 100%);
 	border-radius: 5px;
 	border: 1px solid #aaa;
-	color : #999;
+	color : #444 !important;
 }
 
 .sfHover > a,
 .sf-menu a:hover {
-	background-color: #3875d7;
-    background-image: linear-gradient(#3875d7 20%, #2a62bc 90%);
-    color: #fff;
+	background-color: #227fad;
+    background-image: linear-gradient(#227fad 20%, #207099 90%);    
+    color: #fff !important;
 }
+
+
 
 .sf-menu-toplevel li {
 	margin : 0 !important;
 }
 
 .sf-menu-toplevel > li > a:hover {
-	background: rgba(0, 0, 0, 0) -moz-linear-gradient(center top , #ffffff 20%, #f6f6f6 50%, #eeeeee 52%, #f4f4f4 100%) repeat scroll 0 0 padding-box;
-	color: #999;
+	/*background: rgba(0, 0, 0, 0) -moz-linear-gradient(center top , #ffffff 20%, #f6f6f6 50%, #eeeeee 52%, #f4f4f4 100%) repeat scroll 0 0 padding-box;*/
+	color: #fff;
 }
 
 .sf-menu li {
@@ -186,6 +188,6 @@
 .sf-vertical.sf-arrows li > .sf-with-ul:focus:after,
 .sf-vertical.sf-arrows li:hover > .sf-with-ul:after,
 .sf-vertical.sf-arrows .sfHover > .sf-with-ul:after {
-  border-left-color: black;
+  border-left-color: #999;
 }
 

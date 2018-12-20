@@ -1,0 +1,102 @@
+[
+	{
+		"name": "White Red",
+		"stops":[
+		{
+		"value":0,
+		"color":"white"	
+		},
+		{
+		"value":1,
+		"color":"red"
+		}
+		]
+	},
+		{
+		"name": "Heatmap",
+		"stops":[
+		{
+		"value":0,
+		"color":"blue"	
+		},
+		{
+		"value":0.25,
+		"color":"cyan"	
+		},
+		{
+		"value":0.5,
+		"color":"green"	
+		},
+		{
+		"value":0.75,
+		"color":"yellow"	
+		},
+		{
+		"value":1,
+		"color":"red"
+		}
+		]
+	},
+	{
+		"name": "Blue Red",
+		"stops":[
+		{
+		"value":0,
+		"color":"blue"	
+		},
+		{
+		"value":1,
+		"color":"red"
+		}
+		]
+	},
+	{
+		"name": "Black Blue White",
+		"stops":[
+		{
+		"value":0,
+		"color":"black"	
+		},
+		{
+		"value":0.5,
+		"color":"blue"	
+		},
+		{
+		"value":1.0,
+		"color":"white"	
+		}
+		]
+	},
+
+		{
+		"name": "Fire",
+		"stops":[
+		{
+		"value":0,
+		"color":"black"	
+		},
+		{
+		"value":0.5,
+		"color":"Red"	
+		},
+		{
+		"value":1.0,
+		"color":"Yellow"	
+		}
+		]
+	},
+
+		{
+		"name": "White Purple",
+		"stops":[
+		{
+		"value":0,
+		"color":"white"	
+		},
+		{
+		"value":1.0,
+		"color":"#8e008c"	
+		}
+		]
+	}										
+]

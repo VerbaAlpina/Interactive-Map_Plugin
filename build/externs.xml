@@ -3,4 +3,5 @@
 	<file name="wordpress.js"/>
 	<file name="libs.js"/>
 	<file name="google_maps_api_v3.js"/>
+	<file name="leaflet.js"/>
 </externs>

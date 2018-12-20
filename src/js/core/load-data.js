@@ -25,16 +25,6 @@ var EXTRA_DATA = 3;
 var DEBUG_DATA = 4;
 
 /**
- * @typedef{Object<string, Array<number>|number>}
- */
-var MultiColorIndex;
-
-/**
- * @typedef{({fun: function(MultiColorIndex=), data: !Array, singular: boolean, sortedKeys: Array<string>}|null)}
- */
-var WaitingData;
-
-/**
  * 
  * @constructor
  * @struct
@@ -344,12 +334,12 @@ function CategoryManager (){
 	/**
 	 * @param {number} categoryID
 	 * 
-	 * @return {Array<string>}
+	 * @return {Array<boolean>}
 	 */
 	this.getOverlayTypes = function (categoryID){
 		var /** CategoryInformation */ category = this.categories[categoryID];
 		if(category.editConfiguration){
-			return category.editConfiguration.getGoogleTypesForNewOverlays();
+			return category.editConfiguration.getTypesForNewOverlays();
 		}
 		return [];
 	};
@@ -497,8 +487,8 @@ function CategoryManager (){
 			//TODO load color scheme somehow???
 	
 			//Zoom and position
-			map.setCenter(new google.maps.LatLng(mapInfos["Center_Lat"], mapInfos["Center_Lng"]));
-			map.setZoom(mapInfos["Zoom"] * 1);
+			mapInterface.setCenter(mapInfos["Center_Lat"], mapInfos["Center_Lng"]);
+			mapInterface.setZoom(mapInfos["Zoom"] * 1);
 			
 			var /** number */ numElements = data[1].length;
 			var /** number */ notReady = numElements;
@@ -522,7 +512,7 @@ function CategoryManager (){
 							mapElement.openInfoWindow(iWindow["tabIndex"] * 1);
 						}
 						else {
-							mapElement.openInfoWindow(new google.maps.LatLng(iWindow["lat"], iWindow["lng"]));
+							mapElement.openInfoWindow(iWindow["lat"], iWindow["lng"]);
 						}
 					}
 					
@@ -715,6 +705,9 @@ function CategoryManager (){
 					thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), sortedKeys, /** @type{Object<string, ?>}*/ (filterData), computedColors, !newLegendElementCreated, /** @type{Array<number>}*/ (active));
 				}
 				
+				mapInterface.repaint();
+				jQuery(document).trigger("im_after_load_data"); //TODO document
+				
 				if(callback)
 					callback(element);
 				
@@ -733,7 +726,7 @@ function CategoryManager (){
 				if(waitingList.indexOf(null) == -1){
 					var /** number */ elementCount = 0;				
 					var /** Array<Array<string>> */ idList = [];
-					for (let i = 0; i < num_types; i++){
+					for (let i = 0; i < num_overlay_types; i++){
 						idList[i] = [];
 					}
 					
@@ -824,7 +817,7 @@ function CategoryManager (){
 		var /**string */ description = /** @type{string}*/ (jQuery("#IM_Syn_Map_Description").val());
 		var /**boolean */ release = /** @type{boolean}*/ (jQuery("#IM_Syn_Map_Release").prop("checked"));
 	
-		var /**google.maps.LatLng */ center = map.getCenter();
+		var /** {lat: number, lng: number} */ center = mapInterface.getCenter();
 		var /** string|null */ id_open = jQuery("#IM_filter_popup_div").hasClass("in")? /** @type{string} */ (jQuery("#IM_filter_popup_div").data("element-id")) : null;
 		var /** boolean|LegendElement|MultiLegendElement*/ cq = symbolClusterer.checkQuantify();
 		
@@ -834,9 +827,9 @@ function CategoryManager (){
 				"name" : name,
 				"description" : description,
 				"release" : release? "Applied" : "Private",
-				"zoom" : map.getZoom(),
-				"center_lat" : center.lat(),
-				"center_lng" : center.lng(),
+				"zoom" : mapInterface.getZoom(),
+				"center_lat" : center["lat"],
+				"center_lng" : center["lng"],
 				"author" : PATH.userName,
 				"colors" : colorScheme.exportScheme(),
 				"opened" : id_open,
@@ -869,7 +862,7 @@ function CategoryManager (){
 	 * @return {undefined}
 	 */
 	this.saveAnonymousMap = function (callback){
-		var /**google.maps.LatLng */ center = map.getCenter();
+		var /**{lat: number, lng: number} */ center = mapInterface.getCenter();
 		
 		var /** boolean|LegendElement|MultiLegendElement*/ cq = symbolClusterer.checkQuantify();
 		
@@ -879,9 +872,9 @@ function CategoryManager (){
 				"name" : "Anonymous",
 				"description" : "",
 				"release" : "Private",
-				"zoom" : map.getZoom(),
-				"center_lat" : center.lat(),
-				"center_lng" : center.lng(),
+				"zoom" : mapInterface.getZoom(),
+				"center_lat" : center["lat"],
+				"center_lng" : center["lng"],
 				"author" : PATH.userName,
 				"colors" : colorScheme.exportScheme(),
 				"data" : legend.getCompleteExport(true),
@@ -992,40 +985,6 @@ function CategoryManager (){
 				i++;
 				continue;
 			}	
-			var /** google.maps.Data.Geometry */ geoObject = parseGeoData(currentShape[1]);
-			
-			//TODO finish this
-//			if(geoObject instanceof google.maps.Data.Point){
-//				var /** number */ lat = geoObject.get().lat();
-//				var /** number */ lng = geoObject.get().lng();
-//				
-//				if(lat > maxLat || maxLat === undefined){
-//					maxLat = lat;
-//				}
-//				if (lat < minLat || minLat === undefined){
-//					minLat = lat;
-//				}
-//				if(lng > maxLng || maxLng === undefined){
-//					maxLng = lng;
-//				}
-//				if (lng < minLng || minLng === undefined){
-//					minLng = lng;
-//				}
-//			}
-//			else {
-//				if(currentShape[2][3] > maxLat || maxLat === undefined){
-//					maxLat = currentShape[2][3] * 1;
-//				}
-//				if (currentShape[2][1] < minLat || minLat === undefined){
-//					minLat = currentShape[2][1] * 1;
-//				}
-//				if(currentShape[2][2] > maxLng || maxLng === undefined){
-//					maxLng = currentShape[2][2] * 1;
-//				}
-//				if (currentShape[2][0] < minLng || minLng === undefined){
-//					minLng = currentShape[2][0] * 1;
-//				}
-//			}
 			
 			//Quantify data
 			var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[3];
@@ -1041,7 +1000,7 @@ function CategoryManager (){
 			
 			var/** OverlayInfo */ overlayInfo = new OverlayInfo(
 				this.createInfoWindowContents(currentShape[0], element.category, element.key, element.overlayType), 
-				geoObject, qinfo, currentShape[4], i);
+				geoManager.parseGeoDataFormated(currentShape[1]), qinfo, currentShape[4], i);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
@@ -1117,7 +1076,7 @@ function CategoryManager (){
 		}
 		else {
 			if(reload){ //Reloading Symbols
-				index = /** @type {Array<Array<number>|number>} */ (colorIndex);
+				index = symbolManager.blockExplicitSingularIndex(colorIndex);
 			}					
 			else { //Synoptic map
 				index = symbolManager.blockExplicitSingularIndex(colorIndex);
@@ -1159,7 +1118,7 @@ function CategoryManager (){
 			//If the element is contained in fixedColors the color index is assigned
 			var /** number= */ mainIndex = undefined;
 			var /** Array<Array<string>> */ restIdList = []; //Lists all sub-elements without a fixed color
-			for (var oi = 0; oi < num_types; oi++){
+			for (var oi = 0; oi < num_overlay_types; oi++){
 				restIdList[oi] = [];
 			}
 			
@@ -1244,7 +1203,7 @@ function CategoryManager (){
 						console.error("Element " + JSON.stringify(currentShape[0]).substring(0,50) + " has no geo data!");
 						continue;
 					}	
-					var /** google.maps.Data.Geometry */ geoObject = parseGeoData(currentShape[1]);
+					var /** IMGeometry */ geoObject = geoManager.parseGeoDataFormated(currentShape[1]);
 					
 					//Quantify data
 					var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[3];
@@ -1513,7 +1472,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 		this.listBuilder = listBuilder;
 	} 
 	else {
-		this.listBuilder = new SimpleListBuilder(["name","description"]);
+		this.listBuilder = null;
 	}
 	
 	/**
@@ -1537,7 +1496,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	else{
 		 this.nameEmpty = nameEmpty;
 	}
-	
+
 	/**
 	 * @type {jQuery} 
 	 */
