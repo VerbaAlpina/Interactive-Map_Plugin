@@ -144,22 +144,14 @@
 							if(target && (e.originalEvent.srcElement === that.renderer.view || target.type =="gl_Marker")){ //prevent click if clicked element is not canvas
 			
 							    if(target.clickListener){
-							    	try{
+
 										target.clickListener();
-										}
-										catch(e){}
 									}
 
-									else if (target.original_object){
+									else if (target.original_object.clickListener){
+											target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
+									}
 
-										if(target.original_object.clickListener){
-												try{
-												target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
-												}
-												catch(e){}			
-
-												}
-											}
 								else{
 
 

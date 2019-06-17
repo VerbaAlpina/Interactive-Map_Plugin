@@ -7,5 +7,7 @@
  * 
  * @implements{MapInterface<Object, Object,Object, Object>}
  * 
+ * @suppress {checkTypes}
+ * 
  */
 function PixiWebGLInterface (position, options){};

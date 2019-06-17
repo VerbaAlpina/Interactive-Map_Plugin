@@ -38,12 +38,6 @@ function GoogleMapsInterface (position, options){
 	this.imgMap = new Map();
 	
 	/**
-	 * @private
-	 * @type {number}
-	 */
-	this.imagesLoading = 0;
-	
-	/**
 	 * @type {function (this:MapSymbol, number)}
 	 */
 	this.clickFunction;
@@ -84,7 +78,12 @@ function GoogleMapsInterface (position, options){
 	 this.windowClosedFun;
 	 
 	 /**
-	  * @type{function(string)}
+	  * @type{function(string, Element)}
+	  */
+	 this.locationWindowOpenedFun;
+	 
+	 /**
+	  * @type{function(string, Element)}
 	  */
 	 this.locationWindowClosedFun;
 	 
@@ -132,17 +131,13 @@ function GoogleMapsInterface (position, options){
 	this.mapStyles = {};
 	
 	/**
-	 * @private
-	 * @type {Object<string, google.maps.Data.Feature>}
-	 */
-	this.polygons = {};
-	
-	/**
 	 * @override
+	 * 
+	 * @param {boolean} ready
 	 * 
 	 * @return {undefined}
 	 */
-	this.repaint = function (){
+	this.repaint = function (ready){
 		//Do nothing
 	};
 	
@@ -257,12 +252,6 @@ function GoogleMapsInterface (position, options){
 	
 	/**
 	 * @private
-	 * @type {Map<MapSymbol, number>}
-	 */
-	this.markerImagesLoading = new Map();
-	
-	/**
-	 * @private
 	 * @type {Map<MapSymbol, MultiSymbolLayout>}
 	 */
 	this.markerLayouts = new Map();
@@ -271,7 +260,7 @@ function GoogleMapsInterface (position, options){
 	 * @override
 	 * 
 	 * @param {google.maps.Marker} marker
-	 * @param {Array<{url: string, size: number}>} icons
+	 * @param {Array<{canvas: HTMLCanvasElement, size: number}>} icons
 	 * @param {MapSymbol} mapSymbol
  	 * @param {number} zIndex
 	 * 
@@ -280,110 +269,36 @@ function GoogleMapsInterface (position, options){
 	this.updateMarker = function (marker, icons, mapSymbol, zIndex){
 		var /** GoogleMapsInterface */ thisObject = this;
 		
-		//Count number of update requests for one mapSymbol, only process the latest in the callback, since there is no guaranty which image is ready first.
-		var /** number */ numberLoading;
-		if(this.markerImagesLoading.has(mapSymbol)){
-			numberLoading =  this.markerImagesLoading.get(mapSymbol) + 1;
-		}
-		else {
-			numberLoading = 0;
-		}
-		this.markerImagesLoading.set(mapSymbol, numberLoading);
 		
-		this.createMultiSymbol(icons, function (url, width, height, layout){
-			if(thisObject.markerImagesLoading.get(mapSymbol) === numberLoading){
-				marker.setIcon(/** @type{google.maps.Icon}*/({
-					"url" : url,
-					"anchor" : new google.maps.Point(width / 2, height / 2),
-					"scaledSize" : new google.maps.Size(width, height)
-				}));
-				marker.setShape(layout == null? null: layout.getMarkerShape());
-				marker.setZIndex(Math.max(marker.getZIndex(), zIndex));
+		var /** MultiSymbolLayout */ layout = new MultiSymbolLayout(icons);
+		var {canvas, width, height} = layout.createMultiSymbol();
+		
+		marker.setIcon(/** @type{google.maps.Icon}*/({
+			"url" : canvas.toDataURL(),
+			"anchor" : new google.maps.Point(width / 2, height / 2),
+			"scaledSize" : new google.maps.Size(width, height)
+		}));
+		marker.setShape(layout == null? null: /** @type{google.maps.MarkerShape} */ (layout.getMarkerShape()));
+		marker.setZIndex(Math.max(marker.getZIndex(), zIndex));
 
-				thisObject.markerImagesLoading.delete(mapSymbol);
-				if(layout == null)
-					thisObject.markerLayouts.delete(mapSymbol);
-				else
-					thisObject.markerLayouts.set(mapSymbol, layout);
-			}
-		});
+		if(layout == null)
+			thisObject.markerLayouts.delete(mapSymbol);
+		else
+			thisObject.markerLayouts.set(mapSymbol, layout);
 		
 		return marker;
-	};
-	
-	/**
-	 * @private
-	 * 
-	 * @param {Array<{url: string, size: number}>} icons
-	 * @param {function(string, number, number, MultiSymbolLayout)} callback
-	 * 
-	 * @return {undefined}
-	 */
-	this.createMultiSymbol = function (icons, callback){
-		var /** number */ numIcons = icons.length;
-		
-		if(numIcons == 1){
-			callback(icons[0].url, icons[0].size, icons[0].size, null);
-			return;
-		}
-		
-		//Create canvas
-		var /**MultiSymbolLayout */ layout = new MultiSymbolLayout(icons);
-		
-		var /**HTMLCanvasElement*/ canvas = /** @type{HTMLCanvasElement}*/ (document.createElement("canvas"));
-		canvas.width = layout.getWidth() * symbolRescaleFactor;
-		canvas.height = layout.getHeight() * symbolRescaleFactor;
-		var /** CanvasRenderingContext2D */ context = /** @type{CanvasRenderingContext2D}*/ (canvas.getContext("2d"));
-		
-		var /** number */ imagesLoading = 0;
-		var /** Array<Image>*/ images = [];
-		
-		var /** function()*/ drawImages = function (){
-			for (var i = 0; i < images.length; i++){
-				context.drawImage(images[i], layout.getXPosition(i) * symbolRescaleFactor, layout.getYPosition(i) * symbolRescaleFactor);
-			}
-			callback(canvas.toDataURL("image/png"), layout.getWidth(), layout.getHeight(), layout);
-		};
-		
-		//Load images
-		for (var i = 0; i < numIcons; i++){
-			var /** Image */ imgIn = this.imgMap.get(icons[i].url);
-			if(imgIn === undefined){
-				imgIn = new Image();
-				imgIn.addEventListener ("load", function (){
-					imagesLoading--;
-					if(imagesLoading == 0)
-						drawImages();
-				});
-				imagesLoading++;
-				imgIn.src = icons[i].url;
-				this.imgMap.set(icons[i].url, imgIn);
-			}
-			else if (!imgIn.complete){
-				imagesLoading++;
-				imgIn.addEventListener ("load", function (){
-					imagesLoading--;
-					if(imagesLoading == 0)
-						drawImages();
-				});
-			}
-			images[i] = imgIn;
-		}
-
-		if(imagesLoading == 0){
-			drawImages();
-		}
 	};
 	
 	/**
 	 * @override
 	 * 
 	 * @param {google.maps.Marker} marker
+	 * @param {boolean} show
 	 * 
 	 * @return {undefined}
 	 */
-	this.showMarker = function (marker){
-		marker.setMap(this.map);
+	this.setMarkerVisible = function (marker, show){
+		marker.setVisible(show);
 	};
 	
 	/**
@@ -414,7 +329,7 @@ function GoogleMapsInterface (position, options){
 	 * @override
 	 * 
 	 * @param {{lat: number, lng: number}} latlng
-	 * @param {string} icon
+	 * @param {HTMLCanvasElement} icon
 	 * @param {number} size
 	 * @param {boolean} movable
 	 * @param {!MapSymbol} mapSymbol
@@ -423,9 +338,11 @@ function GoogleMapsInterface (position, options){
 	 * @return {google.maps.Marker}
 	 */
 	this.createMarker = function (latlng, icon, size, movable, mapSymbol, zIndex){
-		var /**!google.maps.Marker*/ marker = this.createNewSingleMarker(latlng, icon, size, movable, zIndex);
+		var /**!google.maps.Marker*/ marker = this.createNewSingleMarker(latlng, icon.toDataURL(), size, movable, zIndex);
 		
 		this.addListenersToMarker(marker, mapSymbol, movable);
+		
+		marker.setMap(this.map);
 		
 		return marker;
 	};
@@ -554,13 +471,14 @@ function GoogleMapsInterface (position, options){
 	 * @override
 	 * 
 	 * @param {SomeOverlay} anchorElement
-	 * @param {Array<{url: string, size: number}>} symbols
+	 * @param {Array<{canvas: HTMLCanvasElement, size: number}>} symbols
 	 * @param {Array<Element>} elements
 	 * @param {MapSymbol|MapShape} mapElement
 	 * 
 	 * @return {InfoBubble}
 	 */
 	this.createInfoWindow = function (anchorElement, symbols, elements, mapElement){
+		
 		var /** Object<string,?>*/ options = {
 			 "map" : this.map,
 			 "minWidth" : 50,
@@ -602,12 +520,12 @@ function GoogleMapsInterface (position, options){
 				thisObject.windowClosedFun(infoWindow.content_, mapElement);
 			});
 				
-			google.maps.event.addListener(infoWindow, 'domready', function(e){
+			google.maps.event.addListener(infoWindow, 'tab_opened', function(e){
 				thisObject.tabOpenedFun(infoWindow.content_, -1, mapElement, infoWindow, /** @type{SomeOverlay} */ (infoWindow.getOverlay()));
 			});
 		}
 		
-		if(elements.length == 1 && !symbols[0].url){
+		if(elements.length == 1 && !symbols[0].canvas){
 			infoWindow.setContent(elements[0]);
 		}
 		else {
@@ -619,7 +537,7 @@ function GoogleMapsInterface (position, options){
 			}
 			
 			for(i = 0; i < elements.length; i++){
-				infoWindow.addTab('<div style="height: ' + maxSize + 'px;"><img src="' + symbols[i].url + '" style="width ' + symbols[i].size + 'px; height: ' + symbols[i].size + 'px;" /></div>', elements[i]);
+				infoWindow.addTab('<div style="height: ' + maxSize + 'px;"><img src="' + symbols[i].canvas.toDataURL() + '" style="width ' + symbols[i].size + 'px; height: ' + symbols[i].size + 'px;" /></div>', elements[i]);
 			}
 		}
 		return infoWindow;
@@ -658,15 +576,17 @@ function GoogleMapsInterface (position, options){
 	 * @param{function(Element, number, (MapSymbol|MapShape), InfoBubble, SomeOverlay)} tabOpenedFun
 	 * @param{function(Element, number, (MapSymbol|MapShape))} tabClosedFun
 	 * @param{function(Element, (MapSymbol|MapShape))} windowClosedFun
-	 * @param{function(string)} locationWindowClosedFun
+	 * @param{function(string, Element)} locationWindowOpenedFun
+	 * @param{function(string, Element)} locationWindowClosedFun
 	 * 
 	 * @return {undefined}
 	 */
-	this.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun, locationWindowClosedFun){
+	this.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun, locationWindowOpenedFun, locationWindowClosedFun){
 		this.tabOpenedFun = tabOpenedFun;
 		this.tabClosedFun = tabClosedFun;
 		this.windowClosedFun = windowClosedFun;
 		this.locationWindowClosedFun = locationWindowClosedFun;
+		this.locationWindowOpenedFun = locationWindowOpenedFun;
 	};
 	
 	/**
@@ -676,16 +596,16 @@ function GoogleMapsInterface (position, options){
 	 * @param {number|undefined} tabIndex
 	 * @param {string|Element} newContent
 	 * 
-	 * @return {undefined}
+	 * @return {Element}
 	 */
 	this.updateInfoWindowContent = function (infoWindow, tabIndex, newContent){
-		if (tabIndex === undefined){
+		if (infoWindow.getNumTabs() === 0){
 			infoWindow.setContent(newContent);
 			infoWindow.updateContent_();
+			return infoWindow.content_;
 		}
 		else {
-			//Not needed in the moment
-			throw "Currently not supported";
+			return infoWindow.updateTab (tabIndex, undefined, newContent);
 		}
 	};
 	
@@ -731,10 +651,16 @@ function GoogleMapsInterface (position, options){
 						index = 0;
 					}
 					else {
-					 index = layout.computeIndexFromMousePosition(
-							projection.fromLatLngToContainerPixel(marker.getPosition()),
-							mousePosition
-						);
+						let /** google.maps.Point */ markerCenter = projection.fromLatLngToContainerPixel(marker.getPosition());
+						
+						let /** number|boolean|string */ indexRes = layout.computeIndexFromMousePosition(markerCenter.x, markerCenter.y, mousePosition.x, mousePosition.y);
+						
+						if (indexRes == "out" || indexRes === false){
+							index = 0;
+						}
+						else {
+							index = /** @type{number} */ (indexRes);
+						}
 					}
 					
 					if(index !== thisObject.lastIndex){
@@ -1173,6 +1099,20 @@ function GoogleMapsInterface (position, options){
 	
 	/**
 	 * @override
+	 * 
+	 * @param {number} lat
+	 * @param {number} lng
+ 	 * @param {number} zoom Zoom level in GM units
+	 * 
+	 * @return {undefined}
+	 */
+	this.setCenterAndZoom = function (lat, lng, zoom){
+		this.setCenter(lat, lng);
+		this.setZoom(zoom);
+	}
+	
+	/**
+	 * @override
 	 *
 	 * @return {number}
 	 */
@@ -1281,8 +1221,10 @@ function GoogleMapsInterface (position, options){
 	this.addLocationMarker = function (lat, lng, text, id, zoom){
 		var thisObject = this;
 		
+		var /** Element */ content = document.createElement("div");
+		content.innerHTML = text;
 		var infowindow = new google.maps.InfoWindow({
-			"content" : text
+			"content" : content
 		});
 
 		var point = new google.maps.LatLng(lat, lng);
@@ -1298,8 +1240,12 @@ function GoogleMapsInterface (position, options){
 		}, 750);
 
 		google.maps.event.addListener(infowindow, "closeclick", function(){
-			thisObject.locationWindowClosedFun(id);
+			thisObject.locationWindowClosedFun(id, this.getContent());
 			marker.setMap(null);
+		});
+		
+		google.maps.event.addListener(infowindow, "domready", function(){
+			thisObject.locationWindowOpenedFun(id, this.getContent());
 		});
 		
 		if(zoom){
@@ -1338,6 +1284,10 @@ function GoogleMapsInterface (position, options){
 	this.geoToFeature = function (geoData){
 		var /** google.maps.Data.Geometry */ geoObject;
 		switch (geoData.getType()){
+			case IMGeoType.Point:
+				geoObject = new google.maps.Data.Point(/** @type{google.maps.LatLngLiteral} */ (geoData.getGeometry()));
+				break;
+			
 			case IMGeoType.Polygon:
 				geoObject = new google.maps.Data.Polygon(/** @type{Array<Array<google.maps.LatLngLiteral>>} */ (geoData.getGeometry()));
 				break;
@@ -1366,7 +1316,6 @@ function GoogleMapsInterface (position, options){
 	 */
 	this.addShape = function (shapeObject){
 		this.map.data.add(shapeObject);
-		this.polygons[/** @type{string}*/ (shapeObject.getProperty("id"))] = shapeObject;
 	};
 
 	/**
@@ -1376,13 +1325,12 @@ function GoogleMapsInterface (position, options){
 	 */
 	this.removeShape = function (shapeObject){
 		this.map.data.remove(shapeObject);
-		delete this.polygons[/** @type{string}*/ (shapeObject.getProperty("id"))];
 	};
 	
 	/**
 	 * @override
 	 * 
-	 * @param {string} id
+	 * @param {google.maps.Data.Feature} polygon
 	 * @param {string} fillColor CSS color string
 	 * @param {string} strokeColor CSS color string
 	 * @param {number} fillOpacity
@@ -1391,8 +1339,8 @@ function GoogleMapsInterface (position, options){
 	 * 
 	 * @return {undefined}
 	 */
-	this.changePolygonAppearance = function (id, fillColor, strokeColor, fillOpacity, strokeOpacity, zIndex){
-		this.map.data.overrideStyle(this.polygons[id], {
+	this.changePolygonAppearance = function (polygon, fillColor, strokeColor, fillOpacity, strokeOpacity, zIndex){
+		this.map.data.overrideStyle(polygon, {
     		fillColor: fillColor,
     		strokeColor: strokeColor,
 			fillOpacity:  fillOpacity,
@@ -1504,11 +1452,7 @@ function GoogleMapsInterface (position, options){
 			}
 			
 			var thisObject = this;
-			jQuery.post(ajax_object.ajaxurl, { //TODO cannot use va stuff!!!
-				"action" : "va",
-				"namespace" : "util",
-				"query" : "get_print_overlays"
-			}, function (response){
+			jQuery(document).trigger("im_show_print_borders", function (response){
 				var arr = JSON.parse(response);
 				for (var i = 0; i < arr.length; i++){
 					var feature = thisObject.geoToFeature(geoManager.parseGeoDataFormated(arr[i]));
@@ -1517,7 +1461,7 @@ function GoogleMapsInterface (position, options){
 				}
 				thisObject.map.setMapTypeId(google.maps.MapTypeId.ROADMAP);
 				thisObject.map.setOptions({"styles": thisObject.mapStyles["empty"]});
-			});
+			}); //TODO better solution
 		}
 		else {
 			this.map.setMapTypeId(google.maps.MapTypeId.TERRAIN);
@@ -1554,248 +1498,10 @@ function GoogleMapsInterface (position, options){
 	/**
 	 * @override
 	 * 
-	 * @param {Element} div
-	 * 
-	 * @return {undefined}
-	 */
-	this.addQuantifyColorDiv = function (div){
-		this.map.controls[google.maps.ControlPosition.BOTTOM_CENTER].push(div);
-	};
-	
-	/**
-	 * @override
-	 * 
 	 * @return {{lat: number, lng: number}}
 	 */
 	this.getCenter = function (){
 		var /** google.maps.LatLng */ center = this.map.getCenter();
 		return {"lat": center.lat(), "lng" : center.lng()};
-	};
-}
-
-/**
- * 
- * @constructor
- * @struct
- * 
- * @param {Array<{url: string, size: number}>} symbols
- * 
- */
-function MultiSymbolLayout (symbols){
-	
-	/** 
-	 * @private
-	 * @type {Array<number>}
-	 * 
-	 * accumulated!!
-	 */
-	this.rowHeights = [];;
-	
-	/** 
-	 * @private
-	 * @type {Array<number>}
-	 * 
-	 * accumulated!!
-	 */
-	this.colWidths = [];
-	
-	/**
-	 * @private
-	 * @type {Array<number>}
-	 */
-	this.xvals = [];
-	
-	/**
-	 * @private
-	 * @type {Array<number>}
-	 */
-	this.yvals = [];
-	
-	var /** number */ size = symbols.length;
-	
-	var /**number*/ root = Math.ceil(Math.sqrt(size));
-	var /** number */ numCols = root;
-	var /** number */ numRows = (root * root) - size < root? root: root - 1;
-	
-	for (var i = 0; i < numRows; i++){
-		this.rowHeights[i] = 0;
-	}
-	
-	for (i = 0; i < numCols; i++){
-		this.colWidths[i] = 0;
-	}
-	
-	var /** number */ rowIndex = 0;
-	var /** number */ colIndex = 0;
-	
-	//Compute size of rows and columns
-	for (i = 0; i < size; i++){
-		var /** number */ currSize = symbols[i].size;
-		if(this.colWidths[colIndex] < currSize)
-			this.colWidths[colIndex] = currSize;
-		
-		if(this.rowHeights[rowIndex] < currSize)
-			this.rowHeights[rowIndex] = currSize;
-		
-		colIndex = (colIndex + 1) % numCols;
-		if(colIndex == 0){
-			rowIndex++;
-		}
-	}
-	
-	//Accumulate sizes
-	var /** number */ acc = 0; 
-	for (var i = 0; i < numRows; i++){
-		acc += this.rowHeights[i];
-		this.rowHeights[i] = acc;
-	}
-	
-	acc = 0;
-	for (i = 0; i < numCols; i++){
-		acc += this.colWidths[i];
-		this.colWidths[i] = acc;
-	}
-	
-	rowIndex = 0;
-	colIndex = 0;
-	
-	//Exception for double symbols (both symbols are centered in y direction)
-	if(size == 2){
-		this.xvals[0] = this.colWidths[0] - symbols[0].size;
-		this.yvals[0] = Math.floor(this.rowHeights[0] - symbols[0].size) / 2;
-		this.xvals[1] = this.colWidths[0];
-		this.yvals[1] = Math.floor(this.rowHeights[0] - symbols[1].size) / 2;
-	}
-	else {
-		//Compute symbol positions
-		for (i = 0; i < size; i++){
-			currSize = symbols[i].size;
-			
-			if(colIndex == 0){
-				this.xvals[i] = this.colWidths[0] - currSize;
-			}
-			else if (colIndex == numCols - 1){
-				this.xvals[i] = this.colWidths[colIndex - 1];
-			}
-			else {
-				this.xvals[i] = this.colWidths[colIndex] - currSize - Math.floor((this.colWidths[colIndex] -  this.colWidths[colIndex - 1] - currSize) / 2);
-			}
-			
-			if(rowIndex == 0){
-				this.yvals[i] = this.rowHeights[0] - currSize;
-			}
-			else if (rowIndex == numRows - 1){
-				this.yvals[i] = this.rowHeights[rowIndex - 1];
-			}
-			else {
-				this.yvals[i] = this.rowHeights[rowIndex] - currSize - Math.floor((this.rowHeights[rowIndex] -  this.rowHeights[rowIndex - 1] - currSize) / 2);
-			}
-			
-			colIndex = (colIndex + 1) % numCols;
-			if(colIndex == 0){
-				rowIndex++;
-			}
-		}
-	}
-	
-	/**
-	 * @return {number}
-	 */
-	this.getWidth = function (){
-		return this.colWidths[numCols-1];
-	};
-	
-	/**
-	 * @return {number}
-	 */
-	this.getHeight = function (){
-		return this.rowHeights[numRows-1];
-	};
-	
-	/**
-	 * @param {number} index
-	 * 
-	 * @return {number}
-	 */
-	this.getXPosition = function (index){
-		return this.xvals[index];
-	};
-	
-	/**
-	 * @param {number} index
-	 * 
-	 * @return {number}
-	 */
-	this.getYPosition = function (index){
-		return this.yvals[index];
-	};
-	
-	/**
-	 * @return {google.maps.MarkerShape}
-	 */
-	this.getMarkerShape = function (){
-		if(size % root == 0){
-			return /** @type{google.maps.MarkerShape}*/ ({
-				"type" : "rect",
-				"coords" : [0,0, this.getWidth(), this.getHeight()]
-			});
-		}
-		else {
-			var /** number */ fullLengthX = this.getWidth();
-			var /** number */ fullLengthY = this.getHeight();
-			var /** number */ shortLengthY = this.rowHeights[numRows - 2];
-			var /** number */ shortLengthX = this.colWidths[(size % root) - 1];
-			return /** @type{google.maps.MarkerShape}*/ ({
-				"type" : "poly",
-				"coords" : [
-					0, 0, 
-					fullLengthX, 0, 
-					fullLengthX, shortLengthY, 
-					shortLengthX, shortLengthY,
-					shortLengthX, fullLengthY,
-					0, fullLengthY
-					]
-			});			
-		}
-	};
-	
-	/**
-	 * 
-	 * @param {google.maps.Point} markerCenter
-	 * @param {google.maps.Point} mousePosition
-	 * 
-	 * @return {number}
-	 */
-	this.computeIndexFromMousePosition = function (markerCenter, mousePosition){
-		var /** number */ width = this.getWidth();
-		var /** number */ height = this.getHeight();
-		
-		var /** number */ xval = mousePosition.x - markerCenter.x + (width / 2);
-		var /** number */ yval = mousePosition.y - markerCenter.y + (height / 2);
-		
-		//As a precaution indexes are initiated with the highest possible value 
-		//since they might be bigger than the maximum value because of rounding mistakes:
-		var /** number */ indexX = numCols - 1;
-		var /** number */ indexY = numRows - 1;
-		
-		for (var i = 0; i < numCols; i++){
-			if(xval < this.colWidths[i]){
-				indexX = i;
-				break;
-			}
-		}
-		
-		for (i = 0; i < numRows; i++){
-			if(yval < this.rowHeights[i]){
-				indexY = i;
-				break;
-			}
-		}
-		
-		var /** number */ result = indexX + indexY * numCols;
-		if(result > size - 1)
-			result = size - 1; //Result might be larger for the last pixel of the last symbol
-		
-		return result;
 	};
 }

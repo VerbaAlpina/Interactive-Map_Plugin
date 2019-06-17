@@ -48,7 +48,7 @@ function SymbolManager(colorScheme) {
 	/**
 	 * @private
 	 * 
-	 * @type {Map<string, string>}
+	 * @type {Map<string, HTMLCanvasElement>}
 	 */
 	this.symbolBuffer = new Map();
 
@@ -446,7 +446,7 @@ function SymbolManager(colorScheme) {
 	 * @param {Array<number>=} markingcolor
  	 * @param {boolean=} active
 	 *
-	 * @return {string}
+	 * @return {HTMLCanvasElement}
 	 */
 
 		this.createMarkerImage = function(size,label,color,form,outline_only,markingSize,markingcolor,active){
@@ -461,7 +461,7 @@ function SymbolManager(colorScheme) {
 				var strokewidth = 3;
 	
 
-				var canvas = document.createElement('canvas');
+				var /** HTMLCanvasElement */ canvas = /** @type{HTMLCanvasElement} */ (document.createElement('canvas'));
 				var context = canvas.getContext("2d");
 
 				var add_for_marking = 0;
@@ -533,10 +533,7 @@ function SymbolManager(colorScheme) {
 			      context.stroke();
 
 		
-			      
-		          var url = canvas.toDataURL();
-			     
-		          return url;
+			      return canvas;
 			};
 
 
@@ -967,7 +964,7 @@ function SymbolManager(colorScheme) {
 	 * @param {number=} markingSize
 	 * @param {boolean=} active
 	 *
-	 * @return {string}
+	 * @return {HTMLCanvasElement}
 	 */
 	this.createSymbolURL = function(indexArray, size, markingSize, active) {
 		if (size == null)
@@ -978,14 +975,11 @@ function SymbolManager(colorScheme) {
 			markingSize = 0;
 		}
 
-
-
-		
 		if (active === undefined)
 			active = true;
 		
 		var /** string */ key = this.createSymbolKey  (indexArray, size, markingSize, active);
-		var /** string|undefined */ bufferedVal = this.symbolBuffer.get(key);
+		var /** HTMLCanvasElement|undefined */ bufferedVal = this.symbolBuffer.get(key);
 
 		if(bufferedVal !== undefined){
 			return bufferedVal;
@@ -993,10 +987,10 @@ function SymbolManager(colorScheme) {
 
 		var /** Object<string, *> */ symbolInfo = colorScheme.getFeatureCombination(indexArray, markingSize * symbolRescaleFactor);
 			
-	    var /** string */ url  = this.createMarkerImage(size, /** @type{string} */(symbolInfo['letter']),  /** @type{Array<number>} */(symbolInfo['color']), /** @type{string} */(symbolInfo['shape']), false, markingSize, /** @type{Array<number>} */(symbolInfo['mcolor']),active);
-		this.symbolBuffer.set(key, url);
+	    var /** HTMLCanvasElement */ canvas  = this.createMarkerImage(size, /** @type{string} */(symbolInfo['letter']),  /** @type{Array<number>} */(symbolInfo['color']), /** @type{string} */(symbolInfo['shape']), false, markingSize, /** @type{Array<number>} */(symbolInfo['mcolor']),active);
+		this.symbolBuffer.set(key, canvas);
 	    
-	    return url;
+	    return canvas;
 	};
 	
 	/**
@@ -1028,39 +1022,39 @@ function SymbolManager(colorScheme) {
 	 * @param {number} mainIndex
 	 * @param {number=} size
 	 *
-	 * @return {string}
+	 * @return {HTMLCanvasElement}
 	 */
 	this.createSymbolURLForMainIndex = function(mainIndex, size) {
 		if (size == null)
 			size = symbolSize;
 		var /** Object<string, *> */ symbolInfo = colorScheme.getSingleFeature(features_classes.main, mainIndex);
-		var /** string */ url  = this.createMarkerImage(size,"",[119,119,119],/** @type{string} */(symbolInfo['shape']),true,0,null,true);
-		return url;
+		var /** HTMLCanvasElement */ canvas  = this.createMarkerImage(size,"",[119,119,119],/** @type{string} */(symbolInfo['shape']),true,0,null,true);
+		return canvas;
 	};
 
 	/**
 	 * @param {number} index
 	 *
-	 * @return {string}
+	 * @return {HTMLCanvasElement}
 	 */
 	this.createColorURL = function(index) {
 		var /** Array<number> */ color = colorScheme.getPolygonColor(index % numCols);
-	    var /** string */ url  = this.createMarkerImage(symbolSize, "", color, "circle", false, 0, null, true);
+	    var /** HTMLCanvasElement */ canvas  = this.createMarkerImage(symbolSize, "", color, "circle", false, 0, null, true);
 
-		return url;
+		return canvas;
 	};
 	
 	/**
 	 * @param {number} mainIndex
 	 * @param {number} colorIndex
 	 *
-	 * @return {string}
+	 * @return {HTMLCanvasElement}
 	 */
 	this.createSymbolURLForMarking = function(mainIndex, colorIndex) {
 		var /** Object<string, *> */ symbolInfo = colorScheme.getSingleFeature(features_classes.main, mainIndex);
-	    var /** string */ url  = this.createMarkerImage(symbolSize,"",[119,119,119], /** @type{string} */(symbolInfo['shape']), true, markingSize, symbolManager.getMarkingColor(colorIndex),true);
+	    var /** HTMLCanvasElement */ canvas  = this.createMarkerImage(symbolSize,"",[119,119,119], /** @type{string} */(symbolInfo['shape']), true, markingSize, symbolManager.getMarkingColor(colorIndex),true);
 
-		return url;
+		return canvas;
 	};
 	
 	/**

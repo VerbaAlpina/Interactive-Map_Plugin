@@ -286,7 +286,7 @@ function OptionManager (){
 		
 		if(activate){
 
-			jQuery('.im_loc_nav').css('bottom','89px');
+			//jQuery('.im_loc_nav').css('bottom','89px');
 
 			//Stop quantify mode
 			var /** boolean|LegendElement|MultiLegendElement */ cQuantify = symbolClusterer.checkQuantify();

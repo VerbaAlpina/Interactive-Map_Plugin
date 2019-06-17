@@ -94,3 +94,61 @@ function addParamToUrl (urlStr, param, value){
 function getKeyByValue(object, value) {
   return Object.keys(object).find(key => object[key] === value);
 }
+
+/**
+*
+* @param {jQuery} element
+* @param {string} content
+* 
+* @returns {undefined}
+*/
+function im_addMouseOverHelp (element, content){
+	element.qtip({
+		content : {
+			text : content,
+			title: {
+				button: true // Close button
+			}
+		},
+		show: {
+			event: 'mouseenter',
+			solo: true
+		},
+		style: {
+			classes : 'qtip-grey'
+		},
+		events: {
+			render:
+			/**
+			 * @param {Object} event
+			 * @param {Object} api
+			 */
+			function(event, api) {
+				api.elements.target.bind('click', function() {
+					api.set('hide.event', false);
+				});
+			},
+			hide: 
+			/**
+			 * @param {Object} event
+			 * @param {Object} api
+			 */
+			function(event, api) {
+				api.set('hide.event', 'mouseleave');
+			}
+		},
+		position : {
+			viewport: jQuery(window),
+			adjust : {
+				method : "flip"
+			}
+		}
+	});
+}
+
+/**
+ * @return{string}
+ */
+function getInfoWindowContentSeparator (){
+	return "<br/><hr style='width: 100%; height: 3px; margin: 0 auto;'><br />";
+}

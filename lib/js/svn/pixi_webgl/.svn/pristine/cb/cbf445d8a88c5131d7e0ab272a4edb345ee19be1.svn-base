@@ -29,9 +29,6 @@
 				this.active_clone = null;
 				this.active_clones = [];
 				this.current_latlng = null;
-				this.current_mousepos = null;
-				this.current_symbol_index;
-				this.current_marker = null;
 				this.multiPolygonList = {};
 				this.alreadychecking_out = false;
 				this.performing_unhover = false;
@@ -66,9 +63,22 @@
 				
 				});
 
-
 				map._container.addEventListener("mouseleave", function(){
-					that.resetHover();
+
+
+					mouseonpolygon = false;
+					mouseonmarker = false;
+
+					  clearHoverContainer();	
+					  that.active_polygon = null;
+					  that.active_clone = null;
+
+					// setTimeout(function() {
+					// 	  if(that.active_polygon!=null){
+					//     		resetActivePolygon();
+					//     	  }
+		   //  	  	}, 5);
+
 				})
 
 				map.on('zoomend', function(){
@@ -95,7 +105,7 @@
 
 					  }
 
-					 that.current_mousepos = e.containerPoint;
+				
 
 
 				});
@@ -132,7 +142,6 @@
 						var getRenderer = utils.getRenderer;
 						utils.getMap().on('click', function(e) {
 
-
 							var interaction = utils.getRenderer().plugins.interaction;
 							var pointerEvent = e.originalEvent;
 							var pixiPoint = new PIXI.Point();
@@ -140,51 +149,9 @@
 							interaction.mapPositionToPoint(pixiPoint, pointerEvent.clientX, pointerEvent.clientY);
 
 							var target = interaction.hitTest(pixiPoint, that.container);
-
-							if(target && (e.originalEvent.srcElement === that.renderer.view || target.type =="gl_Marker")){ //prevent click if clicked element is not canvas
-			
-							    if(target.clickListener){
-							    	try{
-										target.clickListener();
-										}
-										catch(e){}
-									}
-
-									else if (target.original_object){
-
-										if(target.original_object.clickListener){
-												try{
-												target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
-												}
-												catch(e){}			
-
-												}
-											}
-								else{
-
-
-
-									if (target && target.popup) {
-
-										if(target instanceof PIXI.Graphics) {
-											var latlng = e.latlng;
-											target.popup.setLatLng(latlng);
-											target.popup.openOn(map);	
-										}
-										else{
-											target.popup.openOn(map);
-
-										}
-
-
-									}
-
-								}
-
+							if (target && target.popup) {
+								target.popup.openOn(map);
 							}
-
-
-
 						});
 
 
@@ -300,9 +267,14 @@ this.pixiMarker = function(_in){
 
 
 	var marker = new PIXI.Sprite(_in.texture);
-	marker['orig_options'] = _in;
-	marker.clickListener = _in.clickListener;
 
+
+	if(_in.popupcontent){
+		var tex_height = _in.texture.orig.height*that.external_scale;
+		marker.popup = L.popup({className: 'pixi-popup',offset:L.point(0, -Math.ceil(tex_height/4))})
+		.setLatLng(_in.latlng)
+		.setContent(_in.popupcontent);
+	}
 
 	marker.alpha = _in.alpha;
 
@@ -315,7 +287,7 @@ this.pixiMarker = function(_in){
 
 	marker.currentScale = 1 / that.scale;
 
-
+	that.piximarkers.push(marker);
 
 	marker['latlng'] = _in.latlng;
 	marker['content'] = _in.popupcontent;
@@ -332,174 +304,105 @@ this.pixiMarker = function(_in){
 		var diff;
 		marker.upscale = false;
 
-	 	marker.on('mouseover',function(e){
-
+	 	marker.on('mouseover',function(){
  			jQuery(".leaflet-pane.leaflet-marker-pane > div:not(.animating)").remove();
 
-
+	
 	 		mouseonmarker = true;
 	 		that.current_latlng = {lat:marker.latlng[0], lng:marker.latlng[1]};
-
-	 		if(!marker['multi_symbol_layout'])createAliasHover(marker,false);
-	 		else createAliasHover(marker,true);
-
 	 
-	 		
-	 	
-		    function createAliasHover(marker,multi){
 
-       		if(!map_moving){
+	 		if(!map_moving){
 
 	 			
 	 		    // setTimeout(function() {
 			     //    jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
 		      //   }, 150);
 
-				that.current_symbol_index = null;
-				that.current_marker = marker;
+		 		var img_url = marker._texture.baseTexture.imageUrl;
+		 		var tex_height = _in.texture.orig.height*that.external_scale;
 
+		 		var larger_than_css_scale_fac = 1.4; //increase parent size for child img not to be cut off when scaled (due to hover) fac > 0.1 than css scale
 
-		 		if(!multi){
-		 				createAliasMarker(marker,false)
-		 		}
+		 		var icon = L.divIcon({
+							    iconUrl: img_url,
+							    iconSize:     [tex_height*larger_than_css_scale_fac, tex_height*larger_than_css_scale_fac], // size of the icon
+							    iconAnchor:   [(tex_height*larger_than_css_scale_fac)/2, (tex_height*larger_than_css_scale_fac)/2], // point of the icon which will correspond to marker's location
+							    html:"<img style= 'width :"+ tex_height +"px; height :"+ tex_height +"px;' class='aliasmarker_on' src="+img_url+"></img>",
+							    className:"customLdivIcon"
+							   
+				});
 
-		 		else{
+		 		var aliasmarker = L.marker(marker.latlng, {icon: icon }).addTo(map);
 
-	 			  	marker.on('mousemove',function(e){
-	 			  		setTimeout(function() {
-			  				if(that.current_marker===marker)createAliasMarker(marker,true);
-			  			}, 10);
-       			  	});
-						
-		 		}
-
-		 	
-	 		}
-
-       }
-
-
-       function createAliasMarker(marker,multi){
-
-       			  if(multi){
-
-
-			 			mouspos = that.current_mousepos;
-			 			var symbolpos_in_div_px = map.latLngToContainerPoint(L.latLng( marker.latlng[0], marker.latlng[1]));
-			 			var layout = marker['multi_symbol_layout'];
-
-			 			var symbol_index = layout.computeIndexFromMousePosition(
-				 				symbolpos_in_div_px.x,
-				 				symbolpos_in_div_px.y,
-				 				mouspos.x,
-				 				mouspos.y,
-				 				that.external_scale
-			 				);
-		 				if(symbol_index===that.current_symbol_index)return;
-
-		 				if(symbol_index=="out"){
-								marker.off('mousemove',createAliasMarker);
-								that.current_marker = null;
-								that.current_symbol_index = null;
-								return;    
-		 				}
-		 				
-			 		}	
-
-		 			if(symbol_index!==false || !multi){
-
-		 				var icon; 
-						var img_url;
-						var tex_height;
-						var latlng;
-
-						if(multi){
-			 			 icon = layout.getIcon(symbol_index);
-			 			 img_url = icon.toDataURL();
-						 tex_height = icon.height*that.external_scale;
-
-
-						 var symbol_pixelpos_x = (symbolpos_in_div_px.x - layout.getWidth(that.external_scale)*0.5) + layout.getXPosition(symbol_index, that.external_scale) + tex_height * 0.5;
-						 var symbol_pixelpos_y = (symbolpos_in_div_px.y - layout.getHeight(that.external_scale)*0.5) + layout.getYPosition(symbol_index, that.external_scale) + tex_height * 0.5;
-
-						 latlng = map.containerPointToLatLng(L.point(symbol_pixelpos_x, symbol_pixelpos_y));
-
-						 }
-
-						 else{	
-
-		 					 img_url = marker.texture.baseTexture.source.toDataURL();
-				 			 tex_height = _in.texture.orig.height*that.external_scale;
-				 			 latlng = marker.latlng;
-
-
-						 }
-	
-				
-
-					var larger_than_css_scale_fac = 1.4; //increase parent size for child img not to be cut off when scaled (due to hover) fac > 0.1 than css scale
-
-					var icon = L.divIcon({
-					iconUrl: img_url,
-					iconSize:     [tex_height*larger_than_css_scale_fac, tex_height*larger_than_css_scale_fac], // size of the icon
-					iconAnchor:   [(tex_height*larger_than_css_scale_fac)/2, (tex_height*larger_than_css_scale_fac)/2], // point of the icon which will correspond to marker's location
-					html:"<img style= 'width :"+ tex_height +"px; height :"+ tex_height +"px;' class='aliasmarker_on' src="+img_url+"></img>",
-					className:"customLdivIcon"
-
-					});
-
-					var aliasmarker = L.marker(latlng, {icon: icon }).addTo(map);
-
-					triggercount = 0;
+		 		  triggercount = 0;
 
 					jQuery(aliasmarker._icon).on('mouseover',function(){
-					triggercount++;
+						triggercount++;
 					});
 
-					jQuery(aliasmarker._icon).trigger("mouseenter");
-
-					setTimeout(function() {
-						if(triggercount==1)mouseonmarker =false;
-					}, 150);
 
 
-					jQuery(aliasmarker._icon).on('mouseleave',function(e){
+				    jQuery(aliasmarker._icon).trigger("mouseenter");
 
-							jQuery(this).addClass('animating');
-							mouseonmarker = false;
-
-							setTimeout(function() {
-								jQuery(this).removeClass('animating');	
-								map.removeLayer(aliasmarker);
-								jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
+					    setTimeout(function() {
+				    			if(triggercount==1)mouseonmarker =false;
+				   		 }, 150);
 
 
-							}, 150);
+		 		jQuery(aliasmarker._icon).on('mouseleave',function(){
 
-							setTimeout(function() {
-							//savety check 
-							if(!mouseonmarker && !mouseonpolygon){
-								if(jQuery('body').hasClass('mouse_on_polygon'))jQuery('body').removeClass("mouse_on_polygon");
-								clearHoverContainer();	
+ 					jQuery(this).addClass('animating');
+		 			mouseonmarker = false;
+
+			        setTimeout(function() {
+		        	 	   jQuery(this).removeClass('animating');	
+		        	 	   map.removeLayer(aliasmarker);
+		        	       jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
+			        }, 150);
+
+			          setTimeout(function() {
+			          	//savety check 
+		        	 	if(!mouseonmarker && !mouseonpolygon){
+		        	 		if(jQuery('body').hasClass('mouse_on_polygon'))jQuery('body').removeClass("mouse_on_polygon");
+	        	 				clearHoverContainer();	
 								that.active_polygon = null;
 								that.active_clone = null;
-								}
-							}, 200);
+		        	 	}
+			        }, 200);
+
+			    });
 
 
-					});
 
-
-			}		
-
-			if(multi && symbol_index!==false) that.current_symbol_index = symbol_index;
-       }
-
+	 		}
 	 		   
-	});	
+	 	});	
 
+ 	 	marker.on('mouseout',function(){
+ 			 
+ 			 setTimeout(function() {
 
+ 			 }, 150);
+ 	 	
+	
 
+ 	//  		mouseonmarker = false;
+
+		// 	add = false;
+		// 	targetScale =that.globalTragetscale;
+		// 	diff = (that.globalTragetscale*scale_fac) - targetScale;
+
+		// 	requestAnimationFrame(animate_marker);
+		// 	marker.alpha = 0.85;
+
+		// if(!that.alreadychecking_out){
+		//    setTimeout(function() {
+		// 	 checkOutside(that.current_latlng);
+		//     }, 250);
+		//   } 
+	 			
+	 	});
 
 		var start;
 		var duration = 100;
@@ -577,7 +480,6 @@ this.pixiMarker = function(_in){
 
 	marker['type'] = "gl_Marker";
 
-	that.piximarkers.push(marker);
 
 	return marker;
 }
@@ -615,12 +517,10 @@ this.removeMarker = function(marker){
 
 		var index = that.piximarkers.indexOf(marker);
 
-
 		if (index > -1) {
 			that.piximarkers.splice(index, 1);
 			that.markerContainer.removeChild(marker);
 		}	
-
 };
 
 
@@ -646,9 +546,6 @@ if(_in.hover_fill_color) in_obj['hover_fill_color'] = _in.hover_fill_color;
 if(_in.hover_fill_alpha) in_obj['hover_fill_alpha'] = _in.hover_fill_alpha;
 if(_in.hover_stroke_color) in_obj['hover_stroke_color'] = _in.hover_stroke_color;	 
 if(_in.hover_stroke_alpha) in_obj['hover_stroke_alpha'] = _in.hover_stroke_alpha;	
-if(_in.clickListener) in_obj['clickListener'] = _in.clickListener;	
-if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;	
-
 
 	if(_in.geo['type']=="Polygon"){
 
@@ -657,7 +554,7 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
     	var holes = [];
     	for(var j=1; j<_in.geo['coordinates'].length;j++){
     		var hole = _in.geo['coordinates'][j];
-    	     holes.push(hole);  
+    	   if(hole.length>3)holes.push(hole);  //dont use small bugged holes
     	}
 
 	     var polygon = new that.pixiPolygon(
@@ -676,8 +573,6 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
 		   in_obj.hover_fill_alpha,
 		   in_obj.hover_stroke_color,
    		   in_obj.hover_stroke_alpha,
-   		   in_obj.clickListener,
-   		   in_obj.map_shape,
    		   holes
 	       );
 
@@ -689,6 +584,7 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
 
 		var coords_list = _in.geo['coordinates'];
 
+
 		for(var i=0; i<coords_list.length;i++){
 			var latlng = coords_list[i][0];
 
@@ -698,7 +594,7 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
     	for(var j=1; j<coords_list[i].length;j++){
     		var hole = coords_list[i][j]
     		if(hole.length>3)holes.push(hole); //dont use amall bugged holes
-    	}	
+    	}
 	   	
 
 		var polygon = new that.pixiPolygon(
@@ -717,8 +613,6 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
 		   in_obj.hover_fill_alpha,
 	       in_obj.hover_stroke_color,
 	       in_obj.hover_stroke_alpha,
-           in_obj.clickListener,
-           in_obj.map_shape,
 	       holes
 		    );
 
@@ -733,8 +627,8 @@ if(_in.map_shape) in_obj['map_shape'] = _in.map_shape;
 };
 
 
-this.pixiPolygon = function(latlng,orig_object,center,line_width,fill_color,fill_alpha,stroke_color,stroke_alpha,popupcontent,interactive,hover_line_width,hover_fill_color,hover_fill_alpha,hover_stroke_color,hover_stroke_alpha,clicklistener,map_shape,holes){
- 
+this.pixiPolygon = function(latlng,orig_object,center,line_width,fill_color,fill_alpha,stroke_color,stroke_alpha,popupcontent,interactive,hover_line_width,hover_fill_color,hover_fill_alpha,hover_stroke_color,hover_stroke_alpha,holes){
+
 
 	var pixi_polygon = new PIXI.Graphics();
 
@@ -770,13 +664,19 @@ this.pixiPolygon = function(latlng,orig_object,center,line_width,fill_color,fill
 
 	pixi_polygon['totalholes'] = totalholes;
 
+
+		if(popupcontent && center){
+			pixi_polygon.popup = L.popup({className: 'pixi-popup'})
+			.setLatLng(center)
+			.setContent(popupcontent);
+		}	
+
 	pixi_polygon['latlng'] = latlng;
 	pixi_polygon['orig_object'] = orig_object;
 	pixi_polygon['center'] = center;
 	pixi_polygon['line_width'] = line_width;
 	pixi_polygon['fill_color'] = fill_color;
 	pixi_polygon['fill_alpha'] = fill_alpha;
-	pixi_polygon['popupcontent'] = popupcontent;
 	pixi_polygon['stroke_color'] = stroke_color;
 	pixi_polygon['stroke_alpha'] = stroke_alpha;
 	pixi_polygon['original_line_width'] = line_width;
@@ -789,8 +689,6 @@ this.pixiPolygon = function(latlng,orig_object,center,line_width,fill_color,fill
 	pixi_polygon['hover_fill_alpha']= hover_fill_alpha;
 	pixi_polygon['hover_stroke_color'] = hover_stroke_color;
 	pixi_polygon['hover_stroke_alpha'] = hover_stroke_alpha;
-	pixi_polygon['clickListener'] = clicklistener;
-	pixi_polygon['map_shape'] = map_shape;
 	pixi_polygon['holes'] = holes;
 
 
@@ -882,7 +780,7 @@ this.updateSinglePolygon = function(polygon,latlng,orig_object,center,line_width
 	if(hover_stroke_alpha)polygon['hover_stroke_alpha'] = hover_stroke_alpha;
 
 	if(popupcontent && center){
-			polygon.popup = L.popup({className: 'pixi-popup', autoClose:false})
+			polygon.popup = L.popup({className: 'pixi-popup'})
 			.setLatLng(center)
 			.setContent(popupcontent);
 	}	
@@ -930,6 +828,7 @@ this.drawPixiPolygon = function(pixipolygon,perform){
 
 		var line_width_fac = that.scale + (1/zoom)/25;
 
+
 		that.global_giant_polygon.lineStyle(pixipolygon['line_width'] / (line_width_fac), pixipolygon['stroke_color'], pixipolygon['stroke_alpha']);
 		that.global_giant_polygon.beginFill(pixipolygon['fill_color'], pixipolygon['fill_alpha']);
 
@@ -954,29 +853,18 @@ this.drawSinglePixiPolygon = function(pixipolygon,perform){
 
 	var polygontodraw = pixipolygon.clone();
 
-	polygontodraw['original_object'] = pixipolygon;
-
 	that.polyHoverContainer.addChild(polygontodraw);
-	polygontodraw.graphicsData = []; //fix bug of multi drawing
+	// polygontodraw.graphicsData = []; //fix bug of multi drawing
 	polygontodraw.buttonMode = true;
-	polygontodraw.interactive = true;
 
-
-		if(pixipolygon.popupcontent && pixipolygon.center){
-			polygontodraw.popup = L.popup({className: 'pixi-popup', autoClose:false})
-			.setLatLng(pixipolygon.center)
-			.setContent(pixipolygon.popupcontent);
-		}	
-
-		
 		var zoom = map.getZoom();
 		if(zoom<2)zoom = 2;
 
 		var line_width_fac = that.scale + (1/zoom)/25;
 
 
-		polygontodraw.lineStyle((pixipolygon['line_width']*2) / (line_width_fac), pixipolygon['stroke_color'], pixipolygon['stroke_alpha']);
-		polygontodraw.beginFill(pixipolygon['fill_color'], pixipolygon['fill_alpha']/2.0);
+		polygontodraw.lineStyle(pixipolygon['line_width'] / (line_width_fac), pixipolygon['stroke_color'], pixipolygon['stroke_alpha']);
+		polygontodraw.beginFill(pixipolygon['fill_color'], pixipolygon['fill_alpha']);
 
 
 		polygontodraw.drawPolygon(pixipolygon.coords_array);
@@ -1142,7 +1030,7 @@ function highlightAdditionalPolygons(active_polygon){
 	    	for(var j=0;j<other_polys.length;j++){
 	    		var other_poly = other_polys[j];
 
-	    		// performHover(other_poly);
+	    		performHover(other_poly);
 
 			 if(other_poly!=active_polygon){
 			  var addclone = that.drawSinglePixiPolygon(other_poly,true);
@@ -1196,15 +1084,6 @@ function performUnHover(poly){
 
 }
 
-this.resetHover = function(){
-
-	mouseonpolygon = false;
-	mouseonmarker = false;
-	clearHoverContainer();	
-	that.active_polygon = null;
-	that.active_clone = null;
-}
-
 
 function clearHoverContainer(){
 
@@ -1220,13 +1099,11 @@ function performHover(poly){
 	if(poly.hover_fill_alpha)	poly['fill_alpha'] = poly.hover_fill_alpha/2;
 	if(poly.hover_stroke_color)	poly['stroke_color'] = poly.hover_stroke_color;
 	if(poly.hover_stroke_alpha)	poly['stroke_alpha'] = poly.hover_stroke_alpha;
+
+
 }
 
 this.completeDraw = function(){
-
-
- jQuery(".leaflet-pane.leaflet-marker-pane > div").remove();
- that.global_giant_polygon.clear(); 
 
 for(var i=0; i<that.piximarkers.length;i++){
 
@@ -1245,7 +1122,7 @@ if(that.piximarkers.length>0){
 }
 
 currentPolygonID=0;
-
+ that.global_giant_polygon.clear();  
 for(var i=0; i<that.pixipolygons.length;i++){
 				    var pixipolygon = that.pixipolygons[i];		
 					that.drawPixiPolygon(pixipolygon);
@@ -1262,10 +1139,9 @@ if(!giant_listeners_initialized){
 
 } 
 
-
-that.renderer.render(that.container);
-
-
+setTimeout(function() {
+		that.renderer.render(that.container);
+	}, 0);
 
 };
 
@@ -1298,8 +1174,6 @@ this.redrawPolygons = function(){
 
 	    return inside;
 	};
-
-
 
 } // overlay
 

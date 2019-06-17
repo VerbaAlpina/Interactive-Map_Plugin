@@ -111,55 +111,11 @@ function initMap (mapPosition, clustererOptions, constructorOptions){
 	
 	mapDomElement = document.getElementById("IM_map_div");
 	
-	mapInterface.init(mapDomElement, initEvents, polygonSettings);
-	
-	legend = new Legend();
-	symbolManager = new SymbolManager(colorScheme);
-
-	initGuiElements();
-	
-	symbolClusterer = new SymbolClusterer(clustererOptions);
-	
-	optionManager = new OptionManager();
-	
-	//Send url parameters to option manager
-	for (var option in PATH["options"]){
-		optionManager.setOption(option, PATH["options"][option]);
-	}
-	
-	optionManager.createOptionsDiv();
-	
-	 jQuery.contextMenu({
-	 	"selector" : '.addComment',
-	 	"build" : function(trigger, e) {
-	 		var itemList = legend.getMenuItems(trigger.attr("data-index") * 1, trigger.attr("data-main-index") * 1);
-	 		if (jQuery.isEmptyObject(itemList))
-	 			return false;
-	 		return {
-	 			"items" : itemList,
-	 			"callback" : legend.menuCallback
-	 		};
-	 	}
-	 });
-	
-	jQuery("#commentTabs").tabs({
-		"beforeActivate" : commentManager.beforeTabChange.bind(commentManager)
-	});
-	
-	jQuery(document).trigger("im_map_initialized"); //TODO document this, also stuff like addXY in categoryManager
-
-	if(PATH["tk"] != undefined){
-		categoryManager.loadSynopticMap(PATH["tk"] * 1, "URL");
-	}
-	else if (PATH["single"] != undefined){
-		var /** number */ catNum = categoryManager.getCategoryFromPrefix(PATH["single"][0]);
-		if(catNum != -1)
-			categoryManager.loadData(catNum, PATH["single"], "custom");
-	}
+	mapInterface.init(mapDomElement, initCallback, polygonSettings);
 }
 
 
-function initEvents (){
+function initCallback (){
 	mapInterface.addMarkerListeners(
 		/**
 		 * @this {!MapSymbol}
@@ -226,14 +182,18 @@ function initEvents (){
 		 * @param {Object} overlay
 		 */
 		function (tabElement, tabIndex, mapElement, infoWindow, overlay){ //Tab opened
+			//console.log("tab opened: " + tabIndex);
 			if (mapElement instanceof MapSymbol){
 				mapElement.currentTabIndex = tabIndex;
 	
 				var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
 				for (let i = 0; i < infoWindowContents.length; i++){
-					infoWindowContents[i].onOpen(tabElement, tabIndex, infoWindow, overlay);
+					infoWindowContents[i].onOpen(jQuery(tabElement).find("div#tab_content_" + i)[0], tabIndex, infoWindow, overlay);
 				}
 				mapElement.parts[tabIndex].owner.highlight();
+			}
+			else { //MapShape
+				mapElement.infoWindowContent.onOpen(tabElement, tabIndex, infoWindow, overlay);
 			}
 		},
 		/**
@@ -242,11 +202,12 @@ function initEvents (){
 		 * @param {MapSymbol|MapShape} mapElement
 		 */
 		function (tabElement, tabIndex, mapElement){ //Tab closed
+			//console.log("tab closed: " + tabIndex);
 			if (tabIndex !== undefined){
 				if (mapElement instanceof MapSymbol){
 					var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
 					for (let i = 0; i < infoWindowContents.length; i++){
-						infoWindowContents[i].onClose(tabElement);
+						infoWindowContents[i].onClose(jQuery(tabElement).find("div#tab_content_" + i)[0]);
 					}
 					mapElement.parts[tabIndex].owner.unhighlight();
 				}
@@ -259,8 +220,56 @@ function initEvents (){
 		function (windowElement, mapElement){ //Window closed
 			mapState.removeInfoWindowOwnerFromList(mapElement);
 		},
-		function (id){ //Location info window closed
+		function (id, content){ //Location info window opened
+			jQuery(document).trigger("im_location_window_opened", [id, content]); //TODO document
+		},
+		function (id, content){ //Location info window closed
 			mapState.removeLocationMarker(id);
+			jQuery(document).trigger("im_location_window_closed", [id, content]); //TODO document
 		}
 	);
+	
+	legend = new Legend();
+	symbolManager = new SymbolManager(colorScheme);
+
+	symbolClusterer = new SymbolClusterer(clustererOptions);
+	
+	optionManager = new OptionManager();
+	
+	//Send url parameters to option manager
+	for (var option in PATH["options"]){
+		optionManager.setOption(option, PATH["options"][option]);
+	}
+	
+	optionManager.createOptionsDiv();
+	
+	initGuiElements();
+	
+	 jQuery.contextMenu({
+	 	"selector" : '.addComment',
+	 	"build" : function(trigger, e) {
+	 		var itemList = legend.getMenuItems(trigger.attr("data-index") * 1, trigger.attr("data-main-index") * 1);
+	 		if (jQuery.isEmptyObject(itemList))
+	 			return false;
+	 		return {
+	 			"items" : itemList,
+	 			"callback" : legend.menuCallback
+	 		};
+	 	}
+	 });
+	
+	jQuery("#commentTabs").tabs({
+		"beforeActivate" : commentManager.beforeTabChange.bind(commentManager)
+	});
+	
+	jQuery(document).trigger("im_map_initialized"); //TODO document this, also stuff like addXY in categoryManager
+
+	if(PATH["tk"] != undefined){
+		categoryManager.loadSynopticMap(PATH["tk"] * 1, "URL");
+	}
+	else if (PATH["single"] != undefined){
+		var /** number */ catNum = categoryManager.getCategoryFromPrefix(PATH["single"][0]);
+		if(catNum != -1)
+			categoryManager.loadData(catNum, PATH["single"], "custom");
+	}
 }

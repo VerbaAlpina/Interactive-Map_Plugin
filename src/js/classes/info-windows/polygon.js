@@ -80,7 +80,7 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 
 				var /** jQuery */
 				row = jQuery('<td data-key="' + key + '" class="ifw_row"><img style = "vertical-align: middle; margin-right: 5px;" src="' + symbol
-						+ '"/><span>' + '(' + count + ')</span></td>');
+						+ '"/><span>'+count+'</span></td>');
 				tr.append(row);
 
 				cnt++;
@@ -95,12 +95,11 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 			if (cnt < 4)
 				table.append(tr);
 
-			headline = jQuery('<div style="line-height: 1.35;"><h2 class="inf_gemeinde_hl">' + data["name"] + " " + data["description"] + ' ('
-					+ total_count + ') </h2></div>');
+			headline = jQuery('<div style="line-height: 1.35;"><h2 class="inf_gemeinde_hl">' + data["name"] + ' ('
+					+ total_count + ')</h2>' + data["description"] + '</div>');
 			container.append(inner_container);
 		} else {
-			headline = jQuery('<div style="line-height: 1.35;"><h2  class="inf_gemeinde_hl">' + data["name"] + " " + data["description"]
-					+ '</h2></div>');
+			headline = jQuery('<div style="line-height: 1.35;"><h2  class="inf_gemeinde_hl">' + data["name"] + "</h2>" + data["description"] + '</div>');
 		}
 
 		container.prepend(headline);
@@ -150,7 +149,7 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 						_keys_to_count[legendElement.key] = {
 							'count' : numData,
 							'markers' : [marker],
-							'symbol' : symbol
+							'symbol' : symbol.toDataURL()
 						};
 					}
 					else {
@@ -191,7 +190,6 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 	 * @return {undefined}
 	 */
 	this.onOpen = function(content) {
-
 		var outer_gm_style = jQuery(content).parent().parent().parent();
 		outer_gm_style.addClass('custom_gm_map_width');
 		jQuery(content).parent().css('overflow', 'hidden');
@@ -201,7 +199,7 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 		outer_gm_style.parent().find('div').find('div:nth-child(2)').addClass('ifw_second_sub_child');
 		outer_gm_style.parent().find('div').find('div:nth-child(4)').addClass('ifw_forth_sub_child');
 
-		jQuery(content).find('.ifw_row').on('click', function() {
+		jQuery(content).on('click', '.ifw_row', function() {
 			var l_key = jQuery(this).attr('data-key');
 
 			var l_element;
@@ -234,7 +232,7 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 				l_element.unhighlight();
 			}, 1000);
 
-		})
+		});
 	}
 
 	/**

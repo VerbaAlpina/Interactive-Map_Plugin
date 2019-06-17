@@ -43,7 +43,6 @@ function SymbolClusterer(clustererOptions) {
 			var /** {lat: number, lng: number} */latlng = /** @type{IMPoint} */ (info.geomData).getGeometry();
 			
 			var /** Array<MapSymbol> */ arr = getArray(latlng["lat"], latlng["lng"]);
-	
 			var /** number */ len = arr.length;
 			for (var /** number */ i = 0; i < len; i++){
 				var /** {lat: number, lng: number}*/ markerPos = mapInterface.getMarkerPosition(arr[i].getMarker());
@@ -73,12 +72,12 @@ function SymbolClusterer(clustererOptions) {
 			mapSymbolNew.setMarker(newMarker);
 			
 			arr.push(mapSymbolNew);
-		    mapInterface.showMarker(newMarker);
 		    return mapSymbolNew;
 		}
 		else {
 			var /** string */ id = /** @type{string}*/ (info.quantifyInfo);
 			var /** MapShape */ mapShapeNew = new MapShape(info.infoWindowContents[0], owner, owner.currentElementIndex++);
+			info.setMapShape(mapShapeNew);
 				
 			var /** Object */ mapInterfaceElement = mapInterface.createShape(info.geomData, mapShapeNew, id);
 			mapShapeNew.setMapInterfaceElement(mapInterfaceElement);
@@ -123,7 +122,7 @@ function SymbolClusterer(clustererOptions) {
 		var /** number */ len = arr.length;
 		for (let i = 0; i < len; i++){
 			var /** MapSymbol */ ms = arr[i];
-			mapInterface.updateMarker(ms.marker, ms.getSymbolURLs(), ms, ms.getZIndex());
+			ms.marker = mapInterface.updateMarker(ms.marker, ms.getSymbolURLs(), ms, ms.getZIndex());
 		}
 	};
 	
@@ -140,7 +139,7 @@ function SymbolClusterer(clustererOptions) {
 		for (let i = 0; i < len; i++){
 			var /** MapSymbol */ ms = arr[i];
 			if(ms.hasOwner(owner))
-				mapInterface.updateMarker(ms.marker, ms.getSymbolURLs(), ms, ms.getZIndex());
+				ms.marker = mapInterface.updateMarker(ms.marker, ms.getSymbolURLs(), ms, ms.getZIndex());
 		}
 	};
 	
@@ -174,8 +173,6 @@ function SymbolClusterer(clustererOptions) {
 				otherOverlays.splice(i,1);
 			}
 		}
-		
-		mapInterface.repaint();
 	};
 	
 	/**
@@ -378,7 +375,7 @@ function SymbolClusterer(clustererOptions) {
 
 	/**
 	 * @private
-	 * @type{Object<string, IMGeometry>}
+	 * @type{Object<string, OverlayInfo>}
 	 */
 	this.polygrp;
 	
@@ -406,8 +403,7 @@ function SymbolClusterer(clustererOptions) {
 	 * @param {function()=} callback
 	 */
 	this.quantify = function(element, update, callback){
-		mapInterface.revertChangedOverlays();
-		
+			
 		for(var i = 0; i < legend.getLength(); i++){
 			var element_l = legend.getElement(i);
 			if(element_l.quantify && element !== element_l){
@@ -434,7 +430,7 @@ function SymbolClusterer(clustererOptions) {
 				var numOverlays = subowner.overlayInfos.length;
 				for(var k = 0; k < numOverlays; k++){
 					let /** OverlayInfo */ info = subowner.overlayInfos[k];
-					this.polygrp[info.quantifyInfo /** Is the polygon id */] = info.geomData;
+					this.polygrp[info.quantifyInfo /** Is the polygon id */] = info;
 				}	
 			}
 		}
@@ -442,7 +438,7 @@ function SymbolClusterer(clustererOptions) {
 			var numOverlays = owner.overlayInfos.length;
 			for(var k = 0; k < numOverlays; k++){
 				let /** OverlayInfo */ info = owner.overlayInfos[k];
-				this.polygrp[info.quantifyInfo /** Is the polygon id */] = info.geomData;
+				this.polygrp[info.quantifyInfo /** Is the polygon id */] = info;
 			}
 		}
 
@@ -502,7 +498,7 @@ function SymbolClusterer(clustererOptions) {
 					var /** IMPoint */ point = /** @type{IMPoint} */ (activeMapSymbols[i].geomData);
 				
 					for (var id in this.polygrp){
-						var /** IMPolygon|IMMultiPolygon */ poly = this.polygrp[id];
+						var /** IMPolygon|IMMultiPolygon */ poly = this.polygrp[id].geomData;
 						
 						if(geoManager.pointInPolygon(point, poly)){
 							this.markerCounts[id] += activeMapSymbols[i].infoWindowContents.length;
@@ -524,8 +520,9 @@ function SymbolClusterer(clustererOptions) {
     }//if
     else {
 	  	this.displayMarkers(true);
+  		mapInterface.revertChangedOverlays();
+  		mapInterface.repaint(true);
     }
-
 
     if(typeof callback == "function")
     	callback(); 
@@ -544,7 +541,7 @@ function SymbolClusterer(clustererOptions) {
 				if(markerIndex[i][j].length > 0) {
 					for (var /** number */ k = 0; k < markerIndex[i][j].length; k++){
 						var /** MapSymbol */ mapsymbol = markerIndex[i][j][k];
-						mapsymbol.marker.setVisible(show);
+						mapInterface.setMarkerVisible(mapsymbol.marker, show);
 					}
 
 				}
@@ -552,7 +549,7 @@ function SymbolClusterer(clustererOptions) {
 		}
 		for (i = 0; i < outside.length; i++){
 			var mapsymbol = outside[i];
-			mapsymbol.marker.setVisible(show);
+			mapInterface.setMarkerVisible(mapsymbol.marker, show);
 		}
 	};
 	
@@ -564,9 +561,10 @@ function SymbolClusterer(clustererOptions) {
 
 		if(l_container.css('display') == "none"){
 		   	var /** number */ left = (jQuery(mapDomElement).width() / 2.0) - 128;
-		   	l_container.css('left',left);
+		   	l_container.css('left',left).css('position','absolute');
 		   	l_container.fadeIn('fast', function(){
 		   		mapInterface.updateMapStyle(true);
+
 		   	});
 	   	}
    		else {
@@ -583,7 +581,6 @@ function SymbolClusterer(clustererOptions) {
 	 * @return {undefined}
 	 */
     this.changePolygonColor = function (linear_mapping){
-
 	   for (var id in this.polygrp){
 		   
         	var /** number */ percentage = 0;	
@@ -650,9 +647,11 @@ function SymbolClusterer(clustererOptions) {
        	    		zindex= 1;
        	    	}
 	       	}
-	       	
-	       	mapInterface.changePolygonAppearance(id, color, stroke_color, opacity, opacity, zindex);
+
+	       	mapInterface.changePolygonAppearance(this.polygrp[id].getMapShape().mapInterfaceElement, color, stroke_color, opacity, opacity, zindex);
 	   	}
+
+	   	mapInterface.repaint(true);
 	};
 
 
@@ -805,7 +804,7 @@ function MapShape (infoWindowContent, owner, index){
  		var that = this;
  		
  		if(this.infoWindow)
- 			mapInterface.destroyInfoWindow(this.infoWindow);
+ 			mapInterface.destroyInfoWindow(this.infoWindow); //To avoid multiple info windows for one polygon
  		
 		this.infoWindow = mapInterface.createInfoWindow(
 			this.mapInterfaceElement,
@@ -814,10 +813,8 @@ function MapShape (infoWindowContent, owner, index){
 			this
 		);
 		
-		mapState.addInfoWindowOwnerToList(this)
-		  
-		var /** @type{InfoWindowContent} */ infoWinContent = this.infoWindowContent;
-		mapInterface.openInfoWindow(this.mapInterfaceElement, this.infoWindow, undefined, lat, lng);
+		mapState.addInfoWindowOwnerToList(this);
+		mapInterface.openInfoWindow(this.mapInterfaceElement, this.infoWindow, undefined, lat, lng, this);
 	};
 	
 	/**
@@ -835,7 +832,8 @@ function MapShape (infoWindowContent, owner, index){
 	 * @return {undefined} 
 	 */
 	this.updateInfoWindow = function (){
-		mapInterface.updateInfoWindowContent(this.infoWindow, undefined, this.infoWindowContent.getHtml(0));
+		var /** Element */ newContent = mapInterface.updateInfoWindowContent(this.infoWindow, -1, this.infoWindowContent.getHtml(0));
+		this.infoWindowContent.onOpen(newContent, 0, this.infoWindow, this.mapInterfaceElement);
 	};
 
 }
@@ -931,10 +929,10 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 	/**
 	 * @private
 	 * 
-	 * @return {Array<{url : string, size: number}>}
+	 * @return {Array<{canvas : Element, size: number}>}
 	 */
 	this.getSymbolURLs = function (){
-		var /** Array<{url : string, size: number}> */ symbols = [];
+		var /** Array<{canvas : Element, size: number}> */ symbols = [];
 
 		for(var /** number */ i = 0; i < this.parts.length; i++){
 			var /** MapSymbolPart */ part = this.parts[i];
@@ -944,7 +942,7 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 			var /** number */ size = symbolManager.getLogSizeForCount(this.getNumElementsForPart(part));
 			var /** number */ totalSize = size + 2 * cindex.markingSize;
 			
-			symbols.push({url : (owner == null? "" : symbolManager.createSymbolURL(cindex.index, size, cindex.markingSize, owner.isActive())), size: totalSize});
+			symbols.push({canvas : (owner == null? null : symbolManager.createSymbolURL(cindex.index, size, cindex.markingSize, owner.isActive())), size: totalSize});
 		}
 		return symbols;
 	};
@@ -1086,7 +1084,7 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 	 */
 	this.openInfoWindow = function (iconIndex){
 		if(this.infoWindow == null){
-			var /** Array<Element> */ contents = [];
+			var /** Array<Element|string> */ contents = [];
 			
 			for(let /** number */ i = 0; i < this.parts.length; i++){
 				var /** MapSymbolPart */ part = this.parts[i];
@@ -1095,16 +1093,18 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 					var /** Element|string*/ html = part.infoWindows[j].getHtml(j);
 					
 					if(typeof html === "string"){
+						var /** string */ newDiv = "<div id='tab_content_" + j + "'>" + linkifyHtml(html) + "</div>";
 						if (contents[i] == undefined){
-							contents[i] = linkifyHtml(html);
+							contents[i] = newDiv;
 						}
 						else {
-							contents[i] += "<br/><hr style='width: 100%; height: 3px; margin: 0 auto;'><br />" + linkifyHtml(html);
+							contents[i] += getInfoWindowContentSeparator() + newDiv;
 						}
 					}
 					else
 						if (contents[i] == undefined){
 							var /**Element*/ newElement = document.createElement("div");
+							newElement["id"] = "tab_content_" + j;
 							newElement.appendChild(html);
 							contents[i] = newElement;
 						}	
@@ -1116,16 +1116,16 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 				}
 			}
 			
-			var /** Array<{url: string, size: number}>*/ symbols;
+			var /** Array<{canvas: Element, size: number}>*/ symbols;
 			if(this.parts == null){
-				symbols = [{url: "", size : symbolSize}];
+				symbols = [{canvas: null, size : symbolSize}];
 			}
 			else {
 				symbols = this.getSymbolURLs();
 			}
 			this.infoWindow = mapInterface.createInfoWindow (this.marker, symbols, contents, this);
 		}
-		mapInterface.openInfoWindow(this.marker, this.infoWindow, iconIndex);
+		mapInterface.openInfoWindow(this.marker, this.infoWindow, iconIndex, undefined, undefined, this);
 		mapState.addInfoWindowOwnerToList(this);
 	};
 	
@@ -1289,6 +1289,25 @@ function OverlayInfo (infoWindowContents, geomData, quantifyInfo, markingColorIn
 	 * @type {number}
 	 */
 	this.markingColorIndex = markingColorIndex;
+	
+	/**
+	 * @private
+	 * @type {?MapShape}
+	 * 
+	 * Only used for quantification. Is set whenever the shape is added to the map, but not unset if the shape is removed!
+	 */
+	this.mapShape = null;
+	
+	this.setMapShape = function (mapShape){
+		this.mapShape = mapShape;
+	};
+	
+	/**
+	 * return {MapShape}
+	 */
+	this.getMapShape = function (){
+		return this.mapShape;
+	}
 }
 
 /**

@@ -153,6 +153,14 @@ function initGuiElements (){
 			legend.switchToState(event.state["content"])
 		}
 	}
+
+jQuery(window).resize(function (){
+	if(jQuery('.modal').hasClass('in')){
+	adjustMapModalContent();
+	}
+});
+
+
 }
 
 
@@ -684,9 +692,22 @@ function gotoLocation(id, zoom){
 			
 			var marker = mapInterface.addLocationMarker(parseFloat(res[1]), parseFloat(res[0]), text, id, zoom);
 			mapState.addLocationMarker(id, marker);
-			
 		}	
 	});
+}
+
+/**
+ * @return {undefined}
+ */
+function adjustMapModalContent(){
+
+	var window_height = window.innerHeight;
+	jQuery('.im_map_modal_body').css('height','auto');
+	var current_height = jQuery('.im_map_modal_body').height();
+	var remaining_height = window_height - jQuery('.im_map_modal_body').offset().top - jQuery('.modal-footer.im_custom_footer_big').outerHeight() - 25; // margin bottom
+
+	if(remaining_height<current_height)jQuery('.im_map_modal_body').height(remaining_height -30);
+
 }
 
 /**
@@ -872,11 +893,11 @@ function createCanvasMenu (gradients){
 	
 	jQuery('#listcontainer').append(help_symbol);
 	
-	addMouseOverHelpSingleElement(help_symbol, TRANSLATIONS["GRADIENT_HELP"]); // TODO cannot use stuff from VA!!!
+	im_addMouseOverHelp(help_symbol, TRANSLATIONS["GRADIENT_HELP"]);
 	
 	var thediv = document.getElementById('listcontainer');
 	jQuery('#listcontainer').hide();
-	mapInterface.addQuantifyColorDiv(thediv);
+	//mapInterface.addQuantifyColorDiv(thediv);
 
 }// createCanvasMenu
 

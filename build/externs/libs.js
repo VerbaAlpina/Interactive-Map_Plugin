@@ -124,3 +124,8 @@ function Munkres (){};
 * @param {Object=} options
 */
 Munkres.prototype.compute = function(cost_matrix, options) {}
+
+/**
+ * @param {string} str
+ */
+jQuery.prototype.tab = function (str){};

@@ -9,8 +9,6 @@ define ('DEFAULT_VALUE', '###DEFAULT###');
  */
 class IM_Initializer_Implementation extends IM_Initializer {
 	
-	public static $default_map_type = 'gm';
-	
 	private $add_scripts = false;
 
 	/**
@@ -39,7 +37,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			$this->map_type = $_REQUEST['mapType'];
 		}
 		else {
-			$this->map_type = self::$default_map_type;
+			$this->map_type = apply_filters('im_default_map_type', 'gm'); //TODO document
 		}
 		
 		$this->includes();
@@ -47,13 +45,14 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//Options that have to be set
 		$this->map_function = 'im_show_test_map';
 		$this->load_function = 'im_load_test_data';
+		
+		//Options that can be used
+		$this->gui_languages = array ('de','en','fr', 'it', 'sl', 'rg');
 		$this->search_location_function = NULL;
 		$this->get_location_function = NULL;
 		$this->edit_function = NULL;
 		$this->global_search_function = NULL;
-		
-		//Options that can be used
-		$this->gui_languages = array ('de','en','fr', 'it', 'sl', 'rg');
+		$this->info_window_function = NULL;
 		
 		global $wpdb;
 		$this->database = $wpdb;
@@ -426,6 +425,17 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		}
 		else {
 			return 'No edit function!';
+		}
+	}
+	
+	//Only used for lazy info window loading
+	public function get_info_window_content($category, $element_id, $overlay_ids, $lang){
+		//TODO document
+		if(is_callable($this->info_window_function)){
+			return call_user_func($this->info_window_function, $category, $element_id, $overlay_ids, $lang);
+		}
+		else {
+			return 'No info window function!';
 		}
 	}
 	

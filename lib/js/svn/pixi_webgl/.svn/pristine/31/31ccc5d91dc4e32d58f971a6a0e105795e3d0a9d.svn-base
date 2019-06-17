@@ -31,7 +31,6 @@
 				this.current_latlng = null;
 				this.current_mousepos = null;
 				this.current_symbol_index;
-				this.current_marker = null;
 				this.multiPolygonList = {};
 				this.alreadychecking_out = false;
 				this.performing_unhover = false;
@@ -132,7 +131,6 @@
 						var getRenderer = utils.getRenderer;
 						utils.getMap().on('click', function(e) {
 
-
 							var interaction = utils.getRenderer().plugins.interaction;
 							var pointerEvent = e.originalEvent;
 							var pixiPoint = new PIXI.Point();
@@ -141,25 +139,17 @@
 
 							var target = interaction.hitTest(pixiPoint, that.container);
 
-							if(target && (e.originalEvent.srcElement === that.renderer.view || target.type =="gl_Marker")){ //prevent click if clicked element is not canvas
+							if(target){
 			
 							    if(target.clickListener){
-							    	try{
+
 										target.clickListener();
-										}
-										catch(e){}
 									}
 
-									else if (target.original_object){
+									else if (target.original_object.clickListener){
+											target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
+									}
 
-										if(target.original_object.clickListener){
-												try{
-												target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
-												}
-												catch(e){}			
-
-												}
-											}
 								else{
 
 
@@ -304,6 +294,8 @@ this.pixiMarker = function(_in){
 	marker.clickListener = _in.clickListener;
 
 
+	// console.log(_in.texture)
+
 	marker.alpha = _in.alpha;
 
 	var markerCoords = that.project(_in.latlng);
@@ -315,7 +307,7 @@ this.pixiMarker = function(_in){
 
 	marker.currentScale = 1 / that.scale;
 
-
+	that.piximarkers.push(marker);
 
 	marker['latlng'] = _in.latlng;
 	marker['content'] = _in.popupcontent;
@@ -333,10 +325,9 @@ this.pixiMarker = function(_in){
 		marker.upscale = false;
 
 	 	marker.on('mouseover',function(e){
-
  			jQuery(".leaflet-pane.leaflet-marker-pane > div:not(.animating)").remove();
 
-
+	
 	 		mouseonmarker = true;
 	 		that.current_latlng = {lat:marker.latlng[0], lng:marker.latlng[1]};
 
@@ -350,14 +341,13 @@ this.pixiMarker = function(_in){
 
        		if(!map_moving){
 
-	 			
+	 				
+
 	 		    // setTimeout(function() {
 			     //    jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
 		      //   }, 150);
 
-				that.current_symbol_index = null;
-				that.current_marker = marker;
-
+		 	
 
 		 		if(!multi){
 		 				createAliasMarker(marker,false)
@@ -365,24 +355,21 @@ this.pixiMarker = function(_in){
 
 		 		else{
 
-	 			  	marker.on('mousemove',function(e){
-	 			  		setTimeout(function() {
-			  				if(that.current_marker===marker)createAliasMarker(marker,true);
-			  			}, 10);
-       			  	});
-						
+						createAliasMarker(marker,true);
 		 		}
 
 		 	
 	 		}
+
+
 
        }
 
 
        function createAliasMarker(marker,multi){
 
-       			  if(multi){
 
+       			  if(multi){
 
 			 			mouspos = that.current_mousepos;
 			 			var symbolpos_in_div_px = map.latLngToContainerPoint(L.latLng( marker.latlng[0], marker.latlng[1]));
@@ -395,15 +382,8 @@ this.pixiMarker = function(_in){
 				 				mouspos.y,
 				 				that.external_scale
 			 				);
-		 				if(symbol_index===that.current_symbol_index)return;
 
-		 				if(symbol_index=="out"){
-								marker.off('mousemove',createAliasMarker);
-								that.current_marker = null;
-								that.current_symbol_index = null;
-								return;    
-		 				}
-		 				
+			 			that.current_symbol_index = symbol_index;
 			 		}	
 
 		 			if(symbol_index!==false || !multi){
@@ -414,10 +394,10 @@ this.pixiMarker = function(_in){
 						var latlng;
 
 						if(multi){
+
 			 			 icon = layout.getIcon(symbol_index);
 			 			 img_url = icon.toDataURL();
 						 tex_height = icon.height*that.external_scale;
-
 
 						 var symbol_pixelpos_x = (symbolpos_in_div_px.x - layout.getWidth(that.external_scale)*0.5) + layout.getXPosition(symbol_index, that.external_scale) + tex_height * 0.5;
 						 var symbol_pixelpos_y = (symbolpos_in_div_px.y - layout.getHeight(that.external_scale)*0.5) + layout.getYPosition(symbol_index, that.external_scale) + tex_height * 0.5;
@@ -435,6 +415,7 @@ this.pixiMarker = function(_in){
 
 						 }
 	
+
 				
 
 					var larger_than_css_scale_fac = 1.4; //increase parent size for child img not to be cut off when scaled (due to hover) fac > 0.1 than css scale
@@ -459,7 +440,7 @@ this.pixiMarker = function(_in){
 					jQuery(aliasmarker._icon).trigger("mouseenter");
 
 					setTimeout(function() {
-						if(triggercount==1)mouseonmarker =false;
+					if(triggercount==1)mouseonmarker =false;
 					}, 150);
 
 
@@ -472,8 +453,6 @@ this.pixiMarker = function(_in){
 								jQuery(this).removeClass('animating');	
 								map.removeLayer(aliasmarker);
 								jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
-
-
 							}, 150);
 
 							setTimeout(function() {
@@ -486,19 +465,21 @@ this.pixiMarker = function(_in){
 								}
 							}, 200);
 
+							if(multi) {
+								createAliasMarker(marker,multi);
+							}
+
 
 					});
 
 
 			}		
 
-			if(multi && symbol_index!==false) that.current_symbol_index = symbol_index;
+
        }
 
 	 		   
 	});	
-
-
 
 
 		var start;
@@ -577,7 +558,6 @@ this.pixiMarker = function(_in){
 
 	marker['type'] = "gl_Marker";
 
-	that.piximarkers.push(marker);
 
 	return marker;
 }
@@ -615,12 +595,10 @@ this.removeMarker = function(marker){
 
 		var index = that.piximarkers.indexOf(marker);
 
-
 		if (index > -1) {
 			that.piximarkers.splice(index, 1);
 			that.markerContainer.removeChild(marker);
 		}	
-
 };
 
 
@@ -882,7 +860,7 @@ this.updateSinglePolygon = function(polygon,latlng,orig_object,center,line_width
 	if(hover_stroke_alpha)polygon['hover_stroke_alpha'] = hover_stroke_alpha;
 
 	if(popupcontent && center){
-			polygon.popup = L.popup({className: 'pixi-popup', autoClose:false})
+			polygon.popup = L.popup({className: 'pixi-popup'})
 			.setLatLng(center)
 			.setContent(popupcontent);
 	}	
@@ -963,7 +941,7 @@ this.drawSinglePixiPolygon = function(pixipolygon,perform){
 
 
 		if(pixipolygon.popupcontent && pixipolygon.center){
-			polygontodraw.popup = L.popup({className: 'pixi-popup', autoClose:false})
+			polygontodraw.popup = L.popup({className: 'pixi-popup'})
 			.setLatLng(pixipolygon.center)
 			.setContent(pixipolygon.popupcontent);
 		}	
@@ -1223,10 +1201,9 @@ function performHover(poly){
 }
 
 this.completeDraw = function(){
+console.log("COMPLETE");
 
-
- jQuery(".leaflet-pane.leaflet-marker-pane > div").remove();
- that.global_giant_polygon.clear(); 
+ that.global_giant_polygon.clear();  
 
 for(var i=0; i<that.piximarkers.length;i++){
 
@@ -1262,10 +1239,9 @@ if(!giant_listeners_initialized){
 
 } 
 
-
-that.renderer.render(that.container);
-
-
+setTimeout(function() {
+		that.renderer.render(that.container);
+	}, 50);
 
 };
 

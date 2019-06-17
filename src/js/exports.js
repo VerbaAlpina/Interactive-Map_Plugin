@@ -5,6 +5,7 @@
  */
 
 //Core stuff
+window["initMap"] = initMap;
 window["categoryManager"] = categoryManager;
 categoryManager["registerCategory"] = categoryManager.registerCategory;
 categoryManager["addAjaxData"] = categoryManager.addAjaxData;

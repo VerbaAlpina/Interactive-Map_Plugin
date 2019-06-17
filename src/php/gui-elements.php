@@ -32,6 +32,7 @@
  * 		@type callable sort_simplification_function Transforms a string for sorting
  * 		@type string group_by Grouping of elements the ids are concatenated with +
  * 		@type string group_order_by Order by clause for the group concat that creates the key for queries with group by clauses
+ * 		@type callable costum_attribute_function A function that returns for any option a string of attributes, e.g. "data-key=9 data-val='test'". Takes the value and the name of the option as parameters.
  * }
  * @return string The html code for the <select> element
  */
@@ -73,6 +74,8 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	$list_format_function = isset($addional_data['list_format_function'])? $addional_data['list_format_function'] : NULL;
 	
 	$sort_simplification_function = isset($addional_data['sort_simplification_function'])? $addional_data['sort_simplification_function'] : NULL;
+	
+	$costum_attribute_function = isset($addional_data['costum_attribute_function'])? $addional_data['costum_attribute_function'] : NULL;
 	
 	//Create key array if single key
 	if(!is_array($key)){
@@ -133,8 +136,17 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	});
 	
 	foreach($values as $index => $val){//TODO find better solution than the str_replace here or document!!!
+		
 		end($val);
-		$result .= "<option value='" . str_replace("'", '', implode('|', array_slice($val, 0, count($key)))) . "'>" . strip_tags(prev($val)) . "</option>\n";
+		$current_value = str_replace("'", '', implode('|', array_slice($val, 0, count($key))));
+		$current_name = strip_tags(prev($val));
+		
+		$attrs = '';
+		if ($costum_attribute_function){
+			$attrs = ' ' . $costum_attribute_function($current_value, $current_name);
+		}
+		
+		$result .= "<option value='" . $current_value . "'" . $attrs . ">" . $current_name . "</option>\n";
 	}
 	$result .= "</select>\n\n";
 	return $result;

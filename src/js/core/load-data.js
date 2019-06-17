@@ -58,7 +58,7 @@ function CategoryManager (){
 	 * @private
 	 * @type {Object<string, function(new:InfoWindowContent, number, string, OverlayType, Object<string, ?>)>} 
 	 */
-	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent, "polygon" : PolygonInfoWindowContent};
+	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent, "polygon" : PolygonInfoWindowContent, "lazy" : LazyInfoWindowContent};
 	
 	/**
 	 *  @private
@@ -422,11 +422,16 @@ function CategoryManager (){
 
 				 var that = this;
 
-				jQuery('#IM_filter_popup_div').off().on('show.bs.modal', function (e) {
+				jQuery('#IM_filter_popup_div').off('show.bs.modal').on('show.bs.modal', function (e) {
 					var name = that.getCategoryName(categoryID);
 					var m_title = jQuery('<span class="im_concept_hl">'+name+'</span><span class="im_name_hl">'+that.getElementName(categoryID, elementID)+'</span>');
 					jQuery('#IM_filter_popup_div .modal-title').empty().append(m_title);
 				}) 	
+
+
+				jQuery('#IM_filter_popup_div').off('shown.bs.modal').on('shown.bs.modal',function(){
+						adjustMapModalContent();
+				});
 
 				jQuery("#IM_filter_popup_div").modal('show').data("element-id", elementID);
 			}
@@ -487,8 +492,9 @@ function CategoryManager (){
 			//TODO load color scheme somehow???
 	
 			//Zoom and position
-			mapInterface.setCenter(mapInfos["Center_Lat"], mapInfos["Center_Lng"]);
-			mapInterface.setZoom(mapInfos["Zoom"] * 1);
+			mapInterface.setCenterAndZoom(mapInfos["Center_Lat"], mapInfos["Center_Lng"], mapInfos["Zoom"] * 1);
+			//mapInterface.setCenter(mapInfos["Center_Lat"], mapInfos["Center_Lng"]);
+			//mapInterface.setZoom(mapInfos["Zoom"] * 1);
 			
 			var /** number */ numElements = data[1].length;
 			var /** number */ notReady = numElements;
@@ -519,6 +525,8 @@ function CategoryManager (){
 					for (let i = 0; i < mapInfos["Location_Markers"].length; i++){
 						gotoLocation(mapInfos["Location_Markers"][i], false);
 					}
+					
+					mapInterface.repaint(true);
 				}
 			};
 			
@@ -705,7 +713,7 @@ function CategoryManager (){
 					thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), sortedKeys, /** @type{Object<string, ?>}*/ (filterData), computedColors, !newLegendElementCreated, /** @type{Array<number>}*/ (active));
 				}
 				
-				mapInterface.repaint();
+				mapInterface.repaint(trigger != "synMap");
 				jQuery(document).trigger("im_after_load_data"); //TODO document
 				
 				if(callback)
@@ -998,9 +1006,12 @@ function CategoryManager (){
 				}
 			}
 			
-			var/** OverlayInfo */ overlayInfo = new OverlayInfo(
-				this.createInfoWindowContents(currentShape[0], element.category, element.key, element.overlayType), 
-				geoManager.parseGeoDataFormated(currentShape[1]), qinfo, currentShape[4], i);
+			var /** Array<InfoWindowContent>*/ infoWindowContents = [];
+			for (let j = 0; j < currentShape[0].length; j++){
+				infoWindowContents.push(this.createInfoWindowContent(currentShape[0][j], element.category, element.key, element.overlayType));
+			}
+			
+			var/** OverlayInfo */ overlayInfo = new OverlayInfo(infoWindowContents, geoManager.parseGeoDataFormated(currentShape[1]), qinfo, currentShape[4], i);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
@@ -1022,28 +1033,22 @@ function CategoryManager (){
 	};
 	
 	/**
-	 * @private
 	 * 
-	 * @param {Array<Object<string, ?>>} data
+	 * @param {Object<string, ?>} data
 	 * @param {number} category
 	 * @param {string} key
 	 * @param {OverlayType} overlayType
 	 * 
-	 * @return {Array<InfoWindowContent>}
+	 * @return {InfoWindowContent}
 	 */
-	this.createInfoWindowContents = function (data, category, key, overlayType){
-		var /** Array<InfoWindowContent>*/ result = [];
-		
-		for (var i = 0; i < data.length; i++){
-			var constr = this.infoWindowContentConstructors[data[i]["elementType"]];
-			delete data[i]["elementType"];
-			if(constr == undefined){
-				throw "InfoWindow type not found!";
-			}
-			result.push(new constr(category, key, overlayType, data[i]));
+	this.createInfoWindowContent = function (data, category, key, overlayType){
+		var /** string */ type = data["elementType"];
+		var constr = this.infoWindowContentConstructors[type];
+		delete data["elementType"];
+		if(constr == undefined){
+			throw "InfoWindow type not found: " + type;
 		}
-		
-		return result;
+		return new constr(category, key, overlayType, data);
 	}
 	
 	/**
@@ -1217,7 +1222,12 @@ function CategoryManager (){
 						}
 					}
 					
-					var/** OverlayInfo */ overlayInfo = new OverlayInfo(this.createInfoWindowContents(currentShape[0], currentElement.category, element.key, currentElement.overlayType), geoObject, qinfo, currentShape[4], j);
+					var /** Array<InfoWindowContent>*/ infoWindowContents = [];
+					for (let k = 0; k < currentShape[0].length; k++){
+						infoWindowContents.push(this.createInfoWindowContent(currentShape[0][k], currentElement.category, element.key, currentElement.overlayType));
+					}
+					
+					var/** OverlayInfo */ overlayInfo = new OverlayInfo(infoWindowContents, geoObject, qinfo, currentShape[4], j);
 					currentElement.overlayInfos.push(overlayInfo);
 					
 					if(filterData["subElementCategory"] == -1){ //Pseudo category

@@ -30,7 +30,7 @@ MapInterface.prototype.init = function (mapDiv, callback, polygonOptions){};
  * @abstract
  * 
  * @param {{lat: number, lng: number}} latlng
- * @param {string} icon
+ * @param {HTMLCanvasElement} icon
  * @param {number} size
  * @param {boolean} movable
  * @param {!MapSymbol} mapSymbol Reference to the symbol representation in the IM logic. Needed for event listener.
@@ -44,7 +44,7 @@ MapInterface.prototype.createMarker = function (latlng, icon, size, movable, map
  * @abstract
  * 
  * @param {MarkerType} marker
- * @param {Array<{url: string, size: number}>} icons
+ * @param {Array<{canvas: HTMLCanvasElement, size: number}>} icons
  * @param {!MapSymbol} mapSymbol
  * @param {number} zIndex
  * 
@@ -56,10 +56,11 @@ MapInterface.prototype.updateMarker = function (marker, icons, mapSymbol, zIndex
  * @abstract
  * 
  * @param {MarkerType} marker
+ * @param {boolean} show
  * 
  * @return {undefined}
  */
-MapInterface.prototype.showMarker = function (marker){};
+MapInterface.prototype.setMarkerVisible = function (marker, show){};
 
 /**
  * @abstract
@@ -184,7 +185,7 @@ MapInterface.prototype.addShapeListeners = function (clickFun){};
  * 
  * 
  * @param {MarkerType|LinestringType|PolygonType} anchorElement
- * @param {Array<{url: string, size: number}>} symbols
+ * @param {Array<{canvas: HTMLCanvasElement, size: number}>} symbols
  * @param {Array<Element|string>} elements
  * @param {MapSymbol|MapShape} mapElement
  * 
@@ -197,13 +198,14 @@ MapInterface.prototype.createInfoWindow = function (anchorElement, symbols, elem
  * 
  * @param {MarkerType|LinestringType|PolygonType} anchorElement
  * @param {InfoWindowType} infoWindow
- * @param {number=} tabIndex
- * @param {number=} lat
- * @param {number=} lng
+ * @param {number|undefined} tabIndex
+ * @param {number|undefined} lat
+ * @param {number|undefined} lng
+ * @param {MapSymbol|MapShape} mapElement
  * 
  * @return {undefined}
  */
-MapInterface.prototype.openInfoWindow = function (anchorElement, infoWindow, tabIndex, lat, lng){};
+MapInterface.prototype.openInfoWindow = function (anchorElement, infoWindow, tabIndex, lat, lng, mapElement){};
 
 /**
  * @abstract
@@ -212,7 +214,7 @@ MapInterface.prototype.openInfoWindow = function (anchorElement, infoWindow, tab
  * @param {number|undefined} tabIndex
  * @param {string|Element} newContent
  * 
- * @return {undefined}
+ * @return {Element}
  */
 MapInterface.prototype.updateInfoWindowContent = function (infoWindow, tabIndex, newContent){};
 
@@ -234,7 +236,8 @@ MapInterface.prototype.destroyInfoWindow = function (infoWindow){};
  * @param{function(Element, number, (MapSymbol|MapShape), InfoWindowType, (MarkerType|LinestringType|PolygonType))} tabOpenedFun
  * @param{function(Element, number, (MapSymbol|MapShape))} tabClosedFun
  * @param{function(Element, (MapSymbol|MapShape))} windowClosedFun
- * @param{function(string)} locationWindowClosedFun
+ * @param{function(string, Element)} locationWindowOpenedFun
+ * @param{function(string, Element)} locationWindowClosedFun
  * 
  * tabOpenedFun: Has to be called if a new tab is opened (Also when the info window is opened regardless if there are tabs or)
  * tabClosedFun: Has to be called if a tab is closed (Also when the info window is closed regardless if there are tabs or)
@@ -244,11 +247,11 @@ MapInterface.prototype.destroyInfoWindow = function (infoWindow){};
  * Tab Change: tabClosedFun for old tab -> tabOpenedFun for new tab
  * Window Closed: tabClosedFun -> windowClosedFun
  * 
- * locationWindowClosedFun: Has to be called if a location marker info window (created by the location search) is closed
+ * locationWindowOpenedFun/locationWindowClosedFun: Have to be called if a location marker info window (created by the location search) is opened/closed
  * 
  * @return {undefined}
  */
-MapInterface.prototype.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun, locationWindowClosedFun){};
+MapInterface.prototype.addInfoWindowListeners = function (tabOpenedFun, tabClosedFun, windowClosedFun, locationWindowOpenedFun, locationWindowClosedFun){};
 
 /**
  * 
@@ -370,6 +373,17 @@ MapInterface.prototype.setCenter = function (lat, lng){};
 MapInterface.prototype.setZoom = function (zoom){};
 
 /**
+ * @abstract
+ * 
+ * @param {number} lat
+ * @param {number} lng
+ * @param {number} zoom Zoom level in GM units
+ * 
+ * @return {undefined}
+ */
+MapInterface.prototype.setCenterAndZoom = function (lat, lng, zoom){};
+
+/**
  * Has to return the current zoom level in GM units
  * 
  * @abstract
@@ -422,7 +436,7 @@ MapInterface.prototype.addLocationMarker = function (lat, lng, text, id, zoom){}
 /**
  * @abstract
  * 
- * @param {string} id
+ * @param {PolygonType} polygon
  * @param {string} fillColor CSS color string
  * @param {string} strokeColor CSS color string
  * @param {number} fillOpacity
@@ -431,7 +445,7 @@ MapInterface.prototype.addLocationMarker = function (lat, lng, text, id, zoom){}
  * 
  * @return {undefined}
  */
-MapInterface.prototype.changePolygonAppearance = function (id, fillColor, strokeColor, fillOpacity, strokeOpacity, zIndex){};
+MapInterface.prototype.changePolygonAppearance = function (polygon, fillColor, strokeColor, fillOpacity, strokeOpacity, zIndex){};
 
 /**
  * @abstract
@@ -473,15 +487,6 @@ MapInterface.prototype.addLocationDiv = function (clickFunction, callback){};
 /**
  * @abstract
  * 
- * @param {Element} div
- * 
- * @return {undefined}
- */
-MapInterface.prototype.addQuantifyColorDiv = function (div){};
-
-/**
- * @abstract
- * 
  * @return {{lat: number, lng: number}}
  */
 MapInterface.prototype.getCenter = function (){};
@@ -489,6 +494,8 @@ MapInterface.prototype.getCenter = function (){};
 /**
  * @abstract
  * 
+ * @param {boolean} ready
+ * 
  * @return {undefined}
  */
-MapInterface.prototype.repaint = function (){};
+MapInterface.prototype.repaint = function (ready){};

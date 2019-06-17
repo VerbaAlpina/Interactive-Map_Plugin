@@ -4,14 +4,14 @@
  * @constructor
  * @implements AbstractListBuilder
  *
- * @param {Array<string>=} customListFieldsParam The custom fields of the info window to show in the list
+ * @param {function (number):Array<string>|Array<string>=} customListFieldsParam The custom fields of the info window to show in the list
  */
 
 function SimpleListBuilder(customListFieldsParam){
     /**
-     * @type {Array<string>|undefined}
+     * @type {function (number):Array<string>|Array<string>|undefined}
      */
-    this.customListFields = customListFieldsParam;
+    this.customListFieldsParam = customListFieldsParam;
     this.printerManager = new PrinterManager();
 
     /**
@@ -43,27 +43,38 @@ function SimpleListBuilder(customListFieldsParam){
          * @type {Array<Object>}
          */
         var printerInput = [];
+        
+        var /** Array<string> */ customListFields;
+        
         // Necessary in case not all of the tokens contain the same information.
-        if(typeof this.customListFields=="undefined"){
-            this.customListFields=[];
+        if(typeof this.customListFieldsParam === "undefined"){
+            
+        	customListFields = [];
             for(var i = 0; i<curOverlayInfos.length;i++){
             	for (var u = 0; u < curOverlayInfos[i].infoWindowContents.length; u++){
             		 var tokens = curOverlayInfos[i].infoWindowContents[u].getData();
                      for(var k = 0; k<tokens.length;k++){
                          for(var key in tokens[k]){
-                             this.customListFields.push(key);  
+                             customListFields.push(key);  
                          }
                      }
             	}
             }
         }
+        else if (typeof this.customListFieldsParam === "function"){
+        	customListFields = this.customListFieldsParam(printerID);
+        }
+        else {
+        	customListFields = this.customListFieldsParam;
+        }
+        
         for(var i = 0; i<curOverlayInfos.length;i++){
         	for (var u = 0; u < curOverlayInfos[i].infoWindowContents.length; u++){
         		var tokens = curOverlayInfos[i].infoWindowContents[u].getData();
                 for(var k = 0; k<tokens.length;k++){
                     var curObj = {};
-                    for(var j = 0; j<this.customListFields.length;j++){
-                        curObj[this.customListFields[j]]=tokens[k][this.customListFields[j]];
+                    for(var j = 0; j< customListFields.length;j++){
+                        curObj[customListFields[j]]=tokens[k][customListFields[j]];
                     }
                     printerInput.push(curObj);
                 }

@@ -207,6 +207,7 @@ function Legend() {
 			for(var /** number */ i = 0; i < element.subElements.length; i++){
 				this.removeElement(element.subElements[i], false);
 			}
+			mapInterface.repaint(true);
 		}
 		else {
 			symbolClusterer.removeOverlays(element);
@@ -218,6 +219,10 @@ function Legend() {
 				if(element.visible()){
 					element.parent.subElementsVisible--;
 				}
+			}
+			
+			if (deleteFromArray){
+				mapInterface.repaint(true);
 			}
 		}
 		
@@ -276,7 +281,6 @@ function Legend() {
 		for (let /** LegendElement */ le of this){
 			le.setActive(false);
 		}
-		symbolClusterer.repaintPointSymbols();
 	};
 	
 	
@@ -403,7 +407,7 @@ function Legend() {
 		if(element instanceof MultiLegendElement){
 			row.addEventListener ("click", function (event){
     		    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
-    		    var rowpos = jQuery(row).position().top-75;
+    		    var rowpos = jQuery(row).position().top-115;
 			    legend.scrollPosTop = scrollpos + rowpos; // scroll clicked element as good in view as possible
 		
 				if((event.target || event.srcElement) instanceof HTMLInputElement)
@@ -482,6 +486,7 @@ function Legend() {
 			    	}
 
 					legend.update();
+					mapInterface.repaint(true);
 				}.bind(element));
 		    }
 		}
@@ -490,14 +495,14 @@ function Legend() {
 		
 		
 		col = document.createElement("td");
-		if(element.loading || element.symbolStandard != ""){
+		if(element.loading || element.symbolStandard){
 			var /** HTMLImageElement */ img = /** @type{HTMLImageElement} */ (document.createElement("img"));
 			if (element.loading) {
 				 img["src"] = PATH["Loading"];
 			} else {
 		
-				if(!element.active && element.overlayType == OverlayType.PointSymbol && legend.numActive>0) img["src"] = element.symbolInactive;
-				else img["src"] = element.symbolStandard;
+				if(!element.active && element.overlayType == OverlayType.PointSymbol && legend.numActive>0) img["src"] = element.symbolInactive.toDataURL();
+				else img["src"] = element.symbolStandard.toDataURL();
 	
 				img["style"]["width"] = symbolSize + " px";
 				img["style"]["height"] = symbolSize + "px";
@@ -564,6 +569,7 @@ function Legend() {
 					 legend.scrollPosTop = scrollpos;
 
 					legend.deactivateAll();
+					symbolClusterer.repaintPointSymbols();
 
 					hideAllOtherPolygonGrps(element);
 					if(!element.visible())
@@ -693,10 +699,13 @@ function Legend() {
 		cb.className = "legend_checkbox";
 		var /** function () */ cbFun;
 		cb.addEventListener ("click", function (event){
-			element.visible(this.checked, true);
+
 
 		    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
 	        legend.scrollPosTop = scrollpos;
+
+			element.visible(this.checked, true);
+
 
 			if(symbolClusterer.checkQuantify() && element.containsPointSymbols())
 				symbolClusterer.reQuantify();	
@@ -1246,11 +1255,11 @@ function LegendElement(category, key, parent) {
 	*/
 	this.loading_quantify = false;
 
-	/** @type{string} */
-	this.symbolStandard = "";
+	/** @type{Element} */
+	this.symbolStandard = null;
 
-	/** @type{string} */
-	this.symbolInactive  = "";
+	/** @type{Element} */
+	this.symbolInactive  = null;
 
 	/** @type{Array<OverlayInfo>} */
 	this.overlayInfos = new Array();
@@ -1312,43 +1321,42 @@ function LegendElement(category, key, parent) {
 	 */
 	this.visible = function(visible, updateLegend) {
 		
-	//Setter:
-	var /** number*/ i;
-	if (visible != null){
+		//Setter:
+		var /** number*/ i;
+		if (visible != null){
 		
-		if(visible != isVisible) {
-			isVisible = visible;
-			if(visible){
-				var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
-				var /** number */ len = this.overlayInfos.length;
-				for (i = 0; i < len; i++){
-					symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
-				}
-
-				mapInterface.repaint();	
-				
-				if(this.parent != null){
-					this.parent.subElementsVisible++;
-					this.parent.visible(true, this.parent.subElementsVisible == 1, true);
-				}
-			}
-			else {
-				this.openInfoWindowsNumber = 0;
-				symbolClusterer.removeOverlays(this);
-				
-				if(this.parent != null){
-					this.parent.subElementsVisible--;
-					if(this.parent.subElementsVisible == 0){
-						this.parent.visible(false, true, true);
+			if(visible != isVisible) {
+				isVisible = visible;
+				if(visible){
+					var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
+					var /** number */ len = this.overlayInfos.length;
+					for (i = 0; i < len; i++){
+						symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
+					}
+					
+					if(this.parent != null){
+						this.parent.subElementsVisible++;
+						this.parent.visible(true, this.parent.subElementsVisible == 1, true);
 					}
 				}
-				
+				else {
+					this.openInfoWindowsNumber = 0;
+					symbolClusterer.removeOverlays(this);
+					
+					if(this.parent != null){
+						this.parent.subElementsVisible--;
+						if(this.parent.subElementsVisible == 0){
+							this.parent.visible(false, true, true);
+						}
+					}
+					
+				}
+			
+				if(updateLegend){
+			    	legend.update();
+			    	mapInterface.repaint(true);
+				}
 			}
-		}
-
-		if(updateLegend)
-	    	legend.update();
-
 		}
 		//Getter
 		return isVisible;
@@ -1400,18 +1408,14 @@ function LegendElement(category, key, parent) {
 		if(this.parent != null && !this.parent.childrenInLegend){
 			element = this.parent.htmlElement;
 		}
-		else
-		{
+		else {
 			element = this.htmlElement;
 		}
 		
-		element.focus();
-		if (element.hasClass("focused"))
-			return;
-		
-		element.addClass("focused");
-		
 		this.openInfoWindowsNumber++;
+		
+		element.focus();
+		element.addClass("focused");
 
 	    var scrollpos = /** number */  parseInt(jQuery('.legendtable tbody').scrollTop(), 10);
         legend.scrollPosTop = scrollpos;
@@ -1632,8 +1636,8 @@ function MultiLegendElement(category, key) {
 	};
 	this.setLoading(true);
 
-	/** @type{string} */
-	this.symbolStandard = "";
+	/** @type{Element} */
+	this.symbolStandard = null;
 	
 	/**
 	 *  @private
@@ -1740,9 +1744,12 @@ function MultiLegendElement(category, key) {
 					this.subElements[i].visible(visible, false);
 				}
 			}
+			
+			if(updateLegend){
+				legend.update();
+				mapInterface.repaint(true);
+			}
 		}
-		if(updateLegend)
-			legend.update();
 
 		//Getter
 		return isVisible;

@@ -17,6 +17,7 @@
 	<file name="src/js/core/list-manager.js" />
 	<file name="src/js/core/map-interface.js" />
 	<file name="src/js/core/map-state.js" />
+	<file name="src/js/core/multi-symbol.js" />
 	
 	<file name="src/js/classes/filter-components/grouping.js" />
 	<file name="src/js/classes/filter-components/sorting.js" />
@@ -26,6 +27,7 @@
 	<file name="src/js/classes/info-windows/simple.js" />
 	<file name="src/js/classes/info-windows/polygon.js" />
 	<file name="src/js/classes/info-windows/editable.js" />
+	<file name="src/js/classes/info-windows/lazy.js" />
 	<file name="src/js/classes/sort-types/alphabet.js" />
 	<file name="src/js/classes/sort-types/num-records.js" />
 	<file name="src/js/classes/list-printers/html-list-printer.js" />

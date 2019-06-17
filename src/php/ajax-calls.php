@@ -153,9 +153,11 @@ function im_ajax_handler_all (){
 
 	switch ($_POST['namespace']){
 		case 'load_data':
+			//error_log('Start: ' . memory_get_usage());
 			check_ajax_referer('im_load_data', '_wpnonce', true);
 			
 			$result = IM_Initializer::$instance->load_data();
+			//error_log('After load: ' . memory_get_usage());
 			
 			if(!isset($_POST['noComments']))
 				$result->addComments($_POST['key'], $db);
@@ -172,7 +174,7 @@ function im_ajax_handler_all (){
 				
 				$result = [];
 				if(is_callable(IM_Initializer::$instance->search_location_function)){
-					$result = call_user_func(IM_Initializer::$instance->search_location_function, $_POST['search']);
+					$result = call_user_func(IM_Initializer::$instance->search_location_function, esc_sql($_POST['search']));
 				}
 				echo json_encode($result);
 			break;
@@ -182,7 +184,7 @@ function im_ajax_handler_all (){
 				
 				$result = NULL;
 				if(is_callable(IM_Initializer::$instance->get_location_function)){
-					$result = call_user_func(IM_Initializer::$instance->get_location_function, $_POST['loc_id']);
+					$result = call_user_func(IM_Initializer::$instance->get_location_function, esc_sql($_POST['loc_id']));
 				}
 				echo json_encode($result);
 			break;
@@ -192,7 +194,7 @@ function im_ajax_handler_all (){
 
 				$result = [];
 				if(is_callable(IM_Initializer::$instance->global_search_function)){
-					$result = call_user_func(IM_Initializer::$instance->global_search_function, $_POST['search'], $_POST['lang']);
+					$result = call_user_func(IM_Initializer::$instance->global_search_function, esc_sql($_POST['search']), esc_sql($_POST['lang']));
 				}
 				echo json_encode($result);
 			break;
@@ -201,8 +203,8 @@ function im_ajax_handler_all (){
 		case 'load_syn_map':
 			check_ajax_referer('im_load_data', '_wpnonce', true);
 			
-			$query1 = 'SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers FROM im_syn_maps WHERE Id_Syn_Map = ' . $_POST['key'];
-			$query2 = 'SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = ' . $_POST['key'] . ' ORDER BY Position ASC';
+			$query1 = $db->prepare('SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers FROM im_syn_maps WHERE Id_Syn_Map = %d', $_POST['key']);
+			$query2 = $db->prepare('SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = %d ORDER BY Position ASC', $_POST['key']);
 			$map_main_data = $db->get_row($query1, 0);
 
 			if($map_main_data){
@@ -230,7 +232,7 @@ function im_ajax_handler_all (){
 		
 			$name = NULL;
 			if(!$anonymous)
-				$name = $db->get_var("SELECT Name FROM im_syn_maps WHERE Name = '" . $_POST['name'] . "'");
+				$name = $db->get_var($db->prepare('SELECT Name FROM im_syn_maps WHERE Name = %s', $_POST['name']));
 			
 			if($name != NULL){
 				echo 'NAME_EXISTS';
@@ -278,6 +280,18 @@ function im_ajax_handler_all (){
 				echo $map_id;
 			}
 		break;
+		
+		case 'load_lazy_infowindow':
+			check_ajax_referer('im_load_data', '_wpnonce', true);
+			
+			$info_window_contents = IM_Initializer::$instance->get_info_window_content($_POST['category'], $_POST['element_id'], explode(',', $_POST['overlay_ids']), $_POST['lang']);
+			$res = [];
+			foreach ($info_window_contents as $ic){
+				$res[] = $ic->getData();
+			}
+			
+			echo json_encode($res);
+			break;
 	}
 	die;
 }
@@ -474,7 +488,7 @@ class IM_Result {
 	
 	function createResultString (){
 	
-		$result_data = array ();
+		$result_data = [];
 
 		foreach ($this->element_data as $sub_id => $data){
 			//Find out the overlay type of the result for visualization. As soon as there are two types of overlays it is treated like a point symbol.
@@ -493,15 +507,23 @@ class IM_Result {
 				}
 			}
 			
-			$result_data[$sub_id] = array ($overlay_type, $data);
+			//$result_data[] = '"' . $sub_id . '":' . json_encode([$overlay_type, $data]);
+			$str = json_encode([$overlay_type, $data]);
+			unset($this->element_data[$sub_id]);
+			$result_data[] = '"' . $sub_id . '":' . $str;
+			unset($str);
 		}
 		
-		$result = array($result_data, $this->comments, $this->key, $this->extra_data);
-		 if($this->debug_data){
-		 	$result[] = $this->debug_data;
-		 }
+		//error_log('After loop: ' . memory_get_usage());
 		
-		return json_encode($result);
+		$result = [$this->comments, $this->key, $this->extra_data];
+		if($this->debug_data){
+		 	$result[] = $this->debug_data;
+		}
+		
+		$str = '[{' . implode(',', $result_data) . '},' . mb_substr(json_encode($result), 1);
+		
+		return $str;
 	}
 }
 
@@ -590,6 +612,33 @@ abstract class IM_ElementInfoWindowData {
 		$result = $this->getTypeSpecificData();
 		$result['elementType'] = $this->element_type;
 		return $result;
+	}
+}
+
+/**
+ * Can be used as a stub if the info windows should be reloaded dynamically
+ *
+ */
+class IM_LazyElementInfoWindowData extends IM_ElementInfoWindowData {
+	private $data;
+	
+	function __construct ($category, $element_id, $overlay_id, $name){
+		parent::__construct('lazy');
+		
+		$this->data = [
+			'category' => $category,
+			'element_id' => $element_id, //Id of the legend element
+			'overlay_id' => $overlay_id, //Id of the specific marker, polygon etc.
+			'name' => $name //Needed especially for "all distinct" pseudo category
+		];
+	}
+	
+	public function getName(){
+		return '';
+	}
+	
+	protected function getTypeSpecificData (){
+		return $this->data;
 	}
 }
 
