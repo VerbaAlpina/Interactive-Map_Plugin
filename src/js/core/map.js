@@ -111,11 +111,11 @@ function initMap (mapPosition, clustererOptions, constructorOptions){
 	
 	mapDomElement = document.getElementById("IM_map_div");
 	
-	mapInterface.init(mapDomElement, initCallback, polygonSettings);
+	mapInterface.init(mapDomElement, initCallback.bind(this, clustererOptions), polygonSettings);
 }
 
 
-function initCallback (){
+function initCallback (clustererOptions){
 	mapInterface.addMarkerListeners(
 		/**
 		 * @this {!MapSymbol}

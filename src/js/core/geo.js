@@ -73,15 +73,23 @@ function IMPoint (geoData){
  * @implements {IMGeometry}
  * 
  * @param {Array<Array<{lat: number, lng: number}>>} geoData
+ * @param {Array<{lat: number, lng: number}>=} boundingBox
  * 
  */
-function IMPolygon (geoData){
+function IMPolygon (geoData, boundingBox){
 	/**
 	 * @private
 	 * @const
 	 * @type {Array<Array<{lat: number, lng: number}>>}
 	 */
 	this.geoData = geoData;
+	
+	/**
+	 * @private
+	 * @const
+	 * @type {Array<{lat: number, lng: number}>|undefined}
+	 */
+	this.boundingBox = boundingBox;
 	
 	/**
 	 * @private
@@ -95,6 +103,13 @@ function IMPolygon (geoData){
 	 */
 	this.getGeometry = function (){
 		return this.geoData;
+	}
+	
+	/**
+	 * @return {Array<{lat: number, lng: number}>|undefined}
+	 */
+	this.getBoundingBox = function (){
+		return this.boundingBox;
 	}
 	
 	/**
@@ -120,15 +135,23 @@ function IMPolygon (geoData){
  * @implements {IMGeometry}
  * 
  * @param {Array<Array<Array<{lat: number, lng: number}>>>} geoData
+ * @param {Array<{lat: number, lng: number}>=} boundingBox
  * 
  */
-function IMMultiPolygon (geoData){
+function IMMultiPolygon (geoData, boundingBox){
 	/**
 	 * @private
 	 * @const
 	 * @type {Array<Array<Array<{lat: number, lng: number}>>>}
 	 */
 	this.geoData = geoData;
+	
+	/**
+	 * @private
+	 * @const
+	 * @type {Array<{lat: number, lng: number}>|undefined}
+	 */
+	this.boundingBox = boundingBox;
 	
 	/**
 	 * @private
@@ -142,6 +165,13 @@ function IMMultiPolygon (geoData){
 	 */
 	this.getGeometry = function (){
 		return this.geoData;
+	}
+	
+	/**
+	 * @return {Array<{lat: number, lng: number}>|undefined}
+	 */
+	this.getBoundingBox = function (){
+		return this.boundingBox;
 	}
 	
 	/**
@@ -286,15 +316,16 @@ function GeoManager (){
 	 * that is to say without any unneccesary whitespaces
 	 * 
 	 * @param {string} string 
+	 * @param {Array<{lat: number, lng: number}>=} boundingBox
 	 * 
 	 * @return {IMGeometry}
 	 */
-	this.parseGeoDataFormated = function (string) {
+	this.parseGeoDataFormated = function (string, boundingBox) {
 		if(string.indexOf("MULTIPOLYGON") != -1){
-			return this.parseMultiPolygon(string);
+			return this.parseMultiPolygon(string, boundingBox);
 		}
 		else if(string.indexOf("POLYGON") != -1){
-			return this.parsePolygon(string);
+			return this.parsePolygon(string, boundingBox);
 		}
 		else if(string.indexOf("MULTILINESTRING") != -1){
 			return this.parseMultiLineString(string);
@@ -314,7 +345,7 @@ function GeoManager (){
 	 * @return {IMGeometry}
 	 */
 	this.parseGeoDataUnformated = function (string) {
-		return this.parseGeoDataFormated(this.geoDataToStrictFormat(string));
+		return this.parseGeoDataFormated(this.geoDataToStrictFormat(string), undefined);
 	}
 	
 	/**
@@ -336,15 +367,16 @@ function GeoManager (){
 	/**
 	 * @private
 	 * @param {string} string
+	 * @param {Array<{lat: number, lng: number}>=} boundingBox
 	 * 
 	 * @return {IMPolygon}
 	 */
 	
-	this.parsePolygon = function (string) {
+	this.parsePolygon = function (string, boundingBox) {
 		string = string.replace("POLYGON((","");
 	 	string = string.replace("))","");
 		
-		return new IMPolygon(this.parsePolygonCoords(string));
+		return new IMPolygon(this.parsePolygonCoords(string), boundingBox);
 	}
 
 
@@ -355,7 +387,7 @@ function GeoManager (){
 	 * 
 	 * @return {IMMultiPolygon}
 	 */
-	this.parseMultiPolygon = function (string) {
+	this.parseMultiPolygon = function (string, boundingBox) {
 		string = string.replace("MULTIPOLYGON(((","");
 	 	string = string.replace(")))","");
 		
@@ -375,7 +407,7 @@ function GeoManager (){
 	 	for (var i = 0; i < polygons.length; i++) {
 			resultList.push(this.parsePolygonCoords(polygons[i]));
 	 	}
-	 	return new IMMultiPolygon(resultList);
+	 	return new IMMultiPolygon(resultList, boundingBox);
 	}
 
 	/**

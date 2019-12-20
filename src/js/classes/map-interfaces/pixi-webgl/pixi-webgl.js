@@ -88,7 +88,7 @@ function PixiWebGLInterface (position, options){
 
 
 	this.base_map_1  = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-	attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+	attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a> contributors'
 	});
 
 	this.base_map_2 = L.tileLayer("https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png", {
@@ -96,7 +96,7 @@ function PixiWebGLInterface (position, options){
 	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://cartodb.com/attributions">CartoDB</a>'
 	})
 
-	this.base_map_3 = L.tileLayer('http://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+	this.base_map_3 = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
 	attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
 	subdomains: 'abcd',
 	maxZoom: 19
@@ -239,15 +239,16 @@ setTimeout(function() {
 	 * @return {Object}
 	 */
 	this.createMarker = function (latlng, icon, size, movable, mapSymbol, zIndex){
+
 		var texture =  PIXI.Texture.from(icon,{width:size,height:size});
 		
-
 	    var marker = new this.pixioverlay.pixiMarker(
 			    {
 			    latlng: [latlng['lat'],latlng['lng']],
 			    texture: texture,
 			    interactive: true,
 			    alpha: 1.0,
+			    zIndex: zIndex,
 			    clickListener: function (){
 			    	that.markerClickFunction.call(mapSymbol);
 			    }
@@ -288,6 +289,7 @@ setTimeout(function() {
 		    texture: texture,
 		    interactive: true,
 		    alpha: 1.0,
+		    zIndex: zIndex,
 		    clickListener: function (){
 		    	that.markerClickFunction.call(mapSymbol, that.pixioverlay.current_symbol_index);
 		    }
@@ -331,7 +333,9 @@ setTimeout(function() {
 	 * 
 	 * @return {{lat: number, lng: number}}
 	 */
-	this.getInfoWindowPosition = function (infoWindow){};
+	this.getInfoWindowPosition = function (infoWindow){
+			return infoWindow.getLatLng();
+	};
 	
 	/**
 	 * @override
@@ -415,11 +419,12 @@ setTimeout(function() {
 		var coordinates = geoData['geoData'];
 		geo['coordinates'] = coordinates;
 		geo['idx'] = id;
+		geo['boundingBox'] = geoData.getBoundingBox();
 
 	    var color = mapShape.owner.getColorHex();
 	    var polygon_settings = polygonSettingsBoth(color);
 
-
+	    
 
 			var poly = new this.pixioverlay.gLPolygon({
 					geo:geo,
@@ -524,10 +529,10 @@ setTimeout(function() {
 		anchorElement.popup.map_element = mapElement;
 
 			content.find('.ifw_nav_tabs a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-				
 				var tabid = jQuery(this).data().id;
 				that.ifwTabOpened(content.find("div#tab_" + tabid)[0],tabid,mapElement,anchorElement.popup,anchorElement.popup.owner);
 				anchorElement.popup.tab_index = tabid;
+				anchorElement.popup.update(); //adjust ifw to new content size
 				
 			});
 
@@ -579,7 +584,7 @@ setTimeout(function() {
 					if(i==0)tabclass = 'tab-pane active';
 
 					content += '<div class="'+tabclass+'" id="tab_'+i+'" role="tabpanel" aria-expanded="true">'
-					content += elements[i];
+					//content += elements[i];
 					content += '</div>';
 
 				}
@@ -591,9 +596,12 @@ setTimeout(function() {
 				totalcontent += content;
 				totalcontent += "</div>";
 
-			
+				var res = jQuery(totalcontent);
+				for(var i=0;i<elements.length;i++){
+					res.find("#tab_" + i).append(elements[i]);
+				}
 
-				return jQuery(totalcontent);
+				return res;
 
 			}
 

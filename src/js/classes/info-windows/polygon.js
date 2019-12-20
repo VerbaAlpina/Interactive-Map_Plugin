@@ -103,6 +103,10 @@ function PolygonInfoWindowContent(categoryID, elementID, overlayType, data) {
 		}
 
 		container.prepend(headline);
+		
+		if (data["comparable"]){
+			container.append(jQuery("<input type='button' value='compare' class='similarity_button' data-id='" + data["id_polygon"] + "' />"));
+		}
 
 		return /** @type{string} */ (container.prop('outerHTML'));
 	};

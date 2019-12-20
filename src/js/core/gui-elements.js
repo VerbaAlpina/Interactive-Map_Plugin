@@ -154,12 +154,34 @@ function initGuiElements (){
 		}
 	}
 
-jQuery(window).resize(function (){
-	if(jQuery('.modal').hasClass('in')){
-	adjustMapModalContent();
-	}
-});
+	jQuery('.leafletcustom').on('click',function(e){
+		e.stopPropagation();
+	}); 
 
+// jQuery(window).resize(function (){
+// 	if(jQuery('.modal').hasClass('in')){
+// 	adjustMapModalContent();
+// 	}
+// });
+
+	jQuery(document).on("click", ".similarity_button", function (){
+		let id = jQuery(this).data("id");
+		
+		let data = {
+			"action" : "im_a",
+			"namespace" : "get_similarity_data",
+			"id_polygon" : id,
+			"_wpnonce" : jQuery("#_wpnonce").val()
+		};
+		
+		jQuery.post(ajaxurl, data, function (response){
+			let data = /** @type{{similarities: Object<string,number>, html: string}}*/ (JSON.parse(response));
+			let /**MapShape*/ mapShape = symbolClusterer.showSimilarity(id, data["similarities"]);
+			
+			mapShape.infoWindowContent = new SimpleInfoWindowContent (null, null, null, {"name": "Test", "description": data["html"]});
+			mapShape.updateInfoWindow();
+		});
+	});
 
 }
 
@@ -492,7 +514,7 @@ function updateSelect(element, value, mode){
  * @returns {undefined}
  */
  function createLocNavigationDiv (){
-	 mapInterface.addLocationDiv(function(){
+	 mapInterface.addLocationDiv(function(e){
 		 jQuery('#IM_loc_nav_popup').modal();
 	 }, function (){
 		 jQuery('#IM_loc_nav_popup').one('shown.bs.modal',function(){
@@ -833,7 +855,7 @@ function createCanvasMenu (gradients){
 	
 	
 	jQuery('.canvas_list li').click(function(){
-		
+		console.log("here");
 		jQuery('.hoverdiv').hide();
 		jQuery('.canvastext').hide();
 		
@@ -856,6 +878,7 @@ function createCanvasMenu (gradients){
 		listout = false;
 		
 		symbolClusterer.changePolygonColor(false);
+		 mapInterface.repaint(true);
 	});
 
 

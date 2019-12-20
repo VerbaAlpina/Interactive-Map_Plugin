@@ -68,26 +68,15 @@ function MapState (){
 			if(element instanceof MapShape){
 				var /** {lat: number, lng: number} */ latlng = mapInterface.getInfoWindowPosition(element.infoWindow);
 				let /** {elementIndex: number, lat: number, lng: number} */ data = {"elementIndex" : element.index, "lat" : latlng["lat"], "lng" : latlng["lng"]};
-				if (element.owner.parent == null){
-					data["legendIndex"] = element.owner.getIndex();
-				}
-				else {
-					data["legendIndex"] = element.owner.parent.getIndex();
-					data["legendSubIndex"] = element.owner.getSubElementIndex();
-				}
+				data["key"] = element.owner.key;
+				data["category"] = element.owner.category;
 				result.push(/** @type{{legendIndex: number, elementIndex: number, lat: number, lng: number}} */ (data));
 			}
 			else {
 				let /** {lat: number, lng : number}*/ data = mapInterface.getMarkerPosition(element.getMarker());
 				var /** LegendElement */ legendElement = element.getLegendElement(element.currentTabIndex);
-
-				if(legendElement.parent == null){
-					data["legendIndex"] = legendElement.getIndex();
-				}
-				else {
-					data["legendIndex"] = legendElement.parent.getIndex();
-					data["legendSubIndex"] = legendElement.getSubElementIndex();
-				}
+				data["key"] = legendElement.key;
+				data["category"] = legendElement.category;
 				data["elementIndex"] = element.parts[element.currentTabIndex].indexes[0];
 				data["tabIndex"] = element.currentTabIndex;
 				result.push(/** @type{{legendIndex: number, elementIndex: number, lat: number, lng: number}} */ (data));

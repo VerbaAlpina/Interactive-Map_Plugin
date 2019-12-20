@@ -516,6 +516,8 @@ function SymbolClusterer(clustererOptions) {
 			//change color of polygons according to their amount of markers in relation to all markers in their polygon grp:
    		    this.changePolygonColor(false);
    		    
+   		    mapInterface.repaint(true);
+   		    
 
     }//if
     else {
@@ -529,6 +531,46 @@ function SymbolClusterer(clustererOptions) {
     	
       
 	};
+	
+	/**
+	 * @param {string} id_reference
+	 * @param {Object<string, number>} similarities
+	 * 
+	 * @return {undefined}
+	 */
+	this.showSimilarity = function (id_reference, similarities){
+		
+		this.polygrp = {};
+		this.markerCounts = {};
+		
+		for(var i = 0; i < legend.getLength(); i++){
+			var element_l = legend.getElement(i);
+			var overlays = element_l.getOverlayInfos();
+			for(var j = 0; j < overlays.length; j++){
+
+				let type = overlays[j].geomData.getType();
+				if(type == IMGeoType.Polygon || type == IMGeoType.MultiPolygon){
+					let idx = /** @type{string}*/ (overlays[j].quantifyInfo /* Is the polygon id */);
+					this.polygrp[idx] = overlays[j];
+					this.markerCounts[idx] = similarities[idx]? similarities[idx]: false;
+				}
+			}
+		}
+		
+		this.max_markers_in_one_poly = 1;
+		
+		jQuery('#colorbarlegend_right').text(this.max_markers_in_one_poly);
+		this.changePolygonColor(false);
+
+		mapInterface.changePolygonAppearance(this.polygrp[id_reference].getMapShape().mapInterfaceElement, "rgb(0,255,0)", "rgb(0,255,0)", 1, 1, 1);
+		mapInterface.repaint(true);
+		
+		categoryManager.addAjaxData("similarity", id_reference);
+		
+		this.toggleQuantifyMode();
+		
+		return this.polygrp[id_reference].getMapShape();
+	}
 
 
 	/** 
@@ -554,12 +596,14 @@ function SymbolClusterer(clustererOptions) {
 	};
 	
 	/**
+	 * @param  {boolean=} quant
+	 * 
 	 * @return {undefined}
 	 */
-	this.toggleQuantifyMode = function (){
+	this.toggleQuantifyMode = function (quant){
 		var /** jQuery */ l_container = jQuery('#listcontainer');
 
-		if(l_container.css('display') == "none"){
+		if(quant || l_container.css('display') == "none"){
 		   	var /** number */ left = (jQuery(mapDomElement).width() / 2.0) - 128;
 		   	l_container.css('left',left).css('position','absolute');
 		   	l_container.fadeIn('fast', function(){
@@ -583,75 +627,79 @@ function SymbolClusterer(clustererOptions) {
     this.changePolygonColor = function (linear_mapping){
 	   for (var id in this.polygrp){
 		   
-        	var /** number */ percentage = 0;	
-
-        	if(this.markerCounts[id]){
-            	if(linear_mapping){
-            		percentage = this.markerCounts[id] / this.overall_markers;
-            	}	
-            	else {
-            		percentage = this.markerCounts[id] / this.max_markers_in_one_poly;
-            	}		   
-            }	
-       
-    		var /** number */ idx = Math.ceil(255 * percentage);
-    		if(idx > 255)
-    			idx = 255;
-
-    		var /** Element */ canvas  = document.querySelector("#activediv canvas");
-    		var /** CanvasRenderingContext2D */ ctx = canvas.getContext('2d');
-
-	        var /** ImageData */ pix = ctx.getImageData(idx, 0, 1, 1);
-	        var /**Uint8ClampedArray */ color_arr = pix.data;
-	        	
-	        var /** number*/ r = color_arr[0];
-	        var /** number*/ g = color_arr[1];
-	        var /** number*/ b = color_arr[2];
-
-	        var /** number*/ a = color_arr[3];
-
-	        var color = "rgb(" + r + "," + g + "," + b + ")";
-
-        	var state = optionManager.getOptionState('polymode'); //TODO move to VA
-
-        	var stroke_color;
-	       	var opacity;
-	       	var zindex = 2;
-
-	       	if(idx == 0){
-	       		color = /** @type{string} */ (jQuery('#gradient_startblock').css('background-color')); // get first color from block not from canvas
-	       	}
-
-	       	if(state == "phy"){
-	       		opacity = 0.5;
-	       		stroke_color = color;
-	       	}
-	       	else {
-	       		opacity=1.0;
-
-		        stroke_color = "ghostwhite";
-	       	    var activecanvas  = jQuery('#activediv canvas').attr('id');
-	       	    
-	       	    if(activecanvas =="barcanvas_0"){
-	       	    	stroke_color="black";	 
-	       	    }
-	       	    if(activecanvas =="barcanvas_5"){
-	       	    	stroke_color="black";
-	       	    }
-   	    	    if(activecanvas == "barcanvas_3")  {
-   	    	    	stroke_color = "rgb(180,180,180)";
-	       	    }
-
-       	    	if(idx == 0){
-       	    		stroke_color="rgba(20,20,20,0.75)"; 
-       	    		zindex= 1;
-       	    	}
-	       	}
-
-	       	mapInterface.changePolygonAppearance(this.polygrp[id].getMapShape().mapInterfaceElement, color, stroke_color, opacity, opacity, zindex);
+		   if (this.markerCounts[id] === false){
+			   mapInterface.changePolygonAppearance(this.polygrp[id].getMapShape().mapInterfaceElement, "rgb(0,0,0)", "rgb(0,0,0)", 0.01, 1, 1);
+		   }
+		   else {
+		   
+	        	var /** number */ percentage = 0;	
+	
+	        	if(this.markerCounts[id]){
+	            	if(linear_mapping){
+	            		percentage = this.markerCounts[id] / this.overall_markers;
+	            	}	
+	            	else {
+	            		percentage = this.markerCounts[id] / this.max_markers_in_one_poly;
+	            	}		   
+	            }	
+	       
+	    		var /** number */ idx = Math.ceil(255 * percentage);
+	    		if(idx > 255)
+	    			idx = 255;
+	
+	    		var /** Element */ canvas  = document.querySelector("#activediv canvas");
+	    		var /** CanvasRenderingContext2D */ ctx = canvas.getContext('2d');
+	
+		        var /** ImageData */ pix = ctx.getImageData(idx, 0, 1, 1);
+		        var /**Uint8ClampedArray */ color_arr = pix.data;
+		        	
+		        var /** number*/ r = color_arr[0];
+		        var /** number*/ g = color_arr[1];
+		        var /** number*/ b = color_arr[2];
+	
+		        var /** number*/ a = color_arr[3];
+	
+		        var color = "rgb(" + r + "," + g + "," + b + ")";
+	
+	        	var state = optionManager.getOptionState('polymode'); //TODO move to VA
+	
+	        	var stroke_color;
+		       	var opacity;
+		       	var zindex = 2;
+	
+		       	if(idx == 0){
+		       		color = /** @type{string} */ (jQuery('#gradient_startblock').css('background-color')); // get first color from block not from canvas
+		       	}
+	
+		       	if(state == "phy"){
+		       		opacity = 0.5;
+		       		stroke_color = color;
+		       	}
+		       	else {
+		       		opacity=1.0;
+	
+			        stroke_color = "ghostwhite";
+		       	    var activecanvas  = jQuery('#activediv canvas').attr('id');
+		       	    
+		       	    if(activecanvas =="barcanvas_0"){
+		       	    	stroke_color="black";	 
+		       	    }
+		       	    if(activecanvas =="barcanvas_5"){
+		       	    	stroke_color="black";
+		       	    }
+	   	    	    if(activecanvas == "barcanvas_3")  {
+	   	    	    	stroke_color = "rgb(180,180,180)";
+		       	    }
+	
+	       	    	if(idx == 0){
+	       	    		stroke_color="rgba(20,20,20,0.75)"; 
+	       	    		zindex= 1;
+	       	    	}
+		       	}
+	
+		       	mapInterface.changePolygonAppearance(this.polygrp[id].getMapShape().mapInterfaceElement, color, stroke_color, opacity, opacity, zindex);
+		   }
 	   	}
-
-	   	mapInterface.repaint(true);
 	};
 
 
@@ -1092,27 +1140,31 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 				for (let j = 0; j < part.infoWindows.length; j++){
 					var /** Element|string*/ html = part.infoWindows[j].getHtml(j);
 					
+					var /** Element*/ newChild;
 					if(typeof html === "string"){
-						var /** string */ newDiv = "<div id='tab_content_" + j + "'>" + linkifyHtml(html) + "</div>";
-						if (contents[i] == undefined){
-							contents[i] = newDiv;
-						}
-						else {
-							contents[i] += getInfoWindowContentSeparator() + newDiv;
+						newChild = document.createElement("div");
+						var /**Array<Element>*/ elements = jQuery.parseHTML(html);
+						for (let k = 0; k < elements.length; k++){
+							newChild.append(elements[k]);
 						}
 					}
-					else
-						if (contents[i] == undefined){
-							var /**Element*/ newElement = document.createElement("div");
-							newElement["id"] = "tab_content_" + j;
-							newElement.appendChild(html);
-							contents[i] = newElement;
-						}	
-						else { 
-							contents[i].appendChild(document.createElement("br"));
-							contents[i].appendChild(document.createElement("br"));
-							contents[i].appendChild(html);
+					else {
+						newChild = html;
+					}
+					
+					if (contents[i] == undefined){
+						var /**Element*/ newElement = document.createElement("div");
+						newElement["id"] = "tab_content_" + i;
+						newElement.appendChild(newChild);
+						contents[i] = newElement;
+					}
+					else {
+						var /**Array<Element>*/ sepList = jQuery.parseHTML(getInfoWindowContentSeparator());
+						for (let k = 0; k < sepList.length; k++){
+							contents[i].appendChild(sepList[k]);
 						}
+						contents[i].appendChild(newChild);
+					}
 				}
 			}
 			

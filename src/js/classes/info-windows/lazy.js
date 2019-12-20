@@ -116,6 +116,8 @@ function LazyInfoWindowContent (categoryID, elementID, overlayType, data){
 				"_wpnonce" : jQuery("#_wpnonce").val()
 			};
 			
+			ajaxData = categoryManager.addAdditonalAjaxData(ajaxData);
+			
 			var thisObject = this;
 				
 			jQuery.post(ajaxurl, ajaxData, function(response) {

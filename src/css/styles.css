@@ -8,6 +8,34 @@ html, body, #page, #main, #primary, #content, #IM_main_div{
     overflow-y: hidden;
 }
 
+
+
+.site {
+    max-width: 100% !important;
+}
+
+.upper_map_btn{
+    cursor: pointer;
+    margin-left: 5px;
+    border: 1px solid;
+    border-radius: 3px;
+    padding: 2px 3px 3px 3px;
+    font-size: 10px;
+    color: #373a3c;
+    background-color: #f3f3f3;
+    border-color: #8c8c8c;
+    position: relative;
+    top: -1px;
+}
+
+.upper_map_btn:hover{
+    background-color: #d4d4d4;
+}
+
+.upper_map_btn.active{
+   background-color: #e6e6e6
+}
+
 #main{
     position: relative;
 }
@@ -130,7 +158,7 @@ div.custom_control_base.leafletcustom{
 }
 
 .im_map_modal_body{
-   /* max-height: calc(100vh - 168px);*/
+    max-height: calc(100vh - 168px);
     overflow-y:auto;
 }
 

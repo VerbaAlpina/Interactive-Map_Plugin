@@ -11,9 +11,6 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	
 	private $add_scripts = false;
 
-	/**
-	 * @var wpdb
-	 */
 	public $database;
 
 	public $gui_languages;
@@ -37,7 +34,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			$this->map_type = $_REQUEST['mapType'];
 		}
 		else {
-			$this->map_type = apply_filters('im_default_map_type', 'gm'); //TODO document
+			$this->map_type = apply_filters('im_default_map_type', 'pixi'); //TODO document
 		}
 		
 		$this->includes();
@@ -53,6 +50,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		$this->edit_function = NULL;
 		$this->global_search_function = NULL;
 		$this->info_window_function = NULL;
+		$this->similarity_function = NULL;
 		
 		global $wpdb;
 		$this->database = $wpdb;
@@ -215,6 +213,10 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_script('im_pixi', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leafletPixi.js');
 		$dependencies[] = 'im_pixi';
 
+
+		wp_register_script('im_earcut', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/earcut.js');
+		$dependencies[] = 'im_earcut';
+
 		
 		return $dependencies;
 	}
@@ -247,7 +249,11 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				wp_enqueue_script('im_example_config');
 			else
 				wp_enqueue_script('im_map_script');
+			
 			$this->localize_scripts();
+			
+			//For external JS files
+			do_action('im_enqueue_scripts'); //TODO document 
 		}
 	}
 	
@@ -437,6 +443,16 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		else {
 			return 'No info window function!';
 		}
+	}
+	
+	public function get_similarity_data ($id_polygon){
+	    //TODO document
+	    if(is_callable($this->similarity_function)){
+	        return call_user_func($this->similarity_function, $id_polygon);
+	    }
+	    else {
+	        return 'No similarity function!';
+	    }
 	}
 	
 	public function im_add_menu (){

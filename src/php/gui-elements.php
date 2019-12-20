@@ -123,8 +123,7 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 	}
 	
 	//Create option texts
-	$options_texts = array();
-	foreach ($values as $index => &$value){
+	foreach ($values as &$value){
 		$optext = im_get_option_text($value, $colums_to_select_from, $list_format_function);
 		$value[] = $optext;
 		$value[] = ($sort_simplification_function? $sort_simplification_function($optext): $optext);
@@ -135,7 +134,7 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
 		return strcasecmp(end($v1), end($v2));
 	});
 	
-	foreach($values as $index => $val){//TODO find better solution than the str_replace here or document!!!
+	foreach($values as $val){//TODO find better solution than the str_replace here or document!!!
 		
 		end($val);
 		$current_value = str_replace("'", '', implode('|', array_slice($val, 0, count($key))));
@@ -158,7 +157,7 @@ function im_table_select ($table, $key, $colums_to_select_from, $id, $addional_d
  * 
  * @param array $row the table row
  * @param int $start_index The first elements of the array will be ignored since they contain the key value(s) that are not used for the name
- * @param $list_format_function The function applied to the row elements or NULL for default behaviour
+ * @param callable $list_format_function The function applied to the row elements or NULL for default behaviour
  * 
  * @return string The <option> text
  */
@@ -220,6 +219,7 @@ class IM_Field_Information {
 	 * - 'F' -> Foreign Key == <select>
 	 * - 'E' -> Enum == <select>
 	 * - 'V' -> Varchar == <input>
+	 * - 'H' -> Hidden == hidden <input>
 	 * 
 	 */
 	public $col_type;
@@ -319,9 +319,14 @@ function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonc
 			'<tr><td>' . $alias . ':</td><td><input type="text" name="' .
 			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="N" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
 		}
+		else if ($type == 'H'){
+			$result .=
+			'<tr><td></td><td><input type="hidden" value="' . htmlentities($field_info->default_value) . '" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="H" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
+		}
 		else { //Varchar
 			$result .=
-			'<tr><td>' . $alias . ':</td><td><input type="text" name="' .
+			'<tr><td>' . $alias . ':</td><td><input type="text" ' . ($field_info->fixed? 'disabled ': '') . 'value="' . ($field_info->default_value? htmlentities($field_info->default_value) : '') . '" name="' .
 			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="V" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
 		}
 	}
@@ -337,7 +342,7 @@ function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonc
 	if($create_nonce_field)
 		$result .= wp_nonce_field('im_aett_' . $row_information->table, '_wpnonce', false, false);
 	
-	return $result .= "</form><br /><br /><input id='save$id' type='button' value='' data-insert-value='" . __('Insert', 'interactive-map') . "' data-update-value='" . __('Update', 'interactive-map') . "' class='button button-primary im_table_entry_box_submit' /><br /><br /><br /><br /></div>";
+	return $result . "</form><br /><br /><input id='save$id' type='button' value='' data-insert-value='" . __('Insert', 'interactive-map') . "' data-update-value='" . __('Update', 'interactive-map') . "' class='button button-primary im_table_entry_box_submit' /><br /><br /><br /><br /></div>";
 }
 
 function im_serialized_enum ($table, $col, $name, $selected_value, $dbname = NULL){
@@ -623,7 +628,7 @@ function im_create_ajax_nonce_field (){
 
 function im_create_comment_popup_html (){
 	?> 
-<div id="commentWindow" class="modal fade" data-backdrop="static">
+<div id="commentWindow" class="modal fade">
   <div class="modal-dialog" role="document">
    
    <div class="modal-content im_map_modal_content">  

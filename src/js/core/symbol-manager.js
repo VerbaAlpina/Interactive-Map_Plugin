@@ -513,8 +513,8 @@ function SymbolManager(colorScheme) {
 
 
 			      if(!active){
-			      	contrast_color ='rgba(97,97,97,0.40)';
-			      	hex_color = "rgba(225,225,225,0.77)";
+			      	contrast_color ='rgba(120,120,120,1)';
+			      	hex_color = "rgba(220,220,220,1)";
 			      }
 			
 			      if(!outline_only){  	

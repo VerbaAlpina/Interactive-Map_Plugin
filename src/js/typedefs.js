@@ -25,6 +25,16 @@ var IMGeoType = {
 var IMGeoData;
 
 /**
+ * @typedef{{legendIndex: number, elementIndex: number, lat: number, lng: number}}
+ */
+var infoWindoInfoOld;
+
+/**
+ * @typedef{{key: string, category: number, elementIndex: number, lat: number, lng: number}}
+ */
+var infoWindoInfoNew;
+
+/**
  * @typedef{Object<string, Array<number>|number>}
  */
 var MultiColorIndex;

@@ -292,6 +292,12 @@ function im_ajax_handler_all (){
 			
 			echo json_encode($res);
 			break;
+			
+		case 'get_similarity_data':
+		    check_ajax_referer('im_load_data', '_wpnonce', true);
+		    
+		    echo json_encode(IM_Initializer::$instance->get_similarity_data($_POST['id_polygon']));
+		    break;
 	}
 	die;
 }
@@ -321,7 +327,7 @@ class IM_Result {
 
 	/**
 	 * @param string $sub_id Id for the subcategory or -1 if no sub-category is given
-	 * @param ElementInfoWindowData $element_info Data which is used to create the popup window for this element
+	 * @param IM_ElementInfoWindowData $element_info Data which is used to create the popup window for this element
 	 * @param string $geo_data Geo data in WKT format
 	 * @param array<number> bounding_box Topleft and bottomright corner of the bounding box [x1,y1,x2,y2]. Ignored for point symbols
 	 * @param array<string, string|number> $quant_info optional
@@ -331,7 +337,7 @@ class IM_Result {
 	 * 		In general, this is only meaningfull if the MapElement is a point symbol and the given category
 	 * 		only contains polygons.
 	 */
-	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, $bounding_box, IM_Quantitfy_Info $quant_info = NULL, $marking_color = -1){
+	function addMapElement ($sub_id, IM_ElementInfoWindowData $element_info, $geo_data, $bounding_box = NULL, IM_Quantitfy_Info $quant_info = NULL, $marking_color = -1){
 		if(!array_key_exists($sub_id, $this->element_data)){
 			$this->element_data[$sub_id] = array ();
 			$this->contains_point_symbols[$sub_id] = false;
@@ -369,7 +375,7 @@ class IM_Result {
 	 * 		   since it processes the data points sequentially without any buffer
 	 * 
 	 * @param string $sub_id Id for the subcategory or -1 if no sub-category is given
-	 * @param ElementInfoWindowData $element_info Data which is used to create the popup window for this element
+	 * @param IM_ElementInfoWindowData $element_info Data which is used to create the popup window for this element
 	 * @param string $geo_data Geo data in WKT format
 	 * @param array<number> bounding_box Topleft and bottomright corner of the bounding box [x1,y1,x2,y2]. Ignored for point symbols
 	 * @param array<string, string|number> $quant_info optional
@@ -662,9 +668,9 @@ class IM_SimpleElementInfoWindowData extends IM_ElementInfoWindowData {
 class IM_PolygonInfoWindowData extends IM_ElementInfoWindowData {
 	private $data;
 
-	function __construct ($name, $description, $id){
+	function __construct ($name, $description, $id, $is_comparable = false){
 		parent::__construct('polygon');
-		$this->data = array ('name' => $name, 'description' => $description, 'id_polygon' => $id);
+		$this->data = array ('name' => $name, 'description' => $description, 'id_polygon' => $id, 'comparable' => $is_comparable);
 	}
 
 	public function getName(){
@@ -728,54 +734,54 @@ function im_ajax_handler_backend (){
 			break;
 			
 		case 'copy_tables':
-			if(current_user_can('activate_plugins')){
-				$old_connection = IM_Initializer::$instance->database;
-				$logins = get_option('sth_default_logins');
+// 			if(current_user_can('activate_plugins')){
+// 				$old_connection = IM_Initializer::$instance->database;
+// 				$logins = get_option('sth_default_logins');
 				
-				if ($logins === false){
-					_e('Slug does not exist!', 'interactive-map');
-					die;
-				}
-				if($_POST['slug'] === DEFAULT_VALUE){
-					global $wpdb;
-					$new_connection = $wpdb;
-				}
-				else {
-					$slug = $logins[$_POST['slug']];
-					if (!$slug){
-						_e('Slug does not exist!', 'interactive-map');
-						die;
-					}
-					if(!$slug['db']){
-						_e('Only a slug with a given (default) database can be used. Please edit the slug in the SQLToHtml options and add a data base!', 'interactive-map');
-						die;
-					}
-					/*$host_old = substr($old_connection->dbhost, strpos($old_connection->dbhost, ':'));
-					if($slug['db'] === $old_connection->dbname && $slug['host'] ===){
-						_e('Same data base!', 'interactive-map');
-						die;
-					}
-					$new_connection = new wpdb($slug['user'], $slug['password'], $slug['db'], $slug['host']);*/
-				}
-				//im_create_comment_table($new_connection);
-				//im_copy_table_data($old_connection, $new_connection, 'im_comments');
+// 				if ($logins === false){
+// 					_e('Slug does not exist!', 'interactive-map');
+// 					die;
+// 				}
+// 				if($_POST['slug'] === DEFAULT_VALUE){
+// 					global $wpdb;
+// 					$new_connection = $wpdb;
+// 				}
+// 				else {
+// 					$slug = $logins[$_POST['slug']];
+// 					if (!$slug){
+// 						_e('Slug does not exist!', 'interactive-map');
+// 						die;
+// 					}
+// 					if(!$slug['db']){
+// 						_e('Only a slug with a given (default) database can be used. Please edit the slug in the SQLToHtml options and add a data base!', 'interactive-map');
+// 						die;
+// 					}
+// 					/*$host_old = substr($old_connection->dbhost, strpos($old_connection->dbhost, ':'));
+// 					if($slug['db'] === $old_connection->dbname && $slug['host'] ===){
+// 						_e('Same data base!', 'interactive-map');
+// 						die;
+// 					}
+// 					$new_connection = new wpdb($slug['user'], $slug['password'], $slug['db'], $slug['host']);*/
+// 				}
+// 				//im_create_comment_table($new_connection);
+// 				//im_copy_table_data($old_connection, $new_connection, 'im_comments');
 					
 					
-				//im_create_map_tables($new_connection);
-				//im_create_test_tables($new_connection);
+// 				//im_create_map_tables($new_connection);
+// 				//im_create_test_tables($new_connection);
 					
-				echo 'success';
-			}
-			break;
+// 				echo 'success';
+//			}
+//			break;
 	}
 	die;
 }
 
-function im_copy_table_data($new, $old, $name){
-	$count = $old->get_var("SELECT count(*) FROM $table");
-	for ($i = 0; i < $count; $i++){
-		$results = $old->get_row("SELECT * FROM $name LIMIT $i, 1", ARRAY_A);
-		$new->insert($name, $results);
-	}
-}
+// function im_copy_table_data($new, $old, $name){
+// 	$count = $old->get_var("SELECT count(*) FROM $table");
+// 	for ($i = 0; i < $count; $i++){
+// 		$results = $old->get_row("SELECT * FROM $name LIMIT $i, 1", ARRAY_A);
+// 		$new->insert($name, $results);
+// 	}
+// }
 ?>

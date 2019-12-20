@@ -70,6 +70,7 @@ function CategoryManager (){
 	this.categories["-3"] = new CategoryInformation (-3,"#","",TRANSLATIONS["WITHOUT_TAG"]); //Pseudo category for tags as sub-categories
 	//TODO name here
 	this.categories["-4"] = new CategoryInformation (-4,"$","distinct",""); //Pseudo category for distinctly colored neigbours
+	this.categories["-5"] = new CategoryInformation (-5,"§","Dialektometrie",""); //Pseudo category for communities useable for dialectometry
 	
 	/**
 	 * @private
@@ -126,6 +127,19 @@ function CategoryManager (){
 		delete this.additionalAjaxData[key];
 		return val;
 	};
+	
+	/**
+	 * @param {Object} data
+	 * 
+	 * @return {Object}
+	 */
+	this.addAdditonalAjaxData = function (data){
+		for (let key in this.additionalAjaxData){
+			data[key] = this.additionalAjaxData[key];
+		}
+		
+		return data;
+	}
 	
 	/**
 	 * @param {number} categoryID
@@ -506,27 +520,45 @@ function CategoryManager (){
 						jQuery("#qbutton_" + mapInfos["Quant"]).trigger("click");
 					}
 					
+					mapInterface.repaint(true);
+					
 					for (let i = 0; i < mapInfos["Info_Windows"].length; i++){
-						var /** {legendIndex: number, elementIndex: number, lat: number, lng: number} */ iWindow = /** @type {{legendIndex: number, elementIndex: number, lat: number, lng: number}}*/ (mapInfos["Info_Windows"][i]);
-						var /**MapShape|MapSymbol */ mapElement = symbolClusterer.findMapElement(
-							legend.getElementByIndexes(iWindow["legendSubIndex"], iWindow["legendIndex"]), 
-							iWindow["elementIndex"],
-							iWindow["lat"],
-							iWindow["lng"]);
+						var /** infoWindoInfoOld|infoWindoInfoNew */ iWindow = /** @type {infoWindoInfoOld|infoWindoInfoNew}*/ (mapInfos["Info_Windows"][i]);
 						
-						if(mapElement instanceof MapSymbol){
-							mapElement.openInfoWindow(iWindow["tabIndex"] * 1);
+						var /**MapShape|MapSymbol */ mapElement;
+						if (iWindow["legendIndex"]){
+							//old maps
+							mapElement = symbolClusterer.findMapElement(
+								legend.getElementByIndexes(iWindow["legendSubIndex"], iWindow["legendIndex"]), 
+								iWindow["elementIndex"],
+								iWindow["lat"],
+								iWindow["lng"]);
 						}
 						else {
-							mapElement.openInfoWindow(iWindow["lat"], iWindow["lng"]);
+							//new maps
+							mapElement = symbolClusterer.findMapElement(
+									/** @type {LegendElement} */ (legend.getElementByKey(iWindow["category"], iWindow["key"])), 
+									iWindow["elementIndex"],
+									iWindow["lat"],
+									iWindow["lng"]);
+						}
+						
+						if (mapElement){
+							if(mapElement instanceof MapSymbol){
+								mapElement.openInfoWindow(iWindow["tabIndex"] * 1);
+							}
+							else {
+								mapElement.openInfoWindow(iWindow["lat"], iWindow["lng"]);
+							}
+						}
+						else {
+							console.error("Map element for info window not found: " + JSON.stringify(iWindow));
 						}
 					}
 					
 					for (let i = 0; i < mapInfos["Location_Markers"].length; i++){
 						gotoLocation(mapInfos["Location_Markers"][i], false);
 					}
-					
-					mapInterface.repaint(true);
 				}
 			};
 			
@@ -713,7 +745,7 @@ function CategoryManager (){
 					thisObject.createMultiLegendEntry(result, /** @type {MultiLegendElement}*/ (element), sortedKeys, /** @type{Object<string, ?>}*/ (filterData), computedColors, !newLegendElementCreated, /** @type{Array<number>}*/ (active));
 				}
 				
-				mapInterface.repaint(trigger != "synMap");
+				mapInterface.repaint(trigger != "synMap" && trigger != "reload");
 				jQuery(document).trigger("im_after_load_data"); //TODO document
 				
 				if(callback)
@@ -934,7 +966,7 @@ function CategoryManager (){
 	 */
 	this.createSingularLegendEntry = function (result, element, fixedColors, reload, active){
 
-		if(Object.getPrototypeOf(Object(result[DATA])) === Object.getPrototypeOf([])){
+		if(!result[DATA] || jQuery.isEmptyObject(result[DATA])){
 			legend.removeElement(element, true);
 			element.setLoading(false);
 			alert(TRANSLATIONS["NO_DATA"] + " (" + categoryManager.getElementName(element.category, element.key) + ")!");
@@ -1011,7 +1043,7 @@ function CategoryManager (){
 				infoWindowContents.push(this.createInfoWindowContent(currentShape[0][j], element.category, element.key, element.overlayType));
 			}
 			
-			var/** OverlayInfo */ overlayInfo = new OverlayInfo(infoWindowContents, geoManager.parseGeoDataFormated(currentShape[1]), qinfo, currentShape[4], i);
+			var/** OverlayInfo */ overlayInfo = new OverlayInfo(infoWindowContents, geoManager.parseGeoDataFormated(currentShape[1], currentShape[2]), qinfo, currentShape[4], i);
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
@@ -1208,7 +1240,8 @@ function CategoryManager (){
 						console.error("Element " + JSON.stringify(currentShape[0]).substring(0,50) + " has no geo data!");
 						continue;
 					}	
-					var /** IMGeometry */ geoObject = geoManager.parseGeoDataFormated(currentShape[1]);
+
+					var /** IMGeometry */ geoObject = geoManager.parseGeoDataFormated(currentShape[1], currentShape[2]);
 					
 					//Quantify data
 					var /** Array<string|Object<string, number>> */ quantifyInfo = currentShape[3];

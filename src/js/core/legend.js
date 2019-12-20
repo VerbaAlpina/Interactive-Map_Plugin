@@ -207,7 +207,6 @@ function Legend() {
 			for(var /** number */ i = 0; i < element.subElements.length; i++){
 				this.removeElement(element.subElements[i], false);
 			}
-			mapInterface.repaint(true);
 		}
 		else {
 			symbolClusterer.removeOverlays(element);
@@ -219,10 +218,6 @@ function Legend() {
 				if(element.visible()){
 					element.parent.subElementsVisible--;
 				}
-			}
-			
-			if (deleteFromArray){
-				mapInterface.repaint(true);
 			}
 		}
 		
@@ -260,6 +255,10 @@ function Legend() {
 			if(qelement){
 				symbolClusterer.reQuantify();
 			}
+		}
+		
+		if (deleteFromArray || element instanceof MultiLegendElement){
+			mapInterface.repaint(true);
 		}
 	};
 	
@@ -341,6 +340,33 @@ function Legend() {
 		}
 		else {
 			return /** @type{LegendElement} */ (this.elements[mainIndex]);
+		}
+	};
+	
+	/**
+	 * @param {number} category
+	 * @param {string} key
+	 * 
+	 * @return {LegendElement|MultiLegendElement|undefined}
+	 */
+	this.getElementByKey = function (category, key){
+		for (let i = 0; i < this.elements.length; i++){
+			
+			let element = this.elements[i];
+			
+			if (element.category == category && element.key == key){
+				return element;
+			}
+			
+			if (element instanceof MultiLegendElement){
+				for (let j = 0; j < element.subElements.length; j++){
+					let subElement = element.subElements[j];
+					
+					if (subElement.category == category && subElement.key == key){
+						return subElement;
+					}
+				}
+			}
 		}
 	};
 	
@@ -1066,6 +1092,8 @@ function Legend() {
 				if(checkQuant)
 					symbolClusterer.reQuantify();
 					
+				mapInterface.repaint(true);
+				
 				if(callback)
 					callback();
 			}
