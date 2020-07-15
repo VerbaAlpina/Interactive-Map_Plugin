@@ -74,10 +74,14 @@ function MarkingComponent (tags){
 	 * @param {Object<string, Array<string>>} tags
 	 * @param {Array<number>} blockedColors
 	 * @param {boolean} firstRow
+	 * @param {string=} tagNameSelected
+	 * @param {string=} tagValue
+	 * @param {Array<string>=} blockedTags
+	 * @param {string=} color
 	 * 
 	 * @return {Element}
 	 */
-	this.getNewTableRow = function (tags, blockedColors, firstRow){
+	this.getNewTableRow = function (tags, blockedColors, firstRow, tagNameSelected, tagValue, blockedTags, color){
 		var /** MarkingComponent */ thisObject = this;
 		
 		var /** Element */ result = document.createElement("div");
@@ -102,8 +106,12 @@ function MarkingComponent (tags){
 			}
 	
 			tagNameSelect.addEventListener("change", function (){
-				thisObject.setTagValueOptions(jQuery("#IM_Marking_Table .tagValueSelect"), tags[this.value], this.value);
+				thisObject.setTagValueOptions(jQuery("#IM_Marking_Table .tagValueSelect"), tags[this.value]);
 			});
+			
+			if (tagNameSelected){
+				tagNameSelect.value = tagNameSelected;
+			}
 			
 			result.appendChild(tagNameSelect);
 		}
@@ -134,10 +142,16 @@ function MarkingComponent (tags){
 			jQuery(this).data("oldval", this.value);
 		});
 		
-		if(firstRow || jQuery("#IM_Marking_Table .tagNameSelect").val() == "-1")
+		if  (tagNameSelected !== undefined)
+			this.setTagValueOptions(jQuery(tagValueSelect), tags[tagNameSelected], blockedTags);
+		else if(firstRow || jQuery("#IM_Marking_Table .tagNameSelect").val() == "-1")
 			this.setTagValueOptions(jQuery(tagValueSelect));
 		else
-			this.setTagValueOptions(jQuery(tagValueSelect), tags[/** @type{string}*/ (jQuery("#IM_Marking_Table .tagNameSelect").val())], /** @type{string}*/ (jQuery("#IM_Marking_Table .tagNameSelect").val()));
+			this.setTagValueOptions(jQuery(tagValueSelect), tags[/** @type{string}*/ (jQuery("#IM_Marking_Table .tagNameSelect").val())]);
+		
+		if (tagValue){
+			tagValueSelect.value = tagValue;
+		}
 		
 		result.appendChild(tagValueSelect);
 		
@@ -150,14 +164,15 @@ function MarkingComponent (tags){
 		for (var i = 0; i < symbolManager.getNumMarkingColors(); i++){
 			if(blockedColors.indexOf(i) === -1){
 			
-				if(first){
+				colorSelect.appendChild(this.getColorOption(i));
+				
+				if((color === undefined && first) || (color !== undefined && color == i)){
+					colorSelect.value = i;
 					colorSelect.style.background = symbolManager.getMarkingColorString(i);
 					colorSelect["dataset"]["lastColor"] = i;
 					jQuery("#IM_Marking_Table .IM_Marking_Color_Select option[value='" + i + "']").remove();
 					first = false;
 				}
-
-				colorSelect.appendChild(this.getColorOption(i));
 			}
 		}
 		
@@ -212,11 +227,11 @@ function MarkingComponent (tags){
 	/**
 	 * @param {jQuery} elements
 	 * @param {Array<string>=} tagValues
-	 * @param {string=} tagName
+	 * @param {Array<string>=} restrictedValues 
 	 * 
 	 * @return {undefined}
 	 */
-	this.setTagValueOptions = function (elements, tagValues, tagName){
+	this.setTagValueOptions = function (elements, tagValues, restrictedValues){
 		elements.empty();
 		
 		var /** Element */ defaultOption = document.createElement("option");
@@ -225,9 +240,11 @@ function MarkingComponent (tags){
 		elements.append(defaultOption);
 		
 		if(tagValues){
-			var /** Array<string>*/ restrictedValues = jQuery("#IM_Marking_Table .tagValueSelect").get().map(function (element) {
-				return jQuery(element).val();
-			});
+			if (!restrictedValues){
+				restrictedValues = jQuery("#IM_Marking_Table .tagValueSelect").get().map(function (element) {
+					return jQuery(element).val();
+				});
+			}
 			
 			for (var i = 0; i < tagValues.length; i++){
 				var /** Element */ option = document.createElement("option");
@@ -284,6 +301,46 @@ function MarkingComponent (tags){
 	 */
 	this.storeDefaultData = function (data, categoryId, elementId){
 		//default = no markings
+	};
+	
+	/**
+	*
+	* Uses the filter data to re-create the state in which this filter was submitted.
+	*
+	* @param {Object<string, ?>} data The complete filter data object after storeData has been called for all applicable filters
+	* @param {Element} element The DOM element created by getFilterScreenElement.
+	* @param {number} categoryId
+	* @param {string} elementId
+	* 
+	* @return {undefined}
+	*/
+	this.setValues = function (data, element, categoryId, elementId){
+		if (data["markings"]){
+			
+			var /**Object<string, Array<string>>*/ currentTags;
+			if (typeof this.tags === "function"){
+				currentTags = this.tags(categoryId, elementId);
+			}
+			else {
+				currentTags = this.tags;
+			}
+			
+			for (let tagValue in data["markings"]["tagValues"]){
+				let color = data["markings"]["tagValues"][tagValue];
+				
+		 		var /** Array<number>*/ restrictedColors = Object.values(data["markings"]["tagValues"]).map(function (element){
+		 			return element * 1;
+		 		}).filter(function (element){
+					return element != color;
+				});
+		 		
+		 		var /** Array<string>*/ restrictedTags = Object.keys(data["markings"]["tagValues"]).filter(function (element){
+					return element != tagValue;
+				});
+				
+				jQuery("#IM_Marking_Table").append(this.getNewTableRow(currentTags, restrictedColors, jQuery("#IM_Marking_Table .markingRow").length == 0, data["markings"]["tagName"], tagValue, restrictedTags, color));
+			}
+		}
 	};
 	
 	/**

@@ -346,10 +346,12 @@ function Legend() {
 	/**
 	 * @param {number} category
 	 * @param {string} key
+	 * @param {number=} parentCategory
+	 * @param {string=} parentKey
 	 * 
 	 * @return {LegendElement|MultiLegendElement|undefined}
 	 */
-	this.getElementByKey = function (category, key){
+	this.getElementByKey = function (category, key, parentCategory, parentKey){
 		for (let i = 0; i < this.elements.length; i++){
 			
 			let element = this.elements[i];
@@ -362,12 +364,43 @@ function Legend() {
 				for (let j = 0; j < element.subElements.length; j++){
 					let subElement = element.subElements[j];
 					
-					if (subElement.category == category && subElement.key == key){
+					if (subElement.category == category && subElement.key == key && element.category == parentCategory && element.key == parentKey){
 						return subElement;
 					}
 				}
 			}
 		}
+	};
+	
+	/**
+	 * @param {number} category
+	 * @param {string} key
+	 * 
+	 * @return {Array<LegendElement|MultiLegendElement>}
+	 */
+	this.getElementsWithKey = function (category, key){
+		var /** Array<LegendElement|MultiLegendElement> */ res = [];
+		
+		for (let i = 0; i < this.elements.length; i++){
+			
+			let element = this.elements[i];
+			
+			if (element.category == category && element.key == key){
+				return [element];
+			}
+			
+			if (element instanceof MultiLegendElement){
+				for (let j = 0; j < element.subElements.length; j++){
+					let subElement = element.subElements[j];
+					
+					if (subElement.category == category && subElement.key == key){
+						res.push(subElement);
+					}
+				}
+			}
+		}
+		
+		return (res);
 	};
 	
 	/**
@@ -865,7 +898,7 @@ function Legend() {
 	};
 	
 	/**
-	 * @return {LegendElement}
+	 * @return {Generator<LegendElement>}
 	 */
 	this[Symbol.iterator] = function* (){
 		var length = this.elements.length;
@@ -976,7 +1009,7 @@ function Legend() {
 			    mimg["style"]["width"] = "23px";  // TODO: USE CORRECT SIZES BASED ON  markingScaleFunction(symbolInfo)
 
 				var /** number */ colIndex = element instanceof LegendElement? element.colorIndex[0]: element.mainColorIndex;
-				mimg["src"] = symbolManager.createSymbolURLForMarking(colIndex, values[key]);
+				mimg["src"] = symbolManager.createSymbolURLForMarking(colIndex, values[key]).toDataURL();
 				markItem.appendChild(mimg);
 				
 				markItem.appendChild(document.createTextNode(" = "));
@@ -1023,7 +1056,13 @@ function Legend() {
 					items["getList" + keys[i]] = createMenuPoint(text)
 				}
 			}
-		}	
+		}
+		
+		
+		if ((element instanceof MultiLegendElement || !element.parent) && element.filterData){
+			items["reload"] = createMenuPoint(TRANSLATIONS["RELOAD_LEGEND_ENTRY"]);
+		}
+		
 		return items;
 	};
 	
@@ -1062,10 +1101,17 @@ function Legend() {
 			commentManager.openCommentWindow(element.category, id, true);
 		}
 		else if(key.indexOf("getList") === 0){
-			// id = key.substring(7);
-			// var builder = categoryManager.getListBuilder(element.category);
-			// var manager = new ListManager(builder, element);
-			// manager.showSelectionDialog();
+			 id = key.substring(7);
+			 var builder = categoryManager.getListBuilder(element.category);
+			 var manager = new ListManager(builder, element);
+			 manager.showSelectionDialog();
+		}
+		else if (key == "reload"){
+			
+			let /** @type{!Object}*/ filterData = element.filterData? element.filterData: {};
+			filterData = Object.assign(filterData, {"id": element.key})
+			
+			categoryManager.showFilterScreen(element.category, element.key, filterData);
 		}
 	};
 
@@ -1358,8 +1404,12 @@ function LegendElement(category, key, parent) {
 				if(visible){
 					var /** boolean */ movable = optionManager.inEditMode() && categoryManager.categoryAllowsFieldDataEditingForElement(this.category, this.key, this.overlayType);
 					var /** number */ len = this.overlayInfos.length;
+					
+					var /** string */ color = this.getColorHex();
+					var /** number */ lineWidth = this.getLineWidth();
+					
 					for (i = 0; i < len; i++){
-						symbolClusterer.addOverlay(this.overlayInfos[i], this, movable);
+						symbolClusterer.addOverlay(this.overlayInfos[i], this, movable, color, lineWidth);
 					}
 					
 					if(this.parent != null){
@@ -1525,7 +1575,6 @@ function LegendElement(category, key, parent) {
 	 * @return {string}
 	 */
 	this.getColorString = function (){
-		
 		if(this.overlayType == OverlayType.PointSymbol){
 			return symbolManager.getColorStringForSymbol(/** @type{Array<number>} */ (this.colorIndex));
 		}
@@ -1542,7 +1591,16 @@ function LegendElement(category, key, parent) {
 		return "0x" + str.substring(1);
 	};
 	
-	
+	/**
+	 * @return {number}
+	 */
+	this.getLineWidth = function (){
+		if (this.parent){
+			return categoryManager.getLineWidth(this.parent.category, this.parent.key);
+		}
+		
+		return categoryManager.getLineWidth(this.category, this.key);
+	};
 	
 	/** 
 	* @return {undefined}

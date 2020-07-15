@@ -202,6 +202,10 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_script('leaflet', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leaflet.js');
 		$dependencies[] = 'leaflet';
 
+		wp_register_script('leafletbounce', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leaflet.smoothmarkerbouncing.js');
+
+	    wp_register_script('leafletcolormarkers', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/leaflet-color-markers.js');
+
 		wp_register_style('mapTypeStyle', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/css/leaflet.css');
 
 		wp_register_script('pixi', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/pixi.min.js');
@@ -216,6 +220,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 		wp_register_script('im_earcut', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/js/earcut.js');
 		$dependencies[] = 'im_earcut';
+
+		wp_register_style('webgl_css', IM_PLUGIN_URL . 'lib/js/svn/pixi_webgl/css/webgloverlay.css');
 
 		
 		return $dependencies;
@@ -242,13 +248,15 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			wp_enqueue_style('im_map_style');
 			wp_enqueue_style('mapTypeStyle');
 			wp_enqueue_style('im_easy_table_style');
-			
+				
+			wp_enqueue_style('webgl_css');	
+
 			wp_enqueue_style('im_font_awesome');
 			
-			if(get_site_option('im_example_data') !== 'false')
-				wp_enqueue_script('im_example_config');
-			else
-				wp_enqueue_script('im_map_script');
+			// if(get_site_option('im_example_data', false) !== 'false')
+				// wp_enqueue_script('im_example_config');
+			// else
+			wp_enqueue_script('im_map_script');
 			
 			$this->localize_scripts();
 			
@@ -393,7 +401,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'FILTER_NOT_POSSIBLE' => __('This selection will return no data!', 'interactive-map'),
 				'GRADIENT_HELP' => __('English text gradient help', 'interactive-map'),
 				'SEARCH_LOADING' => __('Loading, please wait...', 'interactive-map'),
-				'SEARCH_PLACEHOLDER' => __('Please enter searchterm...', 'interactive-map')
+				'SEARCH_PLACEHOLDER' => __('Please enter searchterm...', 'interactive-map'),
+		        'RELOAD_LEGEND_ENTRY' => __('Adjust filter settings', 'interactive-map')
 		);
 		
 		$translations = apply_filters ('im_translation_list', $translations); //TODO document

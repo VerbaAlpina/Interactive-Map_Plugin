@@ -209,6 +209,29 @@ function GroupingComponent (categoryList, defaultValue, sorter, sorterApplicable
 	};
 	
 	/**
+	*
+	* Uses the filter data to re-create the state in which this filter was submitted.
+	*
+	* @param {Object<string, ?>} data The complete filter data object after storeData has been called for all applicable filters
+	* @param {Element} element The DOM element created by getFilterScreenElement.
+	* @param {number} categoryId
+	* @param {string} elementId
+	* 
+	* @return {undefined}
+	*/
+	this.setValues = function (data, element, categoryId, elementId){
+		if (data["subElementCategory"] == -3){
+			jQuery("#groupingComponent input[name=subElementCategory][value=" + data["selectedTag"] + "]").prop("checked", true);
+		}
+		else {
+			jQuery("#groupingComponent input[name=subElementCategory][value=" + data["subElementCategory"] + "]").prop("checked", true);
+		}
+		
+		if (this.sorter)
+			this.sorter.setValues(data, element, categoryId, elementId);
+	};
+	
+	/**
 	 * @override
 	 * 
 	 * @param {Element} element

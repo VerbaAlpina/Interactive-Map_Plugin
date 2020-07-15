@@ -34,11 +34,13 @@ function SymbolClusterer(clustererOptions) {
 	 * @param {OverlayInfo} info
 	 * @param {LegendElement} owner
 	 * @param {boolean} movable
+	 * @param {string} color
+	 * @param {number} lineWidth
 	 * 
 	 * @return {MapSymbol|MapShape}
 	 * 
 	 */
-	this.addOverlay = function(info, owner, movable) {
+	this.addOverlay = function(info, owner, movable, color, lineWidth) {
 		if(info.geomData.getType() == IMGeoType.Point){
 			var /** {lat: number, lng: number} */latlng = /** @type{IMPoint} */ (info.geomData).getGeometry();
 			
@@ -78,8 +80,8 @@ function SymbolClusterer(clustererOptions) {
 			var /** string */ id = /** @type{string}*/ (info.quantifyInfo);
 			var /** MapShape */ mapShapeNew = new MapShape(info.infoWindowContents[0], owner, owner.currentElementIndex++);
 			info.setMapShape(mapShapeNew);
-				
-			var /** Object */ mapInterfaceElement = mapInterface.createShape(info.geomData, mapShapeNew, id);
+			
+			var /** Object */ mapInterfaceElement = mapInterface.createShape(info.geomData, mapShapeNew, id, color, lineWidth);
 			mapShapeNew.setMapInterfaceElement(mapInterfaceElement);
 			
 			otherOverlays.push(mapShapeNew);
@@ -346,7 +348,8 @@ function SymbolClusterer(clustererOptions) {
 					else {
 						currentElement.reduceSymbol(j);
 					}
-					break;
+					lenParts--;
+					j--;
 				}
 			}
 		}
@@ -381,7 +384,7 @@ function SymbolClusterer(clustererOptions) {
 	
 	/** 
 	 * @private
-	 * @type{Object <string, number>} 
+	 * @type{Object <string, number|boolean>} 
 	 */
 	this.markerCounts;
 	
@@ -536,7 +539,7 @@ function SymbolClusterer(clustererOptions) {
 	 * @param {string} id_reference
 	 * @param {Object<string, number>} similarities
 	 * 
-	 * @return {undefined}
+	 * @return {MapShape}
 	 */
 	this.showSimilarity = function (id_reference, similarities){
 		
@@ -1145,7 +1148,7 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 						newChild = document.createElement("div");
 						var /**Array<Element>*/ elements = jQuery.parseHTML(html);
 						for (let k = 0; k < elements.length; k++){
-							newChild.append(elements[k]);
+							newChild.appendChild(elements[k]);
 						}
 					}
 					else {

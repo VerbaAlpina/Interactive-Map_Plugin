@@ -740,12 +740,12 @@ cursor: pointer;
 }
 
 .q-span{
-    top: 19px;
+    top: 21px;
     margin-left: -7px;
     position: absolute !important;
-    width: 10px !important;
-    height: 10px !important;
-    line-height: 10px !important;
+    width: 12px !important;
+    height: 12px !important;
+    line-height: 12px !important;
 }
 
  .q-stack{
@@ -814,12 +814,12 @@ color:black;
 }
 
  .q-stack1{
-    z-index: 1;
+ z-index: 1;
     font-size: 9pt!important;
-    line-height: 10px !important;
-    top: 2px;
-    width: 10px;
-    height: 10px;
+    line-height: 12px !important;
+    top: 0;
+    width: 12px;
+    height: 11px
 }
 
 #listcontainer{
@@ -1038,25 +1038,6 @@ opacity: 1.0;
     margin-right: 3px;
 }
 
-.mouse_on_polygon .leaflet-pixi-overlay > canvas{
-    cursor: pointer !important;
-}
-
-.aliasmarker_on{
-    transition-duration: 0.15s;
-    transition-timing-function: ease;
-    cursor: pointer;
-}
-
-.aliasmarker_on:hover{
-  transform: scale(1.3);
-  cursor: pointer;
-}
-
-.customLdivIcon > img{
-/*border-radius: 50%;
-*/}
-
 
 
 .ifw_tab_img{
@@ -1113,15 +1094,7 @@ opacity: 1.0;
     outline: none;
 }
 
-.customLdivIcon{
-    border-radius: 50%;
-    background: none;
-    border: none;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
+
 
 .htmlTypeListView table th {
 	font-weight: bold;

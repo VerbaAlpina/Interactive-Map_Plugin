@@ -78,7 +78,7 @@ function im_install_plugin (){
 	global $wpdb;
 	im_create_comment_table($wpdb);
 	im_create_map_tables($wpdb);
-	im_create_test_tables($wpdb);
+	//im_create_test_tables($wpdb);
 
 	//Register capabilities
 	global $wp_roles;

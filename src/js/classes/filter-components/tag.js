@@ -18,7 +18,7 @@ function TagComponent (tags){
 	 * @param {number} categoryId
 	 * @param {string} elementId
 	 * 
-	 * @return {Element} 
+	 * @return {Element}
 	 */
 	this.getFilterScreenElement = function (categoryId, elementId){
 		var /** Object<string, Array<string>> */ currentTags;
@@ -144,6 +144,28 @@ function TagComponent (tags){
 	 */
 	this.storeDefaultData = function (data, categoryId, elementId){
 
+	};
+	
+	/**
+	*
+	* Uses the filter data to re-create the state in which this filter was submitted.
+	*
+	* @param {Object<string, ?>} data The complete filter data object after storeData has been called for all applicable filters
+	* @param {Element} element The DOM element created by getFilterScreenElement.
+	* @param {number} categoryId
+	* @param {string} elementId
+	* 
+	* @return {undefined}
+	*/
+	this.setValues = function (data, element, categoryId, elementId){
+		if (data["tags"]){
+			jQuery("#tagComponent input:not(.ignore)").prop("checked", false);
+			for (let tagName in data["tags"]){
+				for (let i = 0; i < data["tags"][tagName].length; i++){
+					jQuery("#tagComponent input:not(.ignore)[name=" + tagName + "][value=" + data["tags"][tagName][i] + "]").prop("checked", true);
+				}
+			}
+		}
 	};
 	
 	/**

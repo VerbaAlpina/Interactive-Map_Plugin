@@ -26,7 +26,7 @@ function im_ajax_handler_users (){
 					$formatA = json_decode($_POST['format']);
 
 					if(!$db->insert($_POST['table'], array_combine($rowsA, $valuesA), $formatA)){
-						echo 'Error: ' . $db->last_error;
+						echo 'Error: ' . $db->last_error . ' --- ' . $db->last_query;
 						die;
 					}
 					echo $db->insert_id;
@@ -205,7 +205,7 @@ function im_ajax_handler_all (){
 			
 			$query1 = $db->prepare('SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers FROM im_syn_maps WHERE Id_Syn_Map = %d', $_POST['key']);
 			$query2 = $db->prepare('SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = %d ORDER BY Position ASC', $_POST['key']);
-			$map_main_data = $db->get_row($query1, 0);
+			$map_main_data = $db->get_row($query1);
 
 			if($map_main_data){
 				$map_main_data->Options = $map_main_data->Options == null? []: json_decode($map_main_data->Options);

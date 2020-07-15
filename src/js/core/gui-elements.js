@@ -165,7 +165,7 @@ function initGuiElements (){
 // });
 
 	jQuery(document).on("click", ".similarity_button", function (){
-		let id = jQuery(this).data("id");
+		let id = /** @type{string}*/ (jQuery(this).data("id"));
 		
 		let data = {
 			"action" : "im_a",
@@ -178,7 +178,7 @@ function initGuiElements (){
 			let data = /** @type{{similarities: Object<string,number>, html: string}}*/ (JSON.parse(response));
 			let /**MapShape*/ mapShape = symbolClusterer.showSimilarity(id, data["similarities"]);
 			
-			mapShape.infoWindowContent = new SimpleInfoWindowContent (null, null, null, {"name": "Test", "description": data["html"]});
+			mapShape.infoWindowContent = new SimpleInfoWindowContent (-99, "", OverlayType.Polygon, {"name": "Test", "description": data["html"]});
 			mapShape.updateInfoWindow();
 		});
 	});

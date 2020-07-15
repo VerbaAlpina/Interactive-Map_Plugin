@@ -1262,10 +1262,12 @@ function GoogleMapsInterface (position, options){
 	 * @param {IMGeometry} geoData
 	 * @param {MapShape} mapShape
 	 * @param {string} id
+	 * @param {string} color
+	 * @param {number} lineWidth
 	 * 
 	 * @return {google.maps.Data.Feature}
 	 */
-	this.createShape = function (geoData, mapShape, id){
+	this.createShape = function (geoData, mapShape, id, color, lineWidth){
 		var /** google.maps.Data.Feature */ feature = this.geoToFeature(geoData);
 
 		feature.setProperty("mapShape", mapShape);

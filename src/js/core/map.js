@@ -30,7 +30,7 @@ var mapInterface;
 var mapDomElement;
 
 /**
- * @type {Legend}
+ * @type {!Legend}
  * @const
  */
 var legend;
@@ -188,7 +188,7 @@ function initCallback (clustererOptions){
 	
 				var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
 				for (let i = 0; i < infoWindowContents.length; i++){
-					infoWindowContents[i].onOpen(jQuery(tabElement).find("div#tab_content_" + i)[0], tabIndex, infoWindow, overlay);
+					infoWindowContents[i].onOpen(tabElement, tabIndex, infoWindow, overlay);
 				}
 				mapElement.parts[tabIndex].owner.highlight();
 			}
@@ -207,7 +207,7 @@ function initCallback (clustererOptions){
 				if (mapElement instanceof MapSymbol){
 					var /** Array<InfoWindowContent> */ infoWindowContents = mapElement.parts[tabIndex].infoWindows;
 					for (let i = 0; i < infoWindowContents.length; i++){
-						infoWindowContents[i].onClose(jQuery(tabElement).find("div#tab_content_" + i)[0]);
+						infoWindowContents[i].onClose(tabElement);
 					}
 					mapElement.parts[tabIndex].owner.unhighlight();
 				}

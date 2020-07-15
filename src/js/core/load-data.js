@@ -269,6 +269,7 @@ function CategoryManager (){
 		return  /** @type{function(string):string} */ (element.data("getName"))(key);
 	}
 	
+	
 	/**
 	 * @param {string} key
 	 * @param {string} parentKey
@@ -277,6 +278,28 @@ function CategoryManager (){
 	 */
 	this.getAllDistinctElementName = function (key, parentKey){
 		return this.allDistinctNames[parentKey][key];
+	};
+	
+	/**
+	 * @param {number} categoryID 
+	 * @param {string} key
+	 * 
+	 * @return {number}
+	 */
+	this.getLineWidth = function (categoryID, key){
+		var /** !CategoryInformation */ cat = this.categories[categoryID];
+		
+		if(cat.lineWidth === undefined){
+			return 1;
+		}
+		else {
+			if (typeof cat.lineWidth === "function"){
+				return /** @type{function(string):number}*/ (cat.lineWidth)(key);
+			}
+			else {
+				return /** @type{number}*/ (cat.lineWidth);
+			}
+		}
 	};
 	
 	/**
@@ -380,10 +403,11 @@ function CategoryManager (){
 	 * 
 	 * @param {number} categoryID
 	 * @param {string} elementID
+	 * @param {Object<string,?>=} presetValues Only used if the filters settings are adjusted after loading the resepctive data
 	 * 
 	 * @return {undefined} 
 	 */
-	this.showFilterScreen = function (categoryID, elementID){
+	this.showFilterScreen = function (categoryID, elementID, presetValues){
 		if(elementID == 0 || optionManager.inEditMode() && legend.getMainElement(categoryID, elementID))
 			return;
 
@@ -412,6 +436,9 @@ function CategoryManager (){
 				jQuery("#IM_filter_popup_content").append(newElements[i]);
 
 				filterComponents[i].afterAppending(newElements[i], categoryID, elementID);
+				if (presetValues){
+					filterComponents[i].setValues(presetValues, newElements[i], categoryID, elementID);
+				}
 				noElements = false;
 			}
 			
@@ -536,11 +563,29 @@ function CategoryManager (){
 						}
 						else {
 							//new maps
-							mapElement = symbolClusterer.findMapElement(
-									/** @type {LegendElement} */ (legend.getElementByKey(iWindow["category"], iWindow["key"])), 
-									iWindow["elementIndex"],
-									iWindow["lat"],
-									iWindow["lng"]);
+							if (iWindow["parent_key"] === undefined){
+								//For backwards compatibility with maps that did not store parent key and category
+								//There can be multiple legend elements with the same category and key but different parents!
+								var parents = legend.getElementsWithKey(iWindow["category"], iWindow["key"]);
+								for (let j = 0; j < parents.length; j++){
+									mapElement = symbolClusterer.findMapElement(
+											/** @type{LegendElement}*/ (parents[j]), 
+											iWindow["elementIndex"],
+											iWindow["lat"],
+											iWindow["lng"]);
+									
+									if (mapElement){
+										break;
+									}
+								}
+							}
+							else {
+								mapElement = symbolClusterer.findMapElement(
+										/** @type {LegendElement} */ (legend.getElementByKey(iWindow["category"], iWindow["key"], iWindow["parent_category"], iWindow["parent_key"])), 
+										iWindow["elementIndex"],
+										iWindow["lat"],
+										iWindow["lng"]);
+							}
 						}
 						
 						if (mapElement){
@@ -735,8 +780,8 @@ function CategoryManager (){
 					jQuery("#im_debug_area").html(result[DEBUG_DATA])
 				}				
 				
-				element.filterData = filterData;
 				element.key = result[KEY];
+				element.filterData = filterData;
 
 				if(singular){
 					thisObject.createSingularLegendEntry(result, /** @type {LegendElement}*/ (element), computedColors, !newLegendElementCreated, /** @type{boolean} */ (active));
@@ -976,7 +1021,7 @@ function CategoryManager (){
 		if(active){
 			element.setActive(true);
 		}
-		
+
 		//Get color index
 		var /** number|Array<number> */ colorIndex;
 		try {
@@ -1016,6 +1061,9 @@ function CategoryManager (){
 		var /** number */ minLat;
 		var /** number */ minLng;
 		
+		var /** string */ color = element.getColorHex();
+		var /** number */ lineWidth = element.getLineWidth();
+		
 		for (var/** number */ i = 0; i < length; i++) {
 			
 			//Geo data
@@ -1047,7 +1095,7 @@ function CategoryManager (){
 			element.overlayInfos.push(overlayInfo);
 			
 			if (addToMap && overlayInfo.geomData != null){
-				symbolClusterer.addOverlay(overlayInfo, element, overlaysMovable);
+				symbolClusterer.addOverlay(overlayInfo, element, overlaysMovable, color, lineWidth);
 			}
 		}
 		
@@ -1204,7 +1252,7 @@ function CategoryManager (){
 			}
 			
 			var /** boolean */ overlaysMovable = optionManager.inEditMode() && this.categoryAllowsGeoDataEditingForElement(element.category, element.key, overlayType);
-			
+
 			//Iterate over the sub-legend-entries again to add the map overlays and set the rest of the color indexes
 			for (var li = 0; li < numSubElements; li++){
 
@@ -1216,6 +1264,9 @@ function CategoryManager (){
 				if(currentElement.colorIndex == undefined){
 					currentElement.colorIndex = indexes[id];
 				}
+				
+				var /** string */ color = currentElement.getColorHex();
+				var /** number */ lineWidth = currentElement.getLineWidth();
 				
 				//Create Symbols
 				if(overlayType == OverlayType.PointSymbol){
@@ -1271,7 +1322,7 @@ function CategoryManager (){
 					}
 					
 					if (addToMap && overlayInfo.geomData != null){
-						symbolClusterer.addOverlay(overlayInfo, currentElement, overlaysMovable);
+						symbolClusterer.addOverlay(overlayInfo, currentElement, overlaysMovable, color, lineWidth);
 					}
 
 				 	
@@ -1500,8 +1551,9 @@ function CategoryManager (){
  * @param {EditConfiguration=} editConfiguration If this paramter is set, users with the capability "im_edit_map_data" can edit the markers belonging to this category and add new markers to it
  * @param {boolean=} singleSelect If true only one element from this category can be visualized on the map at a time
  * @param {function(string):boolean=} forbidRemovingFunction If this function returns true for an element, it cannot be removed from the legend by the user
+ * @param {function(string):number|number=} lineWidth Function to specify different line widths for polygon or line string categories
  */
-function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration, singleSelect, forbidRemovingFunction){
+function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration, singleSelect, forbidRemovingFunction, lineWidth){
 	/**
 	 * @type {number} 
 	 */
@@ -1612,6 +1664,11 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	 * @type {function(string):boolean|undefined}
 	 */
 	this.forbidRemovingFunction = forbidRemovingFunction;
+	
+	/**
+	 * @type {function(string):number|number|undefined}
+	 */
+	this.lineWidth = lineWidth;
 }	
 
 /**
@@ -1632,7 +1689,8 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
  * 		costumGetNameFunction : (function(string, function(string):string):string|undefined),
  * 		editConfiguration: (EditConfiguration|undefined),
  * 		singleSelect: (boolean|undefined),
- * 		forbidRemovingFunction: (function(string):boolean|undefined)
+ * 		forbidRemovingFunction: (function(string):boolean|undefined),
+ * 		lineWidth: (function(string):number|number|undefined)
  * 		
  * }} data
  * @return {CategoryInformation}
@@ -1640,7 +1698,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 function buildCategoryInformation (data){
 	return new CategoryInformation(data["categoryID"], data["categoryPrefix"], data["name"] , data["nameEmpty"], data["elementID"], 
 			data["filterComponents"] , data["countNames"], data["textForNewComment"], data["textForListRetrieval"], data["listBuilder"],
-			data["costumGetNameFunction"], data["editConfiguration"], data["singleSelect"], data["forbidRemovingFunction"]);
+			data["costumGetNameFunction"], data["editConfiguration"], data["singleSelect"], data["forbidRemovingFunction"], data["lineWidth"]);
 }
 
 /**
@@ -1671,7 +1729,7 @@ FilterComponent.prototype.getFilterScreenElement = function (categoryId, element
  * Will be called directly after the dialog is closed, so it can also be used
  * to destroy extra data that might not be deleted by jQuery.empty().
  *
- * @param {Object<string, ?>} data
+ * @param {Object<string, ?>} data The object that will be sent to the server. All filter settings have to be added to it.
  * @param {Element} element The DOM element created by getFilterScreenElement.
  * @param {number} categoryId
  * @param {string} elementId
@@ -1690,6 +1748,19 @@ FilterComponent.prototype.storeData = function (data, element, categoryId, eleme
 * @return {undefined}
 */
 FilterComponent.prototype.storeDefaultData = function (data, categoryId, elementId){};
+
+/**
+*
+* Uses the filter data to re-create the state in which this filter was submitted.
+*
+* @param {Object<string, ?>} data The complete filter data object after storeData has been called for all applicable filters
+* @param {Element} element The DOM element created by getFilterScreenElement.
+* @param {number} categoryId
+* @param {string} elementId
+* 
+* @return {undefined}
+*/
+FilterComponent.prototype.setValues = function (data, element, categoryId, elementId){};
 
 /**
  *

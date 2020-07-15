@@ -5,7 +5,7 @@
  * @param {MapPosition} position
  * @param {Object<string,?>} options
  * 
- * @implements{MapInterface<google.maps.Marker, google.maps.Data.Feature, google.maps.Data.Feature, InfoBubble>}
+ * @implements{MapInterface<google.maps.Marker, google.maps.Data.Feature, google.maps.Data.Feature, Object>}
  * 
  * @suppress {checkTypes}
  */

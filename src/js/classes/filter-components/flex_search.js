@@ -50,4 +50,8 @@
     this.afterAppending=function(element, categoryId, elementId){
 
     }
+    
+	this.setValues = function (data, element, categoryId, elementId){
+
+	};
  }

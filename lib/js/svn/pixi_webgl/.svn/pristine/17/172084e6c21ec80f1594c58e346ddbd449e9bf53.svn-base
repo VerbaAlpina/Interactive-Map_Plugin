@@ -1,0 +1,1231 @@
+
+ function LeafletPixiOverlay(map,_markerhover,_polyhover) { 
+
+				that = this;
+
+				var frame = null;
+				var firstDraw = true;
+				var prevZoom;
+				var fixed_scale;
+				var map_moving = false;
+				var window_width = window.outerHeight;
+				var window_height = window.innerHeight;
+				var mouseonmarker = false;
+				var mouseonpolygon = false;
+				var giant_listeners_initialized = false;
+			    var currentPolygonID = 0;
+
+
+				this.markerhover = _markerhover;
+				this.polyhover = _polyhover;
+				this.piximarkers = new Array();
+				this.pixipolygons = [];
+				this.renderer;
+				this.container;
+				this.external_scale =0.6;
+				this.scale;
+				this.project;
+				this.active_polygon = null;
+				this.active_clone = null;
+				this.active_clones = [];
+				this.current_latlng = null;
+				this.multiPolygonList = {};
+				this.alreadychecking_out = false;
+				this.performing_unhover = false;
+				this.globalTragetscale;
+				this.globalCurrentScale; 
+				this.globalMarkerScale;
+
+				this.pixiContainer = new PIXI.Container();
+			    // this.pixiContainer.buttonMode = true;
+
+				this.polyContainer = new PIXI.Container();
+
+				this.polyHoverContainer = new PIXI.Container();
+
+				this.global_giant_polygon = new PIXI.Graphics();
+				this.polyContainer.addChild(this.global_giant_polygon);
+			    this.global_giant_polygon.interactive = true;
+		
+				this.pixiContainer.addChild(this.polyContainer);
+				this.pixiContainer.addChild(this.polyHoverContainer);
+
+				this.markerContainer = new PIXI.Container();
+
+				this.pixiContainer.addChild(this.markerContainer);
+
+				this.pixiContainer.interactive = true;
+
+
+				map.on('zoomstart', function(){
+				 jQuery(".leaflet-pane.leaflet-marker-pane > div").remove();
+				map_moving = true;
+				
+				});
+
+
+				map._container.addEventListener("mouseleave", function(){
+					that.resetHover();
+				})
+
+				map.on('zoomend', function(){
+			    map_moving = false;
+								 		
+				});
+
+
+				map.on('mousemove', function(e){
+
+					if(!map_moving && !mouseonmarker)that.current_latlng = e.latlng;
+
+					  if(!mouseonpolygon && !mouseonmarker){ //outside main polygon
+
+		  	 				if(jQuery('body').hasClass('mouse_on_polygon'))jQuery('body').removeClass("mouse_on_polygon");
+					  } 
+
+					  else{ //inside main polygon
+					  	if(!jQuery('body').hasClass('mouse_on_polygon'))jQuery('body').addClass("mouse_on_polygon");
+
+					  	if(!map_moving){
+							completePolygonCheck(that.current_latlng);
+						}
+
+					  }
+
+				
+
+
+				});
+
+				map.on('move', function(e){
+				    jQuery(".leaflet-pane.leaflet-marker-pane > div").remove();
+					map_moving = true;
+				});
+
+				map.on('moveend', function(e){
+					map_moving = false;
+				});
+
+
+
+				var doubleBuffering = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+
+		
+				this.LpixiOverlay = L.pixiOverlay(function(utils) {
+
+					if (frame) {
+						cancelAnimationFrame(frame);
+						frame = null;
+					}
+
+					var zoom = utils.getMap().getZoom();
+					that.container = utils.getContainer();
+					that.renderer = utils.getRenderer();
+					that.project = utils.latLngToLayerPoint;
+					that.scale = utils.getScale();
+					that.scale /= that.external_scale;
+
+					if (firstDraw) {
+						var getRenderer = utils.getRenderer;
+						utils.getMap().on('click', function(e) {
+
+							var interaction = utils.getRenderer().plugins.interaction;
+							var pointerEvent = e.originalEvent;
+							var pixiPoint = new PIXI.Point();
+
+							interaction.mapPositionToPoint(pixiPoint, pointerEvent.clientX, pointerEvent.clientY);
+
+							var target = interaction.hitTest(pixiPoint, that.container);
+			
+						    if(target.clickListener){
+
+									target.clickListener();
+								}
+
+								else if (target.original_object.clickListener){
+										target.original_object.clickListener(e.latlng.lat,e.latlng.lng);
+								}
+
+							else{
+
+
+
+							if (target && target.popup) {
+
+								if(target instanceof PIXI.Graphics) {
+									var latlng = e.latlng;
+									target.popup.setLatLng(latlng);
+									target.popup.openOn(map);	
+								}
+								else{
+									target.popup.openOn(map);
+
+								}
+
+
+							}
+
+							}
+
+
+
+						});
+
+
+						that.globalCurrentScale = 1 / that.scale;
+					    that.global_giant_polygon.clear();
+	
+								
+					}
+					if (!firstDraw && prevZoom !== zoom) {
+						
+						
+					   if(that.piximarkers.length>0){
+									that.globalTragetscale  =  1 / that.scale;
+						}
+				
+
+					}
+
+					var duration = 250;
+					var start;
+
+
+	function animate(timestamp) {
+				var progress;
+
+
+				if (start === null) start = timestamp;
+				progress = timestamp - start;
+				var lambda = progress / duration;
+				if (lambda > 1) lambda = 1;
+				lambda = lambda * (0.4 + lambda * (2.2 + lambda * -1.6));
+
+				that.globalMarkerScale = (that.globalCurrentScale + lambda * (that.globalTragetscale - that.globalCurrentScale));
+
+				for(var i=0; i<that.piximarkers.length;i++){
+					var marker = that.piximarkers[i];
+					marker.scale.set(that.globalCurrentScale + lambda * (that.globalTragetscale - that.globalCurrentScale));
+				}
+
+		
+				if (progress < duration) {
+					frame = requestAnimationFrame(animate);
+				}
+
+				else{
+
+					that.globalCurrentScale = 1/ that.scale;
+
+					var zoom = map.getZoom();
+					if(zoom<2)zoom = 2;
+
+					var line_width_fac = that.scale + (1/zoom)/25;
+					var new_linewidth = that.pixipolygons[0]['line_width'] / (line_width_fac); //assume all polygons use same linewidth 
+
+	
+					  that.drawPixiPolygonOutline(that.global_giant_polygon,new_linewidth);
+
+					
+	  				  if(that.active_polygon!=null){
+
+	  				  	that.drawPixiPolygonOutline(that.active_clone,new_linewidth);
+
+
+								var other_polys = that.multiPolygonList[that.active_polygon.orig_object['idx']];
+
+
+									if(other_polys!=null){
+
+										for(var j=0;j<that.active_clones.length;j++){
+											var other_poly = that.active_clones[j];	
+											that.drawPixiPolygonOutline(other_poly);
+										}
+
+									}
+
+	  				  }
+
+					   that.renderer.render(that.container);
+					
+
+						  // that.polyContainer.cacheAsBitmap = false;	
+			
+				}
+
+			 that.renderer.render(that.container);
+
+			} //animate		
+
+			if (!firstDraw && prevZoom !== zoom) {
+				
+				// that.polyContainer.cacheAsBitmap = true;
+			     start = null;
+				
+				frame = requestAnimationFrame(animate);
+			}
+
+			firstDraw = false;
+			prevZoom = zoom;
+			that.renderer.render(that.container);
+
+			},
+			this.pixiContainer,
+			 {
+			  doubleBuffering: doubleBuffering,
+		      autoPreventDefault: false
+		    }
+	);
+
+
+
+
+this.pixiMarker = function(_in){
+
+
+	var marker = new PIXI.Sprite(_in.texture);
+	marker['orig_options'] = _in;
+	marker.clickListener = _in.clickListener;
+
+
+
+	marker.alpha = _in.alpha;
+
+	var markerCoords = that.project(_in.latlng);
+	marker.x = markerCoords.x;
+	marker.y = markerCoords.y;
+	marker.anchor.set(0.5, 0.5);
+	marker.scale.x = that.globalCurrentScale;
+	marker.scale.y = that.globalCurrentScale;
+
+	marker.currentScale = 1 / that.scale;
+
+	that.piximarkers.push(marker);
+
+	marker['latlng'] = _in.latlng;
+	marker['content'] = _in.popupcontent;
+
+	marker.interactive = _in.interactive;
+
+	if(that.markerhover){
+
+		var scale_fac = 1.3;
+		var animate_running = false;
+		var add = true;
+		var original_scale;
+		var targetScale;
+		var diff;
+		marker.upscale = false;
+
+	 	marker.on('mouseover',function(){
+ 			jQuery(".leaflet-pane.leaflet-marker-pane > div:not(.animating)").remove();
+
+	
+	 		mouseonmarker = true;
+	 		that.current_latlng = {lat:marker.latlng[0], lng:marker.latlng[1]};
+	 
+
+	 		if(!map_moving){
+
+	 			
+	 		    // setTimeout(function() {
+			     //    jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
+		      //   }, 150);
+
+		 		var img_url = marker._texture.baseTexture.imageUrl;
+		 		var tex_height = _in.texture.orig.height*that.external_scale;
+
+		 		var larger_than_css_scale_fac = 1.4; //increase parent size for child img not to be cut off when scaled (due to hover) fac > 0.1 than css scale
+
+		 		var icon = L.divIcon({
+							    iconUrl: img_url,
+							    iconSize:     [tex_height*larger_than_css_scale_fac, tex_height*larger_than_css_scale_fac], // size of the icon
+							    iconAnchor:   [(tex_height*larger_than_css_scale_fac)/2, (tex_height*larger_than_css_scale_fac)/2], // point of the icon which will correspond to marker's location
+							    html:"<img style= 'width :"+ tex_height +"px; height :"+ tex_height +"px;' class='aliasmarker_on' src="+img_url+"></img>",
+							    className:"customLdivIcon"
+							   
+				});
+
+		 		var aliasmarker = L.marker(marker.latlng, {icon: icon }).addTo(map);
+
+		 		  triggercount = 0;
+
+					jQuery(aliasmarker._icon).on('mouseover',function(){
+						triggercount++;
+					});
+
+
+
+				    jQuery(aliasmarker._icon).trigger("mouseenter");
+
+					    setTimeout(function() {
+				    			if(triggercount==1)mouseonmarker =false;
+				   		 }, 150);
+
+
+		 		jQuery(aliasmarker._icon).on('mouseleave',function(){
+
+ 					jQuery(this).addClass('animating');
+		 			mouseonmarker = false;
+
+			        setTimeout(function() {
+		        	 	   jQuery(this).removeClass('animating');	
+		        	 	   map.removeLayer(aliasmarker);
+		        	       jQuery(".leaflet-pane.leaflet-marker-pane > div:not(:last)").remove();
+			        }, 150);
+
+			          setTimeout(function() {
+			          	//savety check 
+		        	 	if(!mouseonmarker && !mouseonpolygon){
+		        	 		if(jQuery('body').hasClass('mouse_on_polygon'))jQuery('body').removeClass("mouse_on_polygon");
+	        	 				clearHoverContainer();	
+								that.active_polygon = null;
+								that.active_clone = null;
+		        	 	}
+			        }, 200);
+
+			    });
+
+
+
+	 		}
+	 		   
+	 	});	
+
+ 	 	marker.on('mouseout',function(){
+ 			 
+ 			 setTimeout(function() {
+
+ 			 }, 150);
+ 	 	
+	
+
+ 	//  		mouseonmarker = false;
+
+		// 	add = false;
+		// 	targetScale =that.globalTragetscale;
+		// 	diff = (that.globalTragetscale*scale_fac) - targetScale;
+
+		// 	requestAnimationFrame(animate_marker);
+		// 	marker.alpha = 0.85;
+
+		// if(!that.alreadychecking_out){
+		//    setTimeout(function() {
+		// 	 checkOutside(that.current_latlng);
+		//     }, 250);
+		//   } 
+	 			
+	 	});
+
+		var start;
+		var duration = 100;
+
+	 	function animate_marker(timestamp) {
+
+	 			
+				var progress;
+		
+				if (start == null) start = timestamp;
+				progress = timestamp - start;
+				var lambda = progress / duration;
+				if (lambda > 1) lambda = 1;
+				lambda = lambda * (0.4 + lambda * (2.2 + lambda * -1.6));
+
+				if(add){
+				marker.transform.scale.x += diff/8;
+				marker.transform.scale.y += diff/8;
+
+				}
+
+				else{
+
+				marker.transform.scale.x -= diff/8;
+				marker.transform.scale.y -= diff/8;
+
+				}	
+				
+				if ((progress < duration) && ( (marker.transform.scale.x < targetScale && add) || ( marker.transform.scale.x > targetScale && !add ) ) ) {
+
+					requestAnimationFrame(animate_marker);
+				}
+
+				else{
+
+				  marker.transform.scale.x =  targetScale;
+				  marker.transform.scale.y =  targetScale;
+				  marker.upscale = false;
+
+					start = null;
+				}
+
+				that.renderer.render(that.container);
+
+			}	
+
+	 } // marker hover webgL not used in current implementation (hover done by html / css)
+
+	 else{
+
+	 // 	marker.on('mouseover',function(){
+
+		// 	if(that.polyhover){
+		// 		setTimeout(function() {
+		// 		completePolygonCheck({lat:marker.latlng[0],lng:marker.latlng[1]});
+		// 	}, 2);
+		// 	}
+	 // 	});
+
+
+
+	 // 	marker.on('mouseout',function(){
+
+		// marker.alpha = 0.85;
+
+		// if(!that.alreadychecking_out){
+		//    setTimeout(function() {
+		// 	 checkOutside(that.current_latlng);
+		//     }, 250);
+		//   } 
+	 			
+	 // 	});
+
+	 } // normal hover
+
+	marker['type'] = "gl_Marker";
+
+
+	return marker;
+}
+
+
+this.updateMarker = function(marker,_in){
+	
+	 if(_in.latlng) {
+
+	 	marker['latlng'] = _in.latlng;
+		var markerCoords = that.project(marker.latlng);
+		marker.x = markerCoords.x;
+		marker.y = markerCoords.y;
+
+	}
+
+	if(_in.texture) marker['texture'] = _in.texture;
+
+	if(_in.popupcontent){
+
+			marker['content'] = _in.popupcontent;
+			var tex_height = marker.texture.orig.height*that.external_scale;
+			marker.popup.setContent(_in.popupcontent);
+			if(_in.latlng) marker.popup.setLatLng(_in.latlng);
+	 }
+
+	 if(_in.alpha) marker['alpha'] = _in.alpha;
+
+
+};	
+
+
+
+this.removeMarker = function(marker){
+
+		var index = that.piximarkers.indexOf(marker);
+
+		if (index > -1) {
+			that.piximarkers.splice(index, 1);
+			that.markerContainer.removeChild(marker);
+		}	
+};
+
+
+// needs defined geo object
+// {type: MultiPolygon | Polygon, coordinates: [[]] | [], idx: some unique id}
+
+this.gLPolygon = function(_in){
+
+var obj = [];
+var in_obj = {};
+
+if(_in.geo) in_obj['geo'] = _in.geo;
+if(_in.center) in_obj['center'] = _in.center;
+if(_in.line_width) in_obj['line_width'] = _in.line_width;
+if(_in.fill_color) in_obj['fill_color'] = _in.fill_color;
+if(_in.fill_alpha) in_obj['fill_alpha'] = _in.fill_alpha;
+if(_in.stroke_color) in_obj['stroke_color'] = _in.stroke_color;
+if(_in.stroke_alpha) in_obj['stroke_alpha'] = _in.stroke_alpha;
+if(_in.popupcontent) in_obj['popupcontent'] = _in.popupcontent;
+if(_in.interactive) in_obj['interactive'] = _in.interactive;
+if(_in.hover_line_width) in_obj['hover_line_width'] = _in.hover_line_width;
+if(_in.hover_fill_color) in_obj['hover_fill_color'] = _in.hover_fill_color;
+if(_in.hover_fill_alpha) in_obj['hover_fill_alpha'] = _in.hover_fill_alpha;
+if(_in.hover_stroke_color) in_obj['hover_stroke_color'] = _in.hover_stroke_color;	 
+if(_in.hover_stroke_alpha) in_obj['hover_stroke_alpha'] = _in.hover_stroke_alpha;	
+if(_in.clickListener) in_obj['clickListener'] = _in.clickListener;	
+
+
+	if(_in.geo['type']=="Polygon"){
+
+    	var latlng = _in.geo['coordinates'][0];
+
+    	var holes = [];
+    	for(var j=1; j<_in.geo['coordinates'].length;j++){
+    		var hole = _in.geo['coordinates'][j];
+    	     holes.push(hole);  
+    	}
+
+	     var polygon = new that.pixiPolygon(
+	       latlng,
+	       in_obj.geo,
+	       in_obj.center,
+	       in_obj.line_width,
+	       in_obj.fill_color,
+	       in_obj.fill_alpha,
+	       in_obj.stroke_color,
+	       in_obj.stroke_alpha,
+	       in_obj.popupcontent,
+	       in_obj.interactive,
+		   in_obj.hover_line_width,
+		   in_obj.hover_fill_color,
+		   in_obj.hover_fill_alpha,
+		   in_obj.hover_stroke_color,
+   		   in_obj.hover_stroke_alpha,
+   		   in_obj.clickListener,
+   		   holes
+	       );
+
+	     polygon['orig_options'] = _in;
+	     obj.push(polygon);
+	 }
+
+		if(_in.geo['type']=="MultiPolygon"){
+
+		var coords_list = _in.geo['coordinates'];
+
+		for(var i=0; i<coords_list.length;i++){
+			var latlng = coords_list[i][0];
+
+		var holes = [];
+
+
+    	for(var j=1; j<coords_list[i].length;j++){
+    		var hole = coords_list[i][j]
+    		if(hole.length>3)holes.push(hole); //dont use amall bugged holes
+    	}	
+	   	
+
+		var polygon = new that.pixiPolygon(
+	    	 latlng,
+	       in_obj.geo,
+	       in_obj.center,
+	       in_obj.line_width,
+	       in_obj.fill_color,
+	       in_obj.fill_alpha,
+	       in_obj.stroke_color,
+	       in_obj.stroke_alpha,
+	       in_obj.popupcontent,
+	       in_obj.interactive,
+		   in_obj.hover_line_width,
+		   in_obj.hover_fill_color,
+		   in_obj.hover_fill_alpha,
+	       in_obj.hover_stroke_color,
+	       in_obj.hover_stroke_alpha,
+           in_obj.clickListener,
+	       holes
+		    );
+
+		  polygon['orig_options'] = _in;
+		  obj.push(polygon);
+		}
+
+	}
+
+	obj['type'] = "gl_Polygon";
+	return obj;
+};
+
+
+this.pixiPolygon = function(latlng,orig_object,center,line_width,fill_color,fill_alpha,stroke_color,stroke_alpha,popupcontent,interactive,hover_line_width,hover_fill_color,hover_fill_alpha,hover_stroke_color,hover_stroke_alpha,clicklistener,holes){
+ 
+
+	var pixi_polygon = new PIXI.Graphics();
+
+	pixi_polygon['idx'] = currentPolygonID;
+	currentPolygonID ++;
+
+	var projectedPolygon =latlng.map(function(coords) {return that.project(coords);});
+	var coords_array = [];
+
+	for(var i=0; i<projectedPolygon.length;i++){
+
+       coords_array.push(projectedPolygon[i].x);
+       coords_array.push(projectedPolygon[i].y);
+
+	}
+
+	pixi_polygon['coords_array'] = coords_array;
+
+	var totalholes = [];
+
+	for(var i = 0; i<holes.length;i++){
+		var hole_coords = []
+		var hole = holes[i];
+
+		var projectedHole = hole.map(function(coords) {return that.project(coords);});
+
+		for(var j=0; j<projectedHole.length;j++){
+			hole_coords.push(projectedHole[j].x)
+			hole_coords.push(projectedHole[j].y)
+		}
+		totalholes.push(hole_coords);
+	}
+
+	pixi_polygon['totalholes'] = totalholes;
+
+	pixi_polygon['latlng'] = latlng;
+	pixi_polygon['orig_object'] = orig_object;
+	pixi_polygon['center'] = center;
+	pixi_polygon['line_width'] = line_width;
+	pixi_polygon['fill_color'] = fill_color;
+	pixi_polygon['fill_alpha'] = fill_alpha;
+	pixi_polygon['popupcontent'] = popupcontent;
+	pixi_polygon['stroke_color'] = stroke_color;
+	pixi_polygon['stroke_alpha'] = stroke_alpha;
+	pixi_polygon['original_line_width'] = line_width;
+	pixi_polygon['original_fill_color'] = fill_color;
+	pixi_polygon['original_fill_alpha'] = fill_alpha;
+	pixi_polygon['original_stroke_color'] = stroke_color;
+	pixi_polygon['original_stroke_alpha'] = stroke_alpha;
+	pixi_polygon['hover_line_width'] = hover_line_width;
+	pixi_polygon['hover_fill_color'] = hover_fill_color;
+	pixi_polygon['hover_fill_alpha']= hover_fill_alpha;
+	pixi_polygon['hover_stroke_color'] = hover_stroke_color;
+	pixi_polygon['hover_stroke_alpha'] = hover_stroke_alpha;
+	pixi_polygon['clickListener'] = clicklistener;
+	pixi_polygon['holes'] = holes;
+
+
+	pixi_polygon.interactive = interactive;
+
+	that.pixipolygons.push(pixi_polygon);
+
+
+	if(orig_object.type=="MultiPolygon"){
+
+		var idx = orig_object['idx'];
+
+		if(that.multiPolygonList[idx]==null){
+			that.multiPolygonList[idx] = [pixi_polygon];
+		}
+		else{
+			that.multiPolygonList[idx].push(pixi_polygon);
+		}
+	}
+
+
+	return pixi_polygon;
+
+};
+
+
+// IF UPDATE GEOMETRY USE SAME NUMBER OF POLYGONS
+// NO CHANGE FROM MULTIPOLYGON TO POLYGON ALLOWED
+// IN THAT CASE REMOVE POLYGON AND CREATE NEW
+
+this.updatePolygon = function(gl_polygon,_in){
+
+var update_obj= {};
+
+(_in.geo) ? update_obj['geo'] = _in.geo :	update_obj['geo'] = gl_polygon.geo;
+(_in.center) ? update_obj['center'] = _in.center :	update_obj['center'] = gl_polygon.center;
+(_in.line_width) ? update_obj['line_width'] = _in.line_width :	update_obj['line_width'] = gl_polygon.line_width;
+(_in.fill_color) ? update_obj['fill_color'] = _in.fill_color :	update_obj['fill_color'] = gl_polygon.fill_color;
+(_in.fill_alpha) ? update_obj['fill_alpha'] = _in.fill_alpha :	update_obj['fill_alpha'] = gl_polygon.fill_alpha;
+(_in.stroke_color) ? update_obj['stroke_color'] = _in.stroke_color :	update_obj['stroke_color'] = gl_polygon.stroke_color;
+(_in.stroke_alpha) ? update_obj['stroke_alpha'] = _in.stroke_alpha :	update_obj['stroke_alpha'] = gl_polygon.stroke_alpha;
+(_in.popupcontent) ? update_obj['popupcontent'] = _in.popupcontent :	update_obj['popupcontent'] = gl_polygon.popupcontent;
+(_in.interactive) ? update_obj['interactive'] = _in.interactive :	update_obj['interactive'] = gl_polygon.interactive;
+(_in.hover_line_width) ? update_obj['hover_line_width'] = _in.hover_line_width :	update_obj['hover_line_width'] = gl_polygon.hover_line_width;
+(_in.hover_fill_color) ? update_obj['hover_fill_color'] = _in.hover_fill_color :	update_obj['hover_fill_color'] = gl_polygon.hover_fill_color;
+(_in.hover_fill_alpha) ? update_obj['hover_fill_alpha'] = _in.hover_fill_alpha :	update_obj['hover_fill_alpha'] = gl_polygon.hover_fill_alpha;
+(_in.hover_stroke_color) ? update_obj['hover_stroke_color'] = _in.hover_stroke_color :	update_obj['hover_stroke_color'] = gl_polygon.hover_stroke_color;
+(_in.hover_stroke_alpha) ? update_obj['hover_stroke_alpha'] = _in.hover_stroke_alpha :	update_obj['hover_stroke_alpha'] = gl_polygon.hover_stroke_alpha;
+
+
+	if(gl_polygon.length>1){
+
+		for(var i=0; i<gl_polygon.length;i++){
+			if(_in.geo) var latlng = _in.geo['coordinates'][i];
+			that.updateSinglePolygon(gl_polygon[i],latlng,update_obj.geo,update_obj.center,update_obj.line_width,update_obj.fill_color,update_obj.fill_alpha,update_obj.stroke_color,update_obj.stroke_alpha,update_obj.popupcontent,update_obj.interactive);
+		}
+	}
+
+	else{
+	    if(_in.geo) var latlng = _in.geo['coordinates'][0];
+		that.updateSinglePolygon(gl_polygon[0],latlng,update_obj.geo,update_obj.center,update_obj.line_width,update_obj.fill_color,update_obj.fill_alpha,update_obj.stroke_color,update_obj.stroke_alpha,update_obj.popupcontent,update_obj.interactive);
+	}
+
+
+};
+
+
+
+this.updateSinglePolygon = function(polygon,latlng,orig_object,center,line_width,fill_color,fill_alpha,stroke_color,stroke_alpha,popupcontent,interactive,hover_line_width,hover_fill_color,hover_fill_alpha,hover_stroke_color,hover_stroke_alpha){
+
+	if(latlng)polygon['latlng'] = latlng;
+	if(orig_object)polygon['orig_object'] = orig_object;
+	if(center)polygon['center'] = center;
+	if(line_width)polygon['line_width'] = line_width;
+	if(fill_color)polygon['fill_color'] = fill_color;
+	if(fill_alpha)polygon['fill_alpha'] = fill_alpha;
+	if(stroke_color)polygon['stroke_color'] = stroke_color;
+	if(stroke_alpha)polygon['stroke_alpha'] = stroke_alpha;
+	if(line_width)polygon['original_line_width'] = line_width;
+	if(fill_color)polygon['original_fill_color'] = fill_color;
+	if(fill_alpha)polygon['original_fill_alpha']= fill_alpha;
+	if(stroke_color)polygon['original_stroke_color'] = stroke_color;
+	if(stroke_alpha)polygon['original_stroke_alpha'] = stroke_alpha;
+	if(interactive)polygon['interactive'] = interactive;
+	if(hover_line_width)polygon['hover_line_width'] = hover_line_width;
+	if(hover_fill_color)polygon['hover_fill_color'] = hover_fill_color;
+	if(hover_fill_alpha)polygon['hover_fill_alpha'] = hover_fill_alpha;
+	if(hover_stroke_color)polygon['hover_stroke_color'] = hover_stroke_color;
+	if(hover_stroke_alpha)polygon['hover_stroke_alpha'] = hover_stroke_alpha;
+
+	if(popupcontent && center){
+			polygon.popup = L.popup({className: 'pixi-popup'})
+			.setLatLng(center)
+			.setContent(popupcontent);
+	}	
+
+	that.drawPixiPolygon(polygon,true);
+
+};
+
+this.removePolygon = function(gl_polygon){
+
+
+	if(gl_polygon.length>1){
+
+		for(var i=0; i<gl_polygon.length;i++){
+			that.deleteSinglePolygon(gl_polygon[i]);
+		}
+
+		var idx = gl_polygon[0].orig_object.idx;
+		delete that.multiPolygonList[idx];
+	}
+
+	else{
+		that.deleteSinglePolygon(gl_polygon[0]);
+	}
+
+
+};
+
+this.deleteSinglePolygon = function(polygon){
+
+		that.polyContainer.removeChild(polygon);
+			var index = that.pixipolygons.indexOf(polygon);
+		if (index > -1) {
+			that.pixipolygons.splice(index, 1);
+		}
+
+};
+
+
+
+this.drawPixiPolygon = function(pixipolygon,perform){
+
+		var zoom = map.getZoom();
+		if(zoom<2)zoom = 2;
+
+		var line_width_fac = that.scale + (1/zoom)/25;
+
+
+		that.global_giant_polygon.lineStyle(pixipolygon['line_width'] / (line_width_fac), pixipolygon['stroke_color'], pixipolygon['stroke_alpha']);
+		that.global_giant_polygon.beginFill(pixipolygon['fill_color'], pixipolygon['fill_alpha']);
+
+
+		that.global_giant_polygon.drawPolygon(pixipolygon.coords_array);
+
+		for(var i=0;i<pixipolygon.totalholes.length;i++){
+
+			that.global_giant_polygon.drawPolygon(pixipolygon.totalholes[i]);
+			that.global_giant_polygon.addHole();
+		}
+
+	
+
+		if(perform) that.renderer.render(that.container);
+
+};
+
+
+this.drawSinglePixiPolygon = function(pixipolygon,perform){
+
+
+	var polygontodraw = pixipolygon.clone();
+
+	polygontodraw['original_object'] = pixipolygon;
+
+	that.polyHoverContainer.addChild(polygontodraw);
+	polygontodraw.graphicsData = []; //fix bug of multi drawing
+	polygontodraw.buttonMode = true;
+	polygontodraw.interactive = true;
+
+
+		if(pixipolygon.popupcontent && pixipolygon.center){
+			polygontodraw.popup = L.popup({className: 'pixi-popup'})
+			.setLatLng(pixipolygon.center)
+			.setContent(pixipolygon.popupcontent);
+		}	
+
+		
+		var zoom = map.getZoom();
+		if(zoom<2)zoom = 2;
+
+		var line_width_fac = that.scale + (1/zoom)/25;
+
+
+		polygontodraw.lineStyle(pixipolygon['line_width'] / (line_width_fac), pixipolygon['stroke_color'], pixipolygon['stroke_alpha']);
+		polygontodraw.beginFill(pixipolygon['fill_color'], pixipolygon['fill_alpha']);
+
+
+		polygontodraw.drawPolygon(pixipolygon.coords_array);
+
+		for(var i=0;i<pixipolygon.totalholes.length;i++){
+
+			polygontodraw.drawPolygon(pixipolygon.totalholes[i]);
+			polygontodraw.addHole();
+		}
+
+
+	if(perform) that.renderer.render(that.container);
+
+	return polygontodraw;
+
+};
+
+
+this.drawPixiPolygonOutline = function(pixipolygon,_line_width){
+
+		pixipolygon.updateLineStyle(_line_width);
+
+};
+
+PIXI.Graphics.prototype.updateLineStyle = function(lineWidth){   
+
+  	var len = this.graphicsData.length;
+
+  	for(var i=0;i<len;i++){
+
+	    var data = this.graphicsData[i];
+
+	    data.lineWidth = lineWidth;         
+	    this.dirty++;        
+	    this.clearDirty++;
+    }    
+     
+};
+
+function checkOutside(point){
+
+that.alreadychecking_out = true;
+var isin = false;
+
+for(var i=0; i<that.pixipolygons.length;i++){
+
+var pixi_polygon = that.pixipolygons[i];
+var latlon = [point.lat,point.lng];
+
+	if(inside(latlon,pixi_polygon.latlng)){
+		isin = true;
+	}
+
+}
+
+// if(!isin) resetActivePolygon();
+
+that.alreadychecking_out = false;
+
+}
+
+	function completePolygonCheck(point){	
+
+	var latlon = [point.lat,point.lng];
+
+		var isin = false;
+		var stillonactive = false;
+
+
+		if(that.active_polygon!=null){
+
+			var inhole = false;
+
+
+			for(var i=0; i<that.active_polygon.holes.length;i++){
+				var hole = that.active_polygon.holes[i];
+
+			    if(inside(latlon,hole)){
+	
+			    	inhole = true;
+			    	stillonactive = false;
+			    }
+			}
+
+			if(!inhole){
+			    if(inside(latlon,that.active_polygon.latlng))stillonactive = true;
+			    else stillonactive = false
+			    isin = true;
+			}
+		}
+
+	if(!stillonactive){
+
+		isin =false;
+
+			    for(var i=0; i<that.pixipolygons.length;i++){
+
+		    	     var pixi_polygon = that.pixipolygons[i];
+				     if(pixi_polygon==that.active_polygon && inhole) continue;
+				
+
+			    	if(inside(latlon,pixi_polygon.latlng)){
+
+					 if(that.active_polygon!== pixi_polygon){
+
+
+						if(that.active_polygon !== null){
+							
+						  clearHoverContainer();						 
+
+						 }
+
+				    	// performHover(pixi_polygon);
+
+			
+						 if(pixi_polygon.orig_object.type=="MultiPolygon"){
+			    	 			highlightAdditionalPolygons(pixi_polygon);	
+						 }
+						 			
+						var idx = pixi_polygon.idx;			
+						var clone = that.drawSinglePixiPolygon(pixi_polygon,true);
+
+				  
+					   that.active_polygon = pixi_polygon;
+			   	   	   that.active_clone = clone;
+			
+				 	}   
+				    
+		    	 	isin = true;
+			    	break;
+			    	
+
+		    	}
+
+		    }
+
+
+		   } 
+	
+
+		    if(!isin){	
+
+				mouseonpolygon = false;
+				if(that.active_polygon!=null){
+				clearHoverContainer();	
+				that.active_polygon = null;
+				that.active_clone = null;
+				}
+		    }
+
+	};
+
+
+
+
+
+function highlightAdditionalPolygons(active_polygon){
+
+	var other_polys = that.multiPolygonList[active_polygon.orig_object['idx']];
+	that.active_clones = [];
+		if(other_polys!=null){
+
+	    	for(var j=0;j<other_polys.length;j++){
+	    		var other_poly = other_polys[j];
+
+	    		performHover(other_poly);
+
+			 if(other_poly!=active_polygon){
+			  var addclone = that.drawSinglePixiPolygon(other_poly,true);
+			  that.active_clones.push(addclone);
+
+			}
+	    	}
+
+    	}
+
+};
+
+function resetActivePolygon(){
+
+if(that.active_polygon!=null){
+
+		performUnHover(that.active_polygon);
+
+		that.drawPixiPolygon(that.active_polygon,true);
+
+
+	 
+	    if(that.active_polygon.orig_object.type=="MultiPolygon"){
+	    	var other_polys = that.multiPolygonList[that.active_polygon.orig_object['idx']];
+
+	    	if(other_polys!=null){
+
+		    	for(var j=0;j<other_polys.length;j++){
+		    		var other_poly = other_polys[j];
+					performUnHover(other_poly);
+					that.drawPixiPolygon(other_poly,true);
+		    	}
+	    	}
+	    }
+     	that.active_polygon = null;
+    }
+};
+
+function performUnHover(poly){
+
+
+// console.log(poly['fill_alpha'])
+
+		poly['line_width'] = poly.original_line_width;
+		poly['fill_color'] = poly.original_fill_color;
+		poly['fill_alpha'] = poly.original_fill_alpha;
+		poly['stroke_color'] = poly.original_stroke_color;
+		poly['stroke_alpha'] = poly.original_stroke_alpha;
+
+			// console.log(poly['fill_alpha'])
+
+}
+
+this.resetHover = function(){
+
+	mouseonpolygon = false;
+	mouseonmarker = false;
+	clearHoverContainer();	
+	that.active_polygon = null;
+	that.active_clone = null;
+}
+
+
+function clearHoverContainer(){
+
+	that.polyHoverContainer.removeChildren();
+	that.renderer.render(that.container);
+
+}
+
+function performHover(poly){
+
+	if(poly.hover_line_width)   poly['line_width'] = poly.hover_line_width;
+	if(poly.hover_fill_color)	poly['fill_color'] = poly.hover_fill_color;
+	if(poly.hover_fill_alpha)	poly['fill_alpha'] = poly.hover_fill_alpha/2;
+	if(poly.hover_stroke_color)	poly['stroke_color'] = poly.hover_stroke_color;
+	if(poly.hover_stroke_alpha)	poly['stroke_alpha'] = poly.hover_stroke_alpha;
+
+
+}
+
+this.completeDraw = function(){
+
+for(var i=0; i<that.piximarkers.length;i++){
+
+				var marker = that.piximarkers[i];
+				marker.currentScale = marker.scale.x;
+				marker.targetScale = 1 / that.scale;
+				that.markerContainer.removeChild(marker);
+				that.markerContainer.addChild(marker);
+}
+
+
+
+if(that.piximarkers.length>0){
+				that.globalCurrentScale = that.piximarkers[0].scale.x;
+				that.globalTragetscale  =  1 / that.scale;
+}
+
+currentPolygonID=0;
+ that.global_giant_polygon.clear();  
+for(var i=0; i<that.pixipolygons.length;i++){
+				    var pixipolygon = that.pixipolygons[i];		
+					that.drawPixiPolygon(pixipolygon);
+	}
+ that.global_giant_polygon.endFill();
+
+if(!giant_listeners_initialized){
+		giant_listeners_initialized = true;
+
+		that.global_giant_polygon.on('mouseover',function(e){
+			mouseonpolygon = true;
+
+		});
+
+} 
+
+setTimeout(function() {
+		that.renderer.render(that.container);
+	}, 0);
+
+};
+
+
+this.redrawPolygons = function(){
+
+			currentPolygonID=0;
+			that.global_giant_polygon.clear();  
+			for(var i=0; i<that.pixipolygons.length;i++){
+			var pixipolygon = that.pixipolygons[i];		
+			that.drawPixiPolygon(pixipolygon);
+			}
+			that.global_giant_polygon.endFill();
+
+};
+
+ function inside(point, vs) {
+	 
+	    var x = point[0], y = point[1];
+
+	    var inside = false;
+	    for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+	        var xi = vs[i].lat, yi = vs[i].lng;
+	        var xj = vs[j].lat, yj = vs[j].lng;
+
+	        var intersect = ((yi > y) != (yj > y))
+	            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+	        if (intersect) inside = !inside;
+	    }
+
+	    return inside;
+	};
+
+
+
+} // overlay
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+

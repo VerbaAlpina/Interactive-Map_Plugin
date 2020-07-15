@@ -39,9 +39,9 @@ function ListManager(listBuilderParam, elementParam){
         return listDialog;
     }
 
-    this.showResult = function(id){
+    this.showResult = function(){
         var printerSelect = document.getElementById("listManagerPrinterSelection");
-        var printerID = id;
+        var printerID = printerSelect.value;
         var printerResult = self.listBuilder.retrieveList(printerID,self.element);
         if(printerResult[2]==true){
             var blob = new Blob([printerResult[1]], /** @type{BlobPropertyBag}*/ ({"type": printerResult[0]}));

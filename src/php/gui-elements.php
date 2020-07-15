@@ -198,7 +198,7 @@ function im_get_option_text ($row, $colums_to_select_from, $list_format_function
 }
 
 class IM_Field_Information {
-	function __construct ($col_name, $col_type, $mandatory, $allow_new_values = false, $default_value = NULL, $fixed = false, $default_on_empty = false){
+	function __construct ($col_name, $col_type, $mandatory, $allow_new_values = false, $default_value = NULL, $fixed = false, $default_on_empty = false, $help = NULL){
 		$this->col_name = $col_name;
 		$this->col_type = $col_type;
 		$this->mandatory = $mandatory;
@@ -206,6 +206,7 @@ class IM_Field_Information {
 		$this->default_value = $default_value;
 		$this->fixed = $fixed;
 		$this->default_on_empty = $default_on_empty;
+		$this->help = $help;
 	}
 	
 	public $col_name;
@@ -228,15 +229,23 @@ class IM_Field_Information {
 }
 
 class IM_Row_Information {
-	function __construct ($table, $field_list, $user_name_field = NULL){
+	function __construct ($table, $field_list, $user_name_field = NULL, $title = NULL){
 		$this->table = $table;
 		$this->field_list = $field_list;
 		$this->user_name_field = $user_name_field;
+		
+		if ($title){
+		    $this->title = $title;
+		}
+		else {
+		    $this->title = $table;
+		}
 	}
 	
 	public $table;
 	public $field_list;
 	public $user_name_field;
+	public $title;
 }
 
 /**
@@ -252,7 +261,7 @@ class IM_Row_Information {
  */
 function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonce_field = true, $addional_html = ''){
 
-	$result = '<div id="' . $id . '" style="display:none;" title="' . $row_information->table . '" data-table="' . $row_information->table . '" >
+	$result = '<div id="' . $id . '" style="display:none;" title="' . $row_information->title . '" data-table="' . $row_information->table . '" >
 				<div id="error' . $id . '" class="IM_error_message">
 				</div>
 				<form name="input' . $id . '" autocomplete="off">
@@ -269,31 +278,32 @@ function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonc
 		
 		//TODO use default value for others than booleans!
 		//TODO use fixed for others than fk!
+		$result .= '<tr>';
+		
 		$type = $field_info->col_type;
 		if($type == 'B'){ //Boolean
 			$result .= 
-			'<tr><td>' . $alias . ':</td><td><input type="checkbox" name="' . 
+			'<td>' . $alias . ':</td><td><input type="checkbox" name="' . 
 			$field_info->col_name . '"' . ($field_info->default_value? 'checked="checked' : '') . ' data-nonempty="' . 
-			$field_info->mandatory . '" data-type="B" data-emptydefault="' . $field_info->default_on_empty . '"></td></tr>';
+			$field_info->mandatory . '" data-type="B" data-emptydefault="' . $field_info->default_on_empty . '">';
 		}
 		else if ($type == 'E'){
 			$result .=
-			'<tr><td>' . $alias . ':</td><td>' .
-			im_enum_select($row_information->table, $field_info->col_name, $field_info->col_name, '---', $field_info->allow_new_values, 'data-type="E" data-nonempty="' . $field_info->mandatory . '" data-emptydefault="' . $field_info->default_on_empty . '"', NULL, $dbname) . '</td></tr>';
+			'<td>' . $alias . ':</td><td>' .
+			im_enum_select($row_information->table, $field_info->col_name, $field_info->col_name, '---', $field_info->allow_new_values, 'data-type="E" data-nonempty="' . $field_info->mandatory . '" data-emptydefault="' . $field_info->default_on_empty . '"', NULL, $dbname);
 		}
 		else if ($type == 'T'){ //Text
 			$result .=
-			'<tr><td>' . $alias . ':</td><td><textarea name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="T" data-emptydefault="' . $field_info->default_on_empty . '"></textarea></td></tr>';
+			'<td>' . $alias . ':</td><td><textarea name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="T" data-emptydefault="' . $field_info->default_on_empty . '"></textarea>';
 		}
 		else if ($type == 'S'){ 
 			//Serialized enum 
 			//(e.g. used for multiple gender assignments, instead of using a separate table to store the gender assignments
 			// an enum with all combinations (f m n f+m, f+n m+n f+m+n) is used. On the surface checkboxes are used for every value (f,m,n)
 			$result .=
-			'<tr><td>' . $alias . ':</td><td>' .
-			im_serialized_enum($row_information->table, $field_info->col_name, $field_info->col_name, '---', $dbname) .
-			'</td></tr>';
+			'<td>' . $alias . ':</td><td>' .
+			im_serialized_enum($row_information->table, $field_info->col_name, $field_info->col_name, '---', $dbname);
 		}
 		else if(strpos($type, 'F') === 0){ //Foreign Key
 			$add_info = substr($type, 1);
@@ -311,24 +321,30 @@ function im_table_entry_box ($id, $row_information, $dbname = NULL, $create_nonc
 			}
 			
 			$result .=
-			'<tr><td>' . $alias . ':</td><td>' .
-			im_fk_input($row_information->table, $field_info->col_name, $field_info->col_name,  '---', "data-type=\"F\" data-emptydefault=\"" . $field_info->default_on_empty . "\"", $where_clause, $extra_field, $dbname, $field_info->fixed) . '</td></tr>'; //TODO nonempty
+			'<td>' . $alias . ':</td><td>' .
+			im_fk_input($row_information->table, $field_info->col_name, $field_info->col_name,  '---', "data-type=\"F\" data-emptydefault=\"" . $field_info->default_on_empty . "\"", $where_clause, $extra_field, $dbname, $field_info->fixed); //TODO nonempty
 		}
 		else if($type == 'N'){ //Number
 			$result .=
-			'<tr><td>' . $alias . ':</td><td><input type="text" name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="N" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
+			'<td>' . $alias . ':</td><td><input type="text" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="N" data-emptydefault="' . $field_info->default_on_empty . '" />';
 		}
 		else if ($type == 'H'){
 			$result .=
-			'<tr><td></td><td><input type="hidden" value="' . htmlentities($field_info->default_value) . '" name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="H" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
+			'<td></td><td><input type="hidden" value="' . htmlentities($field_info->default_value) . '" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="H" data-emptydefault="' . $field_info->default_on_empty . '" />';
 		}
 		else { //Varchar
 			$result .=
-			'<tr><td>' . $alias . ':</td><td><input type="text" ' . ($field_info->fixed? 'disabled ': '') . 'value="' . ($field_info->default_value? htmlentities($field_info->default_value) : '') . '" name="' .
-			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="V" data-emptydefault="' . $field_info->default_on_empty . '" /></td></tr>';
+			'<td>' . $alias . ':</td><td><input type="text" ' . ($field_info->fixed? 'disabled ': '') . 'value="' . ($field_info->default_value? htmlentities($field_info->default_value) : '') . '" name="' .
+			$field_info->col_name . '" data-nonempty="' . $field_info->mandatory . '" data-type="V" data-emptydefault="' . $field_info->default_on_empty . '" />';
 		}
+		
+		if ($field_info->help){
+			$result .= $field_info->help;
+		}
+		
+		$result .= '</td></tr>';
 	}
 
 	$result .= '</table>';

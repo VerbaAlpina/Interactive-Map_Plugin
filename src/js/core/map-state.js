@@ -65,18 +65,23 @@ function MapState (){
 		var /** !Array<{legendIndex: number, elementIndex: number, lat: number, lng: number}> */ result = [];
 		for (var i = 0; i < this.currentInfowindowOwners.length; i++){
 			var /** MapShape|MapSymbol */ element = this.currentInfowindowOwners[i];
+			
+			var /** LegendElement */ legendElement = element.getLegendElement(element.currentTabIndex);
 			if(element instanceof MapShape){
 				var /** {lat: number, lng: number} */ latlng = mapInterface.getInfoWindowPosition(element.infoWindow);
 				let /** {elementIndex: number, lat: number, lng: number} */ data = {"elementIndex" : element.index, "lat" : latlng["lat"], "lng" : latlng["lng"]};
 				data["key"] = element.owner.key;
 				data["category"] = element.owner.category;
+				data["parent_key"] = legendElement.parent? legendElement.parent.key: null;
+				data["parent_category"] = legendElement.parent? legendElement.parent.category: null;
 				result.push(/** @type{{legendIndex: number, elementIndex: number, lat: number, lng: number}} */ (data));
 			}
 			else {
 				let /** {lat: number, lng : number}*/ data = mapInterface.getMarkerPosition(element.getMarker());
-				var /** LegendElement */ legendElement = element.getLegendElement(element.currentTabIndex);
 				data["key"] = legendElement.key;
 				data["category"] = legendElement.category;
+				data["parent_key"] = legendElement.parent? legendElement.parent.key: null;
+				data["parent_category"] = legendElement.parent? legendElement.parent.category: null;
 				data["elementIndex"] = element.parts[element.currentTabIndex].indexes[0];
 				data["tabIndex"] = element.currentTabIndex;
 				result.push(/** @type{{legendIndex: number, elementIndex: number, lat: number, lng: number}} */ (data));

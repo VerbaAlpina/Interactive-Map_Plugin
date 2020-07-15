@@ -1,11 +1,16 @@
 /**
+ * @fileoverview
+ * @suppress{checkTypes|uselessCode}
+ */
+
+/**
  * @struct
  * @constructor
  * 
  * @param {MapPosition} position
  * @param {Object<string,?>} options
  * 
- * @implements{MapInterface<MarkerType, Object,Object, L.Popup>}
+ * @implements{MapInterface<Object, Object,Object, L.Popup>}
  * 
  */
 function PixiWebGLInterface (position, options){
@@ -31,7 +36,7 @@ function PixiWebGLInterface (position, options){
 	this.shapeClickFunction;
 
 	/** 
-	 * @type{function(Element, number, (MapSymbol|MapShape), InfoBubble, SomeOverlay)}
+	 * @type{function(Element, number, (MapSymbol|MapShape), Object, Object)}
 	 */
 	this.ifwTabOpened;
 	
@@ -54,7 +59,8 @@ function PixiWebGLInterface (position, options){
 	 */
 	this.ifwClosed;
 	
-
+	this.currentbasemap;
+	this.savedmapstyle;
 	this.base_map_1;
 	this.base_map_2;
 	this.base_map_3;
@@ -115,6 +121,8 @@ function PixiWebGLInterface (position, options){
 	ext: 'png'
 	}).addTo(this.map);
 
+	this.currentbasemap = ("Stamen : Terrain");
+
 	this.base_map_6 = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}{r}.{ext}', {
 		attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 		subdomains: 'abcd',
@@ -137,7 +145,7 @@ var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terra
 	  "Stamen Labels" : Stamen_Labels
 	};
 
-	var base_maps = {
+	this.base_maps = {
 	"Stamen : Terrain" :  			  this.base_map_5,
 	"OSM    : Open Street Map":       this.base_map_1,
 	"OpenTopo : OpenTopoMap":         this.base_map_4,
@@ -150,59 +158,59 @@ var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terra
 
 
 
-L.control.layers(base_maps,overlays,{position: 'topright'}).addTo(this.map);
+L.control.layers(that.base_maps,overlays,{position: 'topright'}).addTo(this.map);
 
 
 this.map.attributionControl.setPosition('bottomleft');
 this.map.zoomControl.setPosition('bottomright');
 
+this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
+	
+	that.pixioverlay.LpixiOverlay.addTo(that.map);
 
-this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);
-this.pixioverlay.LpixiOverlay.addTo(this.map);
+	that.map.on('popupopen',function(e){
+		var popup = e.popup;
+		var content = popup._contentNode;
+	
+		if(popup.owner.type=="gl_Polygon"){
+			that.ifwTabOpened(content,-1,popup.map_element, popup, popup.owner);
+		}
+		//else{
+		//
+		//	 that.ifwTabOpened(content,popup.tab_index,popup.map_element, popup, popup.owner);
+		//
+		//}
 
+	});
 
-this.map.on('popupopen',function(e){
-
-var popup = e.popup;
-var content = popup._contentNode;
-
-if(popup.owner.type=="gl_Polygon"){
-
-	 that.ifwTabOpened(content,-1,popup.map_element, popup, popup.owner);
-
-}
-
-//else{
-//
-//	 that.ifwTabOpened(content,popup.tab_index,popup.map_element, popup, popup.owner);
-//
-//}
-
-})
-
-
-this.map.on('popupclose',function(e){
-
-	var popup = e.popup;
-	var content = popup._contentNode;
-	that.ifwTabClosed(jQuery(content).find("div#tab_" + popup.tab_index)[0], popup.tab_index, popup.map_element);
-	that.ifwClosed(content,popup.map_element);
-
-});
+	that.map.on('popupclose',function(e){
+	
+		var popup = e.popup;
+		var content = popup._contentNode;
+		that.ifwTabClosed(jQuery(content).find("div#tab_" + popup.tab_index)[0], popup.tab_index, popup.map_element);
+		that.ifwClosed(content,popup.map_element);
+	
+	});
 
 
-var tiles_loaded = false;
+	var tiles_loaded = false;
+
+	that.base_map_5.on("load",function() { if(!tiles_loaded){ callback(); tiles_loaded = true; } });
 
 
-this.base_map_5.on("load",function() { if(!tiles_loaded){ callback(); tiles_loaded = true; } });
+	setTimeout(function() {
+	 if(!tiles_loaded){
+	 	callback();
+	 }	
+	}, 5000);
 
-
-setTimeout(function() {
- if(!tiles_loaded){
- 	callback();
- }	
-}, 5000);
-
+		
+	
+	that.map.on('baselayerchange',function(e){
+		that.currentbasemap = e.name;
+	});
+	
+	//});
 };
 
 
@@ -216,12 +224,19 @@ setTimeout(function() {
 	 * @return {undefined}
 	 */
 	this.updateMapStyle = function (quantifyMode){
+		
+		if(quantifyMode)that.savedmapstyle = that.base_maps[that.currentbasemap];
 
-		if(quantifyMode){
+		if(quantifyMode && that.currentbasemap != "CartoDB  : Carto Dark"){
+			that.map.removeLayer(that.savedmapstyle);
 			that.map.addLayer(that.base_map_3);
+			that.currentbasemap = "CartoDB  : Carto Dark";
 		}
-		else{
+
+		else if(!quantifyMode && getKeyByValue(that.base_maps, that.savedmapstyle) != "CartoDB  : Carto Dark"){
 			that.map.removeLayer(that.base_map_3);
+			that.map.addLayer(that.savedmapstyle);
+			
 		}
 
 	};
@@ -352,9 +367,13 @@ setTimeout(function() {
 		}
 
 		if(overlay['type']=="gl_Polygon"){
-			this.pixioverlay.removePolygon(overlay);
+			this.pixioverlay.removePolygonOrLine(overlay);
 		}
-		
+
+		if(overlay['type']=="gl_Line"){
+			this.pixioverlay.removePolygonOrLine(overlay);
+		}
+
 	};
 	
 	/**
@@ -408,10 +427,12 @@ setTimeout(function() {
 	 * @param {IMGeometry} geoData
 	 * @param {MapShape} mapShape
 	 * @param {string} id
+	 * @param {string} color
+	 * @param {number} lineWidth
 	 * 
 	 * @return {LinestringType|PolygonType}
 	 */
-	this.createShape = function (geoData, mapShape, id){
+	this.createShape = function (geoData, mapShape, id, color, lineWidth){
 
 		var geo = {};
 		var type = getKeyByValue(IMGeoType,geoData.getType());
@@ -419,23 +440,26 @@ setTimeout(function() {
 		var coordinates = geoData['geoData'];
 		geo['coordinates'] = coordinates;
 		geo['idx'] = id;
-		geo['boundingBox'] = geoData.getBoundingBox();
 
-	    var color = mapShape.owner.getColorHex();
+
 	    var polygon_settings = polygonSettingsBoth(color);
 
-	    
+	    var shape;
+	 
+	    	if(type == "MultiPolygon" || type == "Polygon"){
 
-			var poly = new this.pixioverlay.gLPolygon({
+			geo['boundingBox'] = geoData.getBoundingBox();
+
+			 shape = new this.pixioverlay.gLPolygon({
 					geo:geo,
 					center:[42,20],
-					line_width:polygon_settings.line_width,
+					line_width: lineWidth,
 					fill_color:color,
 					fill_alpha:polygon_settings.fill_alpha,
 					stroke_color:polygon_settings.stroke_color,
 					stroke_alpha:1.0,
 					interactive:true,
-					hover_line_width: polygon_settings.hover_line_width,
+					hover_line_width: lineWidth * 2,
 					hover_fill_color:color,
 					hover_fill_alpha:polygon_settings.hover_fill_alpha,
 					hover_stroke_color:color,
@@ -444,7 +468,29 @@ setTimeout(function() {
 					map_shape: mapShape	
 				});
 
-		return poly;	
+			}
+
+			if(type =="MultiLineString"){
+
+				shape = new this.pixioverlay.pixiLine({
+					geo:geo,
+					line_width: lineWidth,
+					stroke_color:polygon_settings.stroke_color,
+					stroke_alpha:1.0,
+					interactive:true,
+					hover_line_width: lineWidth * 2,
+					hover_fill_color:color,
+					hover_fill_alpha:polygon_settings.hover_fill_alpha,
+					hover_stroke_color:color,
+					hover_stroke_alpha: 1.0,
+					clickListener: that.shapeClickFunction.bind(mapShape),
+					map_shape: mapShape	
+				});
+
+
+			}
+
+		return shape;	
 
 	};
 	
@@ -518,19 +564,46 @@ setTimeout(function() {
 
 		else{
 
-
-		var content = getPopupContentWithTabs(elements,symbols); 
 		var _in = anchorElement['orig_options']
 		var tex_height = _in.texture.orig.height*that.pixioverlay.external_scale;
-		anchorElement.popup = L.popup({className: 'pixi-popup',autoClose:false,closeOnClick:false,offset:L.point(0, -Math.ceil(tex_height/4))})
+		var popup  = new  L.popup({className: 'pixi-popup',autoClose:false,closeOnClick:false,offset:L.point(0, -Math.ceil(tex_height/4))});	
+
+		var content = getPopupContentWithTabs(elements,symbols); 
+
+		popup
 		.setLatLng(_in.latlng)
 		.setContent(content[0]);
 
+	
+		anchorElement.popup = popup;
+
+	
 		anchorElement.popup.map_element = mapElement;
 
-			content.find('.ifw_nav_tabs a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+		content.find('.ifw_nav_tabs a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+
+				//for individual ifw tab ids, add the leaflet popup id, to the id from if content since if id is first available here
+
+				var ifid = popup['_leaflet_id'];
+
+					if(!content.hasClass('ids_set')){
+
+						content.find('.nav-link').each(function(){
+							jQuery(this).attr('href',jQuery(this).attr('href')+"_"+ifid) 
+						})
+
+						content.find('.tab-pane').each(function(){
+							jQuery(this).attr('id',jQuery(this).attr('id')+"_"+ifid) 
+						})
+
+
+					}
+					content.addClass('ids_set');
+
+					
+
 				var tabid = jQuery(this).data().id;
-				that.ifwTabOpened(content.find("div#tab_" + tabid)[0],tabid,mapElement,anchorElement.popup,anchorElement.popup.owner);
+				that.ifwTabOpened(content.find("div#tab_" + tabid +"_"+ifid)[0],tabid,mapElement,anchorElement.popup,anchorElement.popup.owner);
 				anchorElement.popup.tab_index = tabid;
 				anchorElement.popup.update(); //adjust ifw to new content size
 				
@@ -538,11 +611,12 @@ setTimeout(function() {
 
 			content.find('.ifw_nav_tabs a[data-toggle="tab"]').on('hidden.bs.tab', function (e) {
 				var tabid = jQuery(this).data().id;
+			    var ifid = popup['_leaflet_id'];
 				if (that.ignoreCloseEvent){
 					that.ignoreCloseEvent = false;
 				}
 				else {
-					that.ifwTabClosed(jQuery(content).find("div#tab_" + tabid)[0],tabid,mapElement);
+					that.ifwTabClosed(jQuery(content).find("div#tab_" + tabid +"_"+ifid)[0],tabid,mapElement);
 				}
 			});
 
@@ -563,7 +637,6 @@ setTimeout(function() {
 			if(symbols.length==1 && !symbols[0]['canvas']) return jQuery(elements[0]);
 
 			else{
-
 
 				var totalcontent = '<div class="ifw_total_content">';
 				var header = '<ul class="nav nav-pills ifw_nav_tabs">';
@@ -672,7 +745,8 @@ setTimeout(function() {
 		}
 		else {
 			var tabContent = jQuery(infoWindow["_contentNode"]);
-			jQuery(tabContent).find("div#tab_" + tabIndex).html(newContent);
+			let lid = infoWindow['_leaflet_id']
+			jQuery(tabContent).find("div#tab_" + tabIndex + "_" + lid).html(newContent);
 			infoWindow.update();
 			return infoWindow["_contentNode"];
 		}
@@ -1077,3 +1151,5 @@ function rgb2hex(rgb){
 			that.pixioverlay.completeDraw();
 	};
 }
+
+

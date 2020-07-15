@@ -290,8 +290,6 @@ var polygonSettingsBoth = function (fillColor){
 	return {
 		"fill_alpha" : hex? 1: 0.55,
 		"stroke_color" : hex? "0xf8f8ff" : fillColor,
-		"line_width" : hex? 2: 1,
-		"hover_line_width" : hex? 4: 2,
 		"hover_fill_alpha" : hex? 1: 0.75,
 		"hover_stroke_color" : hex? "0xf8f8ff" : fillColor
 	}

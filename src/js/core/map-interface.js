@@ -136,10 +136,12 @@ MapInterface.prototype.addMarkerListeners = function (clickFun, rightClickFun, d
  * @param {IMGeometry} geoData
  * @param {MapShape} mapShape
  * @param {string} id
+ * @param {string} color
+ * @param {number} lineWidth
  * 
  * @return {LinestringType|PolygonType}
  */
-MapInterface.prototype.createShape = function (geoData, mapShape, id){};
+MapInterface.prototype.createShape = function (geoData, mapShape, id, color, lineWidth){};
 
 /**
  * @abstract

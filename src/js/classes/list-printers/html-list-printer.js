@@ -42,6 +42,6 @@ function HtmlListPrinter(){
         return false;
     }
     this.downloadName = function(){
-        return null;
+        return "";
     }
 }

@@ -136,6 +136,24 @@ function Sorter (sortTypes){
 	};
 	
 	/**
+	*
+	* Uses the filter data to re-create the state in which this filter was submitted.
+	*
+	* @param {Object<string, ?>} data The complete filter data object after storeData has been called for all applicable filters
+	* @param {Element} element The DOM element created by getFilterScreenElement.
+	* @param {number} categoryId
+	* @param {string} elementId
+	* 
+	* @return {undefined}
+	*/
+	this.setValues = function (data, element, categoryId, elementId){
+		jQuery("#sortingComponent input[name=sortName][value=" + data["sorter"]["sortType"] + "]").prop("checked", true);
+		jQuery(".sortOrderDiv").toggle(false);
+		jQuery("#sortOrder" + data["sorter"]["sortType"]).toggle(true);
+		jQuery("#sortingComponent input[name=sortOrder" + data["sorter"]["sortType"] + "][value=" + data["sorter"]["sortOrder"] + "]").prop("checked", true);
+	};
+	
+	/**
 	 * @override
 	 * 
 	 * @return {undefined}
