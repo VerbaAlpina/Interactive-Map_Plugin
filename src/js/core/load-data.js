@@ -222,8 +222,29 @@ function CategoryManager (){
 	this.getCategoryName = function (categoryID, emptyPseudoCategories){
 		if(emptyPseudoCategories === true && categoryID < 0)
 			return "";
+			
 		return this.categories[categoryID].name;
 	};
+	
+	/**
+	 * @param {number} categoryID 
+     * @param {Object<string, ?>} filterData
+	 * @param {boolean=} emptyPseudoCategories
+	 * 
+	 * 
+	 * @return {string}
+	 */
+	this.getCategoryNameForSubLegendEntry = function (categoryID, filterData, emptyPseudoCategories){
+		if (this.categories[categoryID].subLegendNameFun){
+			var cname = this.categories[categoryID].subLegendNameFun(filterData);
+			if (cname){
+				return cname;
+			}
+		}
+		return this.getCategoryName(categoryID, emptyPseudoCategories);
+	};
+	
+	
 	
 	/**
 	 * @param {number} categoryID 
@@ -426,30 +447,41 @@ function CategoryManager (){
 			// jQuery("#IM_filter_popup_title").text(this.getElementName(categoryID, value));
 			jQuery("#IM_filter_popup_content").empty();
 			
-			var /** Array<Element> */ newElements = new Array (filterComponents.length);
+			var /** Object<string,?> */ filterData = {"id" : elementID}; //TODO document that id can be changed with filter components
+			
+			var /** Array<Element|FilterComponentDirectResult> */ newElements = new Array (filterComponents.length);
 			for (var i = 0; i < filterComponents.length; i++){
 				newElements[i] = filterComponents[i].getFilterScreenElement(categoryID, elementID);
 				
+				//TODO document null and FilterComponentDirectResult special cases
+				
 				if(newElements[i] == null)
 					continue;
-				
-				jQuery("#IM_filter_popup_content").append(newElements[i]);
-
-				filterComponents[i].afterAppending(newElements[i], categoryID, elementID);
-				if (presetValues){
-					filterComponents[i].setValues(presetValues, newElements[i], categoryID, elementID);
+					
+				if (newElements[i] instanceof FilterComponentDirectResult){
+					for (let key in newElements[i].data){
+						filterData[key] = newElements[i].data[key];
+					}
+					newElements[i] = null;
 				}
-				noElements = false;
+				else {
+					jQuery("#IM_filter_popup_content").append(/** @type{Element} */ (newElements[i]));
+	
+					filterComponents[i].afterAppending(/** @type{Element} */ (newElements[i]), categoryID, elementID);
+					if (presetValues){
+						filterComponents[i].setValues(presetValues, /** @type{Element} */ (newElements[i]), categoryID, elementID);
+					}
+					noElements = false;
+				}
 			}
 			
 			if(!noElements){
 				jQuery("#IM_filter_popup_submit").unbind("click");
 				jQuery("#IM_filter_popup_submit").click(function () {
-					
-					var /** Object<string,?> */ filterData = {"id" : elementID}; //TODO document that id can be changed with filter components
+
 					for (var i = 0; i < filterComponents.length; i++){
 						if(newElements[i] != null)
-							if(!filterComponents[i].storeData(filterData, newElements[i], categoryID, elementID)){
+							if(!filterComponents[i].storeData(filterData, /** @type{Element} */ (newElements[i]), categoryID, elementID)){
 								alert(TRANSLATIONS["FILTER_NOT_POSSIBLE"]);
 								return;
 							}
@@ -480,7 +512,7 @@ function CategoryManager (){
 		
 		if(noElements){
 			//Directly load data
-			this.loadData (categoryID, elementID, "menu", undefined, undefined, undefined, true);
+			this.loadData (categoryID, elementID, "menu", filterData, undefined, undefined, true);
 			
 		}
 	};
@@ -526,7 +558,15 @@ function CategoryManager (){
 			for (var option in mapInfos["Options"]){
 				//Url parameter overwrite parameters saved for synoptic maps
 				if (!PATH["options"][option]){
-					optionManager.setOption(option, mapInfos["Options"][option]);
+					let val = mapInfos["Options"][option];
+					if (val === "true"){
+						val = true;
+					}
+					else if (val === "false"){
+						val = false;
+					}
+					
+					optionManager.setOption(option, val);
 				}
 			}
 			
@@ -534,8 +574,6 @@ function CategoryManager (){
 	
 			//Zoom and position
 			mapInterface.setCenterAndZoom(mapInfos["Center_Lat"], mapInfos["Center_Lng"], mapInfos["Zoom"] * 1);
-			//mapInterface.setCenter(mapInfos["Center_Lat"], mapInfos["Center_Lng"]);
-			//mapInterface.setZoom(mapInfos["Zoom"] * 1);
 			
 			var /** number */ numElements = data[1].length;
 			var /** number */ notReady = numElements;
@@ -843,6 +881,7 @@ function CategoryManager (){
 								indexes.push(thisObject.createIndexesForMultiElement(idList).indexes);
 							}
 							catch (e){
+								console.error(e);
 								alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + elementCount + ")");
 								return;
 							}
@@ -992,7 +1031,11 @@ function CategoryManager (){
 				callback("Error");
 			}
 			else {
-				callback(PATH["tkUrl"].replace("§§§", id + ""));
+				let url = PATH["tkUrl"].replace("§§§", id + "");
+				if (mapState.currentMapLayer && mapState.currentMapLayer > 0){
+					url = addParamToUrl(url, "layer", mapState.currentMapLayer + "");
+				}
+				callback(url);
 			}
 		});
 	};
@@ -1033,6 +1076,7 @@ function CategoryManager (){
 			colorIndex = this.createSingularIndex(result[DATA]["-1"][0], element, colorIndex, reload); //There can only be one category
 		}
 		catch (e){
+			console.error(e);
 			alert(TRANSLATIONS["NO_SYMBOLS_LEFT"]);
 			legend.removeElement(element, true);
 			return;
@@ -1246,6 +1290,7 @@ function CategoryManager (){
 				({indexes, mainIndex} = this.createIndexesForMultiElement(restIdList, mainIndex));
 			}
 			catch (e){
+				console.error(e);
 				alert(TRANSLATIONS["NO_SYMBOLS_LEFT"] + " (" + numSubElements + ")");
 				legend.removeElement(element, true);
 				return;
@@ -1552,8 +1597,9 @@ function CategoryManager (){
  * @param {boolean=} singleSelect If true only one element from this category can be visualized on the map at a time
  * @param {function(string):boolean=} forbidRemovingFunction If this function returns true for an element, it cannot be removed from the legend by the user
  * @param {function(string):number|number=} lineWidth Function to specify different line widths for polygon or line string categories
+ * @param {function(Object<?,string>):string=} subLegendNameFun Function to show a specific name if this category is used as an sub-category
  */
-function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration, singleSelect, forbidRemovingFunction, lineWidth){
+function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, elementID, filterComponents, countNames, textForNewComment, textForListRetrieval, listBuilder, costumGetNameFunction, editConfiguration, singleSelect, forbidRemovingFunction, lineWidth, subLegendNameFun){
 	/**
 	 * @type {number} 
 	 */
@@ -1624,6 +1670,11 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 	 * @type{function(string, function(string):string):string|undefined} 
 	 */
 	this.costumGetNameFunction = costumGetNameFunction;
+	
+	/**
+	 * @type{function(Object<?,string>):string|undefined} 
+	 */
+	this.subLegendNameFun = subLegendNameFun;
 	
 	/**
 	 * @type{string|undefined} 
@@ -1698,7 +1749,7 @@ function CategoryInformation (categoryID, categoryPrefix, name, nameEmpty, eleme
 function buildCategoryInformation (data){
 	return new CategoryInformation(data["categoryID"], data["categoryPrefix"], data["name"] , data["nameEmpty"], data["elementID"], 
 			data["filterComponents"] , data["countNames"], data["textForNewComment"], data["textForListRetrieval"], data["listBuilder"],
-			data["costumGetNameFunction"], data["editConfiguration"], data["singleSelect"], data["forbidRemovingFunction"], data["lineWidth"]);
+			data["costumGetNameFunction"], data["editConfiguration"], data["singleSelect"], data["forbidRemovingFunction"], data["lineWidth"], data["subLegendNameFun"]);
 }
 
 /**
@@ -1716,7 +1767,7 @@ function FilterComponent () {};
  * @param {number} categoryId
  * @param {string} elementId
  * 
- * @return {Element} 
+ * @return {Element|FilterComponentDirectResult} 
  */
 FilterComponent.prototype.getFilterScreenElement = function (categoryId, elementId) {};
 
@@ -1773,3 +1824,16 @@ FilterComponent.prototype.setValues = function (data, element, categoryId, eleme
  * @return {undefined} 
  */
 FilterComponent.prototype.afterAppending = function (element, categoryId, elementId){};
+
+/**
+ * 
+ * @constructor
+ * @struct
+ *
+ * @param {Object<string,?>} data
+ * 
+ */
+function FilterComponentDirectResult (data){
+	/** @type{Object<string,?>} */
+	this.data = data;	
+}

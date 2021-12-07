@@ -24,6 +24,11 @@ function PixiWebGLInterface (position, options){
 	 * @type{LeafletPixiOverlay}
 	 */
 	this.pixioverlay;
+	
+	/**
+	 * @type {function (number)}
+	 */
+	this.baseLayerFunction;
 
 	/**
 	 * @type {function (this:MapSymbol, number)}
@@ -79,10 +84,11 @@ function PixiWebGLInterface (position, options){
 	 * @param {function ()} callback
 	 * @param {Element} mapDiv
 	 * @param {{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}} polygonOptions
+	 * @param {number|undefined} baseLayerIndex
 	 * 
 	 * @return {undefined}
 	 */
-	this.init = function (mapDiv, callback, polygonOptions){
+	this.init = function (mapDiv, callback, polygonOptions, baseLayerIndex){
 
 
      var options = {
@@ -119,9 +125,7 @@ function PixiWebGLInterface (position, options){
 	minZoom: 0,
 	maxZoom: 18,
 	ext: 'png'
-	}).addTo(this.map);
-
-	this.currentbasemap = ("Stamen : Terrain");
+	});
 
 	this.base_map_6 = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}{r}.{ext}', {
 		attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -130,7 +134,11 @@ function PixiWebGLInterface (position, options){
 		maxZoom: 20,
 		ext: 'png'
 	});
+  
 
+	this.base_map_7  = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+		attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+	});
 
 var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain-labels/{z}/{x}/{y}{r}.{ext}', {
 	attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -152,9 +160,21 @@ var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terra
     "Stamen  : Toner Light":    	  this.base_map_6,
 	"CartoDB  : Carto Light":         this.base_map_2,
 	"CartoDB  : Carto Dark":          this.base_map_3,
+	"ESRI  :  Esri.WorldImagery":     this.base_map_7,
 
 
 	};
+	
+	
+	let baseMapKeys = Object.keys(this.base_maps);
+	if (baseLayerIndex && baseMapKeys[baseLayerIndex]){
+		this.currentbasemap = baseMapKeys[baseLayerIndex];
+	}
+	else {
+		this.currentbasemap = "Stamen : Terrain";
+	}
+	let baseMapLayer = this.base_maps[this.currentbasemap];
+	baseMapLayer.addTo(this.map);
 
 
 
@@ -187,7 +207,8 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 	
 		var popup = e.popup;
 		var content = popup._contentNode;
-		that.ifwTabClosed(jQuery(content).find("div#tab_" + popup.tab_index)[0], popup.tab_index, popup.map_element);
+		var ifid = popup['_leaflet_id'];
+		that.ifwTabClosed(jQuery(content).find("div#tab_" + popup.tab_index + "_" + ifid)[0], popup.tab_index, popup.map_element);
 		that.ifwClosed(content,popup.map_element);
 	
 	});
@@ -195,12 +216,13 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 
 	var tiles_loaded = false;
 
-	that.base_map_5.on("load",function() { if(!tiles_loaded){ callback(); tiles_loaded = true; } });
+	baseMapLayer.on("load",function() { if(!tiles_loaded){ callback(); tiles_loaded = true; } });
 
 
 	setTimeout(function() {
 	 if(!tiles_loaded){
 	 	callback();
+		tiles_loaded = true;
 	 }	
 	}, 5000);
 
@@ -208,13 +230,27 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 	
 	that.map.on('baselayerchange',function(e){
 		that.currentbasemap = e.name;
+		let currentLayerId = Object.keys(that.base_maps).indexOf(that.currentbasemap);
+		that.baseLayerFunction(currentLayerId);
 	});
 	
 	//});
 };
 
 
-
+	/**
+	 * @override
+	 * 
+	 * @param {number} index
+	 * 
+	 * @return {undefined}
+	 */
+	this.setLayer = function (index){
+		let newbasemap = Object.keys(that.base_maps)[index];
+		that.map.removeLayer(that.base_maps[that.currentbasemap]);
+		that.map.addLayer(that.base_maps[newbasemap]);
+		that.currentbasemap = newbasemap;
+	}
 
 	/**
 	 * @override
@@ -713,7 +749,8 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 
 		infoWindow.openOn(that.map);
 		if (infoWindow.tab_index == tabIndex){
-			that.ifwTabOpened(jQuery(infoWindow["_contentNode"]).find("div#tab_" + tabIndex)[0], tabIndex, infoWindow.map_element, infoWindow, infoWindow.owner);
+			var ifid = infoWindow['_leaflet_id'];
+			that.ifwTabOpened(jQuery(infoWindow["_contentNode"]).find("div#tab_" + tabIndex + "_" + ifid)[0], tabIndex, infoWindow.map_element, infoWindow, infoWindow.owner);
 		}
 		else {
 			jQuery(infoWindow["_contentNode"]).find("a.nav-link[data-id=" + tabIndex + "]").tab("show");
@@ -948,7 +985,7 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 	 * @return {undefined}
 	 */
 	this.setCenterAndZoom = function (lat, lng, zoom){
-		that.map.flyTo([lat,lng],zoom);
+		that.map.flyTo([lat,lng],zoom, {"animate" : false});
 	};
 	
 	
@@ -1150,6 +1187,15 @@ function rgb2hex(rgb){
 		if(ready)
 			that.pixioverlay.completeDraw();
 	};
+	
+	 /**
+	 * @override
+	 * 
+	 * @param {function(number)} baseLayerFun
+	 * 
+	 * @return {undefined}
+	 */
+	this.addMapListeners = function (baseLayerFun){
+		this.baseLayerFunction = baseLayerFun;
+	}
 }
-
-

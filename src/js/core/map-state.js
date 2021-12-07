@@ -4,6 +4,13 @@
 function MapState (){
 	
 	/**
+	 * @public
+	 *
+	 * @type{number|undefined}
+	 */
+	this.currentMapLayer = undefined;
+	
+	/**
 	 * @private
 	 * @type {!Object<string, Object>}
 	 */

@@ -117,7 +117,11 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			'im_select2_de',
 			'im_select2_fr',
 			'im_select2_it',
-			'im_select2_sl'
+			'im_select2_sl',
+		    'im_tether',
+		    'im_bootstrap',
+		    'im_hammer',
+		    'im_hammer_jq'
 		];
 
 		//Map types
@@ -164,12 +168,20 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
 		wp_register_script('im_colorpicker', IM_PLUGIN_URL . '/lib/js/colorpicker/jqColorPicker.min.js');
+		
+		//Bootstrap
+		wp_register_script('im_tether', IM_PLUGIN_URL . '/lib/js/bootstrap/tether.min.js');
+		wp_register_style('im_tether_style', IM_PLUGIN_URL . '/lib/js/bootstrap/tether.min.css');
+		wp_register_script('im_bootstrap', IM_PLUGIN_URL . '/lib/js/bootstrap/bootstrap.min.js');
+		wp_register_style('im_bootstrap_style', IM_PLUGIN_URL . '/lib/js/bootstrap/bootstrap.min.css');
+		wp_register_script('im_hammer', IM_PLUGIN_URL . '/lib/js/hammer.js/hammer.min.js');
+		wp_register_script('im_hammer_jq', IM_PLUGIN_URL . '/lib/js/hammer.js/jquery.hammer.js');
 
 		//hungarian method
 		// wp_register_script('im_munkres', IM_PLUGIN_URL . '/lib/js/munkres/munkres.js');
 
 		//Main map script
-		wp_register_script('im_map_script', $this->add_map_type(IM_MAIN_JS_FILE), $dependencies, true);
+		wp_register_script('im_map_script', $this->add_map_type(IM_MAIN_JS_FILE), $dependencies, null);
 		
 		wp_register_script('im_example_config', IM_PLUGIN_URL . 'example_files/data-template.js', array('im_map_script'), true);
 		
@@ -178,7 +190,8 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	}
 	
 	private function add_map_type ($file){
-		return substr($file, 0, -3) . '_' . $this->map_type . '.js';
+		$parts = parse_url($file);
+		return $parts['scheme'] . '://' .  $parts['host'] . substr($parts['path'], 0, -3) . '_' . $this->map_type . '.js' . ($parts['query']? '?' . $parts['query']: '');
 	}
 	
 	private function gm_function ($dependencies){
@@ -253,6 +266,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 
 			wp_enqueue_style('im_font_awesome');
 			
+			wp_enqueue_style('im_bootstrap_style');
+			wp_enqueue_style('im_tether_style');
+			
 			// if(get_site_option('im_example_data', false) !== 'false')
 				// wp_enqueue_script('im_example_config');
 			// else
@@ -302,6 +318,16 @@ class IM_Initializer_Implementation extends IM_Initializer {
 			wp_enqueue_script('im_select2_' . $lang);
 		}
 	}
+	
+	//Is meant for external usage
+	public function enqueue_bootstrap (){
+	    wp_enqueue_script('im_tether');
+	    wp_enqueue_style('im_tether_style');
+	    wp_enqueue_script('im_bootstrap');
+	    wp_enqueue_style('im_bootstrap_style');
+	    wp_enqueue_script('im_hammer');
+	    wp_enqueue_script('im_hammer_jq');
+	}
 
 	public function localize_scripts (){
 
@@ -310,10 +336,11 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		
 		// This makes sure the ajax calls work in both http and https (and the nonces are always being verified)
 		if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off') {
-        	wp_localize_script('im_map_script', 'ajaxurl', admin_url( 'admin-ajax.php',"HTTPS"));
+		    wp_add_inline_script( 'im_map_script', 'const ajaxurl = "' . admin_url('admin-ajax.php', 'HTTPS') . '";');
         } else {
-        	wp_localize_script('im_map_script', 'ajaxurl', admin_url( 'admin-ajax.php',"HTTP"));
+            wp_add_inline_script( 'im_map_script', 'const ajaxurl = "' . admin_url('admin-ajax.php', 'HTTP') . '";');
         }
+        
 		$path_array = array (
 				'Info' => IM_PLUGIN_URL . '/icons/Info.png',
 				'Delete' => IM_PLUGIN_URL . '/icons/Delete.png',
@@ -336,8 +363,9 @@ class IM_Initializer_Implementation extends IM_Initializer {
 				'language' => substr(get_locale(), 0, 2),
 				'mapName' => $this->name,
 				'tk' => isset($_REQUEST['tk'])? $_REQUEST['tk'] : null,
+		        'layer' => isset($_REQUEST['layer'])? $_REQUEST['layer'] : null,
 				'single' => isset($_REQUEST['single'])? $_REQUEST['single'] : null,
-				'tkUrl' => add_query_arg('tk', '§§§', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request ))),
+				'tkUrl' => add_query_arg('tk', '§§§', remove_query_arg('layer', add_query_arg( $_SERVER['QUERY_STRING'], '', home_url( $wp->request )))),
 				'options' => [],
 				'mapType' => $this->map_type
 		);
@@ -410,6 +438,14 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	}
 
 	public function include_map ($params){
+	    if (isset($params['map_function'])){
+	        $this->map_function = $params['map_function'];
+	    }
+	    
+	    if (isset($params['load_function'])){
+	        $this->load_function = $params['load_function'];
+	    }
+	    
 		if(is_callable($this->map_function)){
 			//Only add scripts if the shortcode is used
 			$this->add_scripts = true;

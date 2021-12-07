@@ -72,6 +72,7 @@ abstract class IM_Initializer {
 	public abstract function enqueue_gui_elements ();
 	public abstract function enqueue_chosen_library ();
 	public abstract function enqueue_select2_library ();
+	public abstract function enqueue_bootstrap ();
 }
 
 function im_install_plugin (){

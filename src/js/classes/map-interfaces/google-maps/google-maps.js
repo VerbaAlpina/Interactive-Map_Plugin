@@ -1506,4 +1506,26 @@ function GoogleMapsInterface (position, options){
 		var /** google.maps.LatLng */ center = this.map.getCenter();
 		return {"lat": center.lat(), "lng" : center.lng()};
 	};
+	
+	/**
+	 * @override
+	 * 
+	 * @param {number} index
+	 * 
+	 * @return {undefined}
+	 */
+	this.setLayer = function (index){
+		//Do nothing
+	}
+	
+	/**
+	 * @override
+	 * 
+	 * @param {function(number)} baseLayerFun
+	 * 
+	 * @return {undefined}
+	 */
+	this.addMapListeners = function (baseLayerFun){
+		//Do nothing
+	}
 }

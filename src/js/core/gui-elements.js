@@ -152,6 +152,13 @@ function initGuiElements (){
 		else if(event.state && event.state["content"]){
 			legend.switchToState(event.state["content"])
 		}
+		else if(event.state && event.state["layer"]){
+			mapInterface.setLayer(event.state["layer"]);
+		}
+		else {
+			legend.switchToState([]);
+			mapInterface.setLayer(0);
+		}
 	}
 
 	jQuery('.leafletcustom').on('click',function(e){
@@ -855,7 +862,6 @@ function createCanvasMenu (gradients){
 	
 	
 	jQuery('.canvas_list li').click(function(){
-		console.log("here");
 		jQuery('.hoverdiv').hide();
 		jQuery('.canvastext').hide();
 		

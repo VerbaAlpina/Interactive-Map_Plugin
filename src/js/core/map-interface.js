@@ -21,10 +21,11 @@ function MapInterface (position, options){}
  * @param {function ()} callback
  * @param {Element} mapDiv
  * @param {{strokeWeight: number, strokeColor: string, fillOpacity: number}|function(string, boolean):{strokeWeight: number, strokeColor: string, fillOpacity: number}} polygonOptions
+ * @param {number|undefined} baseLayerIndex
  * 
  * @return {undefined}
  */
-MapInterface.prototype.init = function (mapDiv, callback, polygonOptions){};
+MapInterface.prototype.init = function (mapDiv, callback, polygonOptions, baseLayerIndex){};
 
 /**
  * @abstract
@@ -501,3 +502,21 @@ MapInterface.prototype.getCenter = function (){};
  * @return {undefined}
  */
 MapInterface.prototype.repaint = function (ready){};
+
+/**
+ * @abstract
+ * 
+ * @param {number} index
+ * 
+ * @return {undefined}
+ */
+MapInterface.prototype.setLayer = function (index){};
+
+/**
+ * @abstract
+ * 
+ * @param {function(number)} baseLayerFun
+ * 
+ * @return {undefined}
+ */
+MapInterface.prototype.addMapListeners = function (baseLayerFun){};

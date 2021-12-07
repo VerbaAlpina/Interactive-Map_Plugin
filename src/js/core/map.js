@@ -87,12 +87,28 @@ var style_for_hex_quantify = {};
 
 /**
  * @param {MapPosition} mapPosition
- * @param {ClustererOptions} clustererOptions
- * @param {Object<string, ?>} constructorOptions Additional map type specific options
+ * @param {ClustererOptions=} clustererOptions
+ * @param {Object<string, ?>=} constructorOptions Additional map type specific options
  * 
  * @return {undefined} 
  */
 function initMap (mapPosition, clustererOptions, constructorOptions){
+	
+	if (!clustererOptions){
+		clustererOptions = {
+			"viewportLat" :	mapPosition.lat + 4, 
+			"viewportLng" : mapPosition.lng - 8, 
+			"viewportHeight" : 8, 
+			"viewportWidth" : 16, 
+			"gridsizeLng" : 16, 
+			"gridsizeLat" : 16, 
+			"threshold" : 0.001
+		};
+	}
+	
+	if (!constructorOptions){
+		constructorOptions = {};
+	}
 	
 	switch (mapInterfaceType){
 		case MapInterfaceType.GoogleMaps:
@@ -111,7 +127,11 @@ function initMap (mapPosition, clustererOptions, constructorOptions){
 	
 	mapDomElement = document.getElementById("IM_map_div");
 	
-	mapInterface.init(mapDomElement, initCallback.bind(this, clustererOptions), polygonSettings);
+	if (PATH["layer"]){
+		mapState.currentMapLayer = PATH["layer"] * 1;
+	}
+	
+	mapInterface.init(mapDomElement, initCallback.bind(this, clustererOptions), polygonSettings, mapState.currentMapLayer);
 }
 
 
@@ -226,6 +246,18 @@ function initCallback (clustererOptions){
 		function (id, content){ //Location info window closed
 			mapState.removeLocationMarker(id);
 			jQuery(document).trigger("im_location_window_closed", [id, content]); //TODO document
+		}
+	);
+	
+	mapInterface.addMapListeners (
+		/**
+		 * @param {number} newLayerIndex
+		 */
+		function (newLayerIndex){ // Map base layer changed
+			mapState.currentMapLayer = newLayerIndex;
+			var /** {layer: number}*/ state = {"layer" : newLayerIndex};
+			history.pushState(state, "", addParamToUrl(window.location.href, "layer", newLayerIndex + ""));
+			jQuery(document).trigger("im_url_changed", state);
 		}
 	);
 	

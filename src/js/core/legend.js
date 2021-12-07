@@ -947,7 +947,12 @@ function Legend() {
 					catName = categoryManager.getTagTranslation(element.parent.filterData["selectedTag"]);
 				}
 				else {
-					catName = categoryManager.getCategoryName(element.category, true);
+					if (element.parent){
+						catName = categoryManager.getCategoryNameForSubLegendEntry(element.category, element.parent.filterData, true);
+					}
+					else {
+						catName = categoryManager.getCategoryName(element.category, true);
+					}
 				}
 				
 				spanStart.appendChild(document.createTextNode((i > 0? " + ": "") + catName + " "));

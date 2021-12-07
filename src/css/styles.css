@@ -157,9 +157,18 @@ div.custom_control_base.leafletcustom{
     position: relative;
 }
 
+
 .im_map_modal_body{
-    max-height: calc(100vh - 168px);
+    max-height: calc(100vh - 212px);
     overflow-y:auto;
+}
+
+@media only screen and (max-width: 1142px) {
+
+    .im_map_modal_body{
+        max-height: calc(100vh - 237px);
+    }
+
 }
 
 
