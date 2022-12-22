@@ -6,7 +6,7 @@
  * @param {number} categoryID
  * @param {string} elementID
  * @param {OverlayType} overlayType
- * @param {Object<string, string>} data
+ * @param {Object<string, string|Array<string,?>>} data
  */
 function LazyInfoWindowContent (categoryID, elementID, overlayType, data){
 	/**
@@ -23,6 +23,11 @@ function LazyInfoWindowContent (categoryID, elementID, overlayType, data){
 	 * @type {string}
 	 */
 	this.elementID = data["element_id"];
+	
+	/**
+	* @type {Object<string,?>}
+	*/
+	this.extra = data["extra"];
 	
 	/**
 	 * @type{OverlayType}
@@ -100,6 +105,7 @@ function LazyInfoWindowContent (categoryID, elementID, overlayType, data){
 	 * @return {undefined} 
 	 */
 	this.onOpen = function (tabContent, tabIndex, infoWindow, overlay){
+		console.log(this.extra);
 		if (this.realContents){
 			for (let i = 0; i < this.realContents.length; i++){
 				this.realContents[i].onOpen(tabContent, tabIndex, infoWindow, overlay);

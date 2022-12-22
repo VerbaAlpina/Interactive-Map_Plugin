@@ -140,19 +140,14 @@ function PixiWebGLInterface (position, options){
 		attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
 	});
 
-var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain-labels/{z}/{x}/{y}{r}.{ext}', {
-	attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-	subdomains: 'abcd',
-	minZoom: 0,
-	maxZoom: 20,
-	ext: 'png',
-	opacity: 0.9
-});
 
-	var overlays = {
+
+
+
+	/*var overlays = {
 	  "Stamen Labels" : Stamen_Labels
 	};
-
+*/
 	this.base_maps = {
 	"Stamen : Terrain" :  			  this.base_map_5,
 	"OSM    : Open Street Map":       this.base_map_1,
@@ -160,7 +155,7 @@ var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terra
     "Stamen  : Toner Light":    	  this.base_map_6,
 	"CartoDB  : Carto Light":         this.base_map_2,
 	"CartoDB  : Carto Dark":          this.base_map_3,
-	"ESRI  :  Esri.WorldImagery":     this.base_map_7,
+	"ESRI  :  Esri.WorldImagery":     this.base_map_7
 
 
 	};
@@ -178,7 +173,7 @@ var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terra
 
 
 
-L.control.layers(that.base_maps,overlays,{position: 'topright'}).addTo(this.map);
+L.control.layers(that.base_maps,null,{position: 'topright'}).addTo(this.map);
 
 
 this.map.attributionControl.setPosition('bottomleft');
@@ -481,6 +476,7 @@ this.pixioverlay =  new LeafletPixiOverlay(this.map,true,true);//, function (){
 	    var polygon_settings = polygonSettingsBoth(color);
 
 	    var shape;
+
 	 
 	    	if(type == "MultiPolygon" || type == "Polygon"){
 
@@ -1162,6 +1158,24 @@ function rgb2hex(rgb){
 
 			var div = jQuery('<div class="leafletcustom leaflet-control leaflet-bar im_loc_nav custom_control_base custom_control_shadow"><i class="fas fa-compass" aria-hidden="true"></i></div>');
 			jQuery('.leaflet-bottom.leaflet-right').prepend(div);
+		    div.on('click', clickFunction);
+		    callback();
+
+	};
+
+
+	/**
+	 * @override
+	 * 
+	 * @param {function():undefined} clickFunction Has to be called if the element is clicked
+	 * @param {string} Translation string for OverlayButton
+	 * @param {function():undefined} callback Has to be called after the element is added
+	 * @return {undefined}
+	 */
+	this.addAddLayerDiv = function (clickFunction, callback){
+			var div = jQuery('.addLayerButton');
+			jQuery('.leaflet-control-layers-base').append('<div class="leaflet-control-layers-separator"></div>');
+			jQuery('.leaflet-control-layers-base').append(div);
 		    div.on('click', clickFunction);
 		    callback();
 

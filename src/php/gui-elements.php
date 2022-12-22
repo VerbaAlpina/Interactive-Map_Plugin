@@ -563,6 +563,232 @@ function im_create_loc_nav_popup_html($Ue){
 }
 
 
+function im_create_synmap_cite_popup_html($Ue){
+	?>
+
+	<div id="IM_synmap_cite_popup" class="modal fade">
+ 		 <div class="modal-dialog" role="document">
+			  <div class="modal-content im_map_modal_content">  
+
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"><span>
+
+				        	<i class="fa-solid fa-quote-right"></i>
+
+  							<span style="margin-left:5px;">
+				        	  <?php echo $Ue['ZITIEREN']; ?>
+							</span>
+				        </span>
+
+				        </h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+                    <span class="ue_karte"><?php echo $Ue['ATLASKARTE']; ?></span>
+                    
+					<div class="modal-body im_map_modal_body"></div>	
+					
+				<div class="modal-footer">
+					<button style="background: transparent;"> <i title="copy to clipboard" class="fa-regular fa-copy"></i> <?php echo ' '.$Ue['KOPIEREN']; ?> </button>
+				</div>
+
+			</div>
+
+	 </div>
+</div>	
+	<?php
+}
+
+
+
+
+function im_create_add_overlay_popup_html($Ue){
+
+
+	?>
+
+	<div id="IM_add_overlay_popup" class="modal fade">
+ 		 <div class="modal-dialog" role="document">
+			  <div class="modal-content im_map_modal_content">  
+
+
+				    <div class="modal-header">
+				        <h5 class="modal-title"><span>
+
+        	       <span class="fa-stack add_layer_stack">
+                         <i class="fa fa-circle fa-stack-1x" aria-hidden="true" style="color: #444444; font-size: 11px;"></i>
+                         <i class="fa fa-plus fa-stack-1x" style="color: #ffffff; font-size: 9px;" aria-hidden="true"></i>
+                     </span>
+
+				        	<i class="fa-solid fa-layer-group"></i> 
+
+  							<span style="margin-left:5px;">
+				        	  <?php echo $Ue['ADD_MAP_OVERLAY']; ?>
+							</span>
+				        </span>
+
+				        </h5>
+				        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+				          <span aria-hidden="true">&times;</span>
+				        </button>
+				      </div>
+
+					<div class="modal-body im_map_modal_body">
+
+					
+							
+									<div class="map_overlay_group">
+									<input id="mayr_overlay" type="checkbox" autocomplete="off">
+										<span class="map_overlay_name">
+
+
+													<span> 
+
+														<?php 
+													     list($code, $html) = va_create_bibl_html("Mayr's Alpenkarte 1875");
+													     $html_tooltip = va_create_bib_tooltip_content("Mayr's Alpenkarte 1875", $code);
+														 echo $html . $html_tooltip;
+														?> 
+
+												    </span> 
+
+
+								   </span>
+
+										<div  class="overlay_slider">
+										<input disabled="true" type="range" min="1" max="100" value="100">
+										</div>
+										
+									
+
+
+
+									</div>
+
+
+									<div class="map_overlay_group">
+									<input id="czoernig" type="checkbox" autocomplete="off">
+										<span class="map_overlay_name">Karl von Czoernig: Ethnographische Karte der oesterreichischen Monarchie,
+
+													<span> 
+
+														<?php 
+													     list($code, $html) = va_create_bibl_html('Czoernig 1855');
+													     $html_tooltip = va_create_bib_tooltip_content('Czoernig 1855', $code);
+														 echo $html . $html_tooltip;
+														?> 
+
+												    </span> 
+
+										 </span>
+
+										<div  class="overlay_slider">
+										<input disabled="true" type="range" min="1" max="100" value="100">
+										</div>
+
+									</div>
+
+								  <div class="map_overlay_group">
+									<input id="kirchenprovizen" type="checkbox" autocomplete="off">
+										<span class="map_overlay_name">Kirchenprovinzen Mitteleuropas um 1500,
+
+												<span> 
+
+														<?php 
+													     list($code, $html) = va_create_bibl_html('Droysen / Andree 1886');
+													     $html_tooltip = va_create_bib_tooltip_content('Droysen / Andree 1886', $code);
+														 echo $html . $html_tooltip;
+
+														?> 
+
+												    </span> 
+
+
+										</span>
+
+										<div  class="overlay_slider">
+										<input disabled="true" type="range" min="1" max="100" value="100">
+										</div>
+
+									</div>
+
+						
+						
+									<div class="map_overlay_group">
+									<input id="ald_overlay" type="checkbox" autocomplete="off">
+										<span class="map_overlay_name"> ALD,
+
+												<span> 
+
+														<?php 
+													     list($code, $html) = va_create_bibl_html('ALD-I');
+													     $html_tooltip = va_create_bib_tooltip_content('ALD-I', $code);
+														 echo $html . $html_tooltip;
+
+														 echo ", ";
+
+													     list($code, $html) = va_create_bibl_html('ALD-II');
+													     $html_tooltip = va_create_bib_tooltip_content('ALD-II', $code);
+														 echo $html . $html_tooltip;
+
+														?> 
+
+												    </span> 
+
+
+										 </span>
+
+										<div  class="overlay_slider">
+										<input disabled="true" type="range" min="1" max="100" value="100">
+										</div>
+
+									</div>
+
+
+
+									<div class="map_overlay_group">
+									<input id="stamen_labels" type="checkbox" autocomplete="off">
+										<span class="map_overlay_name"> Stamen Labels </span>
+
+										<div  class="overlay_slider">
+										<input disabled="true" type="range" min="1" max="100" value="100">
+										</div>
+
+									</div>
+							
+
+					
+					</div>	
+					
+				<div class="modal-footer"></div>
+
+			</div>
+
+	 </div>
+</div>	
+	<?php
+}
+
+function im_create_add_overlay_button_html($Ue){
+	?>
+       <div style="color:#0075ff; cursor: pointer;" class="addLayerButton">
+
+       		 <div style="position:relative; display: inline-flex;">	
+       	       <span class="fa-stack add_layer_stack" style="top:0px;">
+                         <i class="fa fa-circle fa-stack-1x" aria-hidden="true" style="color: #0075ff; font-size: 7px;"></i>
+                         <i class="fa fa-plus fa-stack-1x" style="color: #ffffff; font-size: 5px;" aria-hidden="true"></i>
+                     </span>
+
+				   <i class="fa-solid fa-layer-group"></i> 
+			 </div>
+
+       	<?php echo $Ue['ADD_MAP_OVERLAY']; ?>
+       </div>
+	<?php
+}
 
 function im_create_lang_search_html($Ue){
 	?>

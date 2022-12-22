@@ -11,6 +11,18 @@ function im_ajax_handler_users (){
 	}
 	
 	switch ($_POST['namespace']){
+		case 'edit_geo':
+			check_ajax_referer('im_load_data', '_wpnonce', true);
+			
+			//Only allowed for users with the right capability
+			if(!current_user_can_for_blog(1, 'im_edit_map_data')){
+			    die (-1);
+			}
+			
+	        echo IM_Initializer::$instance->edit_data();
+	        break;
+		break;
+		
 		case 'gui_elements':
 			switch ($_POST['query']){
 				case 'add_new_entry_to_table':
@@ -138,11 +150,6 @@ function im_ajax_handler_users (){
 					break;
 			}
 		break;
-			
-		case 'edit_mode':
-			if(current_user_can_for_blog(1, 'im_edit_map_data'))
-				echo IM_Initializer::$instance->edit_data();
-		break;
 	}
 	die;
 }
@@ -199,11 +206,20 @@ function im_ajax_handler_all (){
 				echo json_encode($result);
 			break;
 
+
+		case 'get_user_info_by_wp_user':
+
+			$username = $_POST['username'];
+			$userinfo = get_user_by( 'login', $username);
+			$display_name = $userinfo->data->display_name;
+			echo $display_name;
+		break;
+
 		
 		case 'load_syn_map':
 			check_ajax_referer('im_load_data', '_wpnonce', true);
 			
-			$query1 = $db->prepare('SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers FROM im_syn_maps WHERE Id_Syn_Map = %d', $_POST['key']);
+			$query1 = $db->prepare('SELECT Zoom, Center_Lat, Center_Lng, Opened, Options, Quant, Info_Windows, Location_Markers, Author, Name FROM im_syn_maps WHERE Id_Syn_Map = %d', $_POST['key']);
 			$query2 = $db->prepare('SELECT Data FROM im_syn_maps_elements WHERE Id_Syn_Map = %d ORDER BY Position ASC', $_POST['key']);
 			$map_main_data = $db->get_row($query1);
 
@@ -628,14 +644,15 @@ abstract class IM_ElementInfoWindowData {
 class IM_LazyElementInfoWindowData extends IM_ElementInfoWindowData {
 	private $data;
 	
-	function __construct ($category, $element_id, $overlay_id, $name){
+	function __construct ($category, $element_id, $overlay_id, $name, $extra = []){
 		parent::__construct('lazy');
 		
 		$this->data = [
 			'category' => $category,
 			'element_id' => $element_id, //Id of the legend element
 			'overlay_id' => $overlay_id, //Id of the specific marker, polygon etc.
-			'name' => $name //Needed especially for "all distinct" pseudo category
+			'name' => $name, //Needed especially for "all distinct" pseudo category
+			'extra' => $extra
 		];
 	}
 	
@@ -646,6 +663,22 @@ class IM_LazyElementInfoWindowData extends IM_ElementInfoWindowData {
 	protected function getTypeSpecificData (){
 		return $this->data;
 	}
+}
+
+class IM_NoInfoWindow extends IM_ElementInfoWindowData {
+    private $data;
+    
+    function __construct (){
+        parent::__construct('no');
+    }
+    
+    public function getName(){
+        return '';
+    }
+    
+    protected function getTypeSpecificData (){
+        return [];
+    }
 }
 
 class IM_SimpleElementInfoWindowData extends IM_ElementInfoWindowData {

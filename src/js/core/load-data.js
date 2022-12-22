@@ -58,7 +58,13 @@ function CategoryManager (){
 	 * @private
 	 * @type {Object<string, function(new:InfoWindowContent, number, string, OverlayType, Object<string, ?>)>} 
 	 */
-	this.infoWindowContentConstructors = {"simple" : SimpleInfoWindowContent, "editable" : EditableInfoWindowContent, "polygon" : PolygonInfoWindowContent, "lazy" : LazyInfoWindowContent};
+	this.infoWindowContentConstructors = {
+		"simple" : SimpleInfoWindowContent,
+		"editable" : EditableInfoWindowContent,
+		"polygon" : PolygonInfoWindowContent,
+		"lazy" : LazyInfoWindowContent,
+		"no" : NoInfoWindowContent
+	};
 	
 	/**
 	 *  @private
@@ -551,7 +557,7 @@ function CategoryManager (){
 			mapInfos["context"] = context;
 			mapInfos["id"] = id;
 			
-			jQuery(document).trigger("im_syn_map_before_loading", mapInfos, data[1]);
+			jQuery(document).trigger("im_syn_map_before_loading", mapInfos, data[1]); //TODO the parameters should be in an array for this to work properly
 			if(!mapInfos["continue"])
 				return;
 			
@@ -664,8 +670,76 @@ function CategoryManager (){
 			var /** {tk: number}*/ state = {"tk" : id};
 			history.pushState(state, "", addParamToUrl(window.location.href, "tk", id + ""));
 			jQuery(document).trigger("im_url_changed", state); //TODO document
+
+
+			//set arrow for closed menu item
+			 jQuery('#syn_heading i').removeClass('fa-caret-down').addClass('fa-caret-right');
+
+
+
+			 //show Cite Modal
+
+			 var name = data[0]["Name"];
+
+  			 if(name=="Anonymous") return; //don't show if anonym map
+
+			 var date = "20"+data[0]["Options"]["tdb"].slice(0, -1);
+			 var clean_name = name.replace(/<\/?[^>]+(>|$)/g, "");
+			 var wp_author = data[0]["Author"];
+
+
+		 	var /**Object<string,string>*/ ajaxData = {
+			"action" : "im_a",
+			"namespace" : "get_user_info_by_wp_user",
+			"username" : wp_author
+			};
+
+			jQuery.post(ajaxurl, ajaxData, function(response) {
+
+				    var ue_karte = jQuery('#IM_synmap_cite_popup .ue_karte').text();
+				    jQuery('#IM_synmap_cite_popup .ue_karte').remove();
+
+					var display_name = response;
+				    var citeString = display_name +": "+ ue_karte +" '"+clean_name+"' VerbaAlpina, "+date;
+									
+			     	jQuery('#IM_synmap_cite_popup .modal-body')
+				     .empty()
+				     .append('<textarea readonly="true" style="width:100%;">'+citeString+'</textarea>');
+
+				    jQuery('#IM_synmap_cite_popup .modal-footer button').off().on('click',function(){
+				    	var text_a = jQuery('#IM_synmap_cite_popup textarea')[0];
+				    	text_a.select();
+			    		document.execCommand('copy');
+				    });	
+
+				    jQuery('#IM_synmap_cite_popup').modal();
+
+			})
+
 		});
 	};
+	
+	/**
+	* @param {string} id
+	* @param {MapShape} mapShape 
+	* @param {string} newWKT
+	*/
+	this.updatePolygon = function (id, mapShape, newWKT){
+		var /**Object<string,string>*/ ajaxData = {
+			"action" : "im_u",
+			"namespace" : "edit_geo",
+			"type" : "polygon",
+			"key" : id,
+			"geo" : newWKT,
+			"_wpnonce" : jQuery("#_wpnonce").val()
+		};
+		
+		jQuery(document).trigger("im_edit_geo_ajax_data", [ajaxData, mapShape]); //TODO document
+		
+		jQuery.post(ajaxurl, ajaxData, function(response) {
+			
+		});
+	}
 	
 	/**
 	 *
@@ -800,6 +874,7 @@ function CategoryManager (){
 				if (waitingList !== undefined){
 					waitingList.splice(indexWaitingList, 1);
 				}
+				categoryManager.showFilterScreen(category, key, filterData);
 				return;
 			}
 			

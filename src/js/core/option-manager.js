@@ -286,8 +286,6 @@ function OptionManager (){
 		
 		if(activate){
 
-			//jQuery('.im_loc_nav').css('bottom','89px');
-
 			//Stop quantify mode
 			var /** boolean|LegendElement|MultiLegendElement */ cQuantify = symbolClusterer.checkQuantify();
 			if(cQuantify !== false){
@@ -295,86 +293,74 @@ function OptionManager (){
 				symbolClusterer.quantify(/** @type{LegendElement|MultiLegendElement}*/ (cQuantify), false);
 			}
 			
-			mapInterface.removeOptionElement();
-			mapInterface.addUndoComponent(
-			{
-				name : TRANSLATIONS["LEAVE_EDIT_MODE"],
-				img : PATH["Delete"],
-				callback : function (){
-					this.redoHistory();
-					this.setOption("editMode", false);
-				}.bind(this),
-				show : true
-			},
-			{
-				name : TRANSLATIONS["UNDO_CHANGE"],
-				img : PATH["Undo"],
-				callback : this.undoChange.bind(this, false),
-				show : false
-			},
-			{
-				name : TRANSLATIONS["COMMIT_CHANGES"],
-				img : PATH["Commit"],
-				callback : function (){
-					try {
-						var /**Array<{operation : string, id : string, category : number}>*/ changeList = this.getChangeList();
-					}
-					catch (e){
-						alert(e);
-						return;
-					}
-					
-					jQuery.post(ajaxurl, {
-						"action" : "im_u",
-						"namespace" : "edit_mode",
-						"changes" : changeList
-					}, function (response){
-						alert(response);
-						optionManager.redoHistory();
-						optionManager.setOption("editMode", false);
-					});
-				}.bind(this),
-				show : false
-			});
+//			mapInterface.removeOptionElement();
+//			mapInterface.addUndoComponent(
+//			{
+//				name : TRANSLATIONS["LEAVE_EDIT_MODE"],
+//				img : PATH["Delete"],
+//				callback : function (){
+//					this.redoHistory();
+//					this.setOption("editMode", false);
+//				}.bind(this),
+//				show : true
+//			},
+//			{
+//				name : TRANSLATIONS["UNDO_CHANGE"],
+//				img : PATH["Undo"],
+//				callback : this.undoChange.bind(this, false),
+//				show : false
+//			},
+//			{
+//				name : TRANSLATIONS["COMMIT_CHANGES"],
+//				img : PATH["Commit"],
+//				callback : function (){
+//					try {
+//						var /**Array<{operation : string, id : string, category : number}>*/ changeList = this.getChangeList();
+//					}
+//					catch (e){
+//						alert(e);
+//						return;
+//					}
+//					
+//					jQuery.post(ajaxurl, {
+//						"action" : "im_u",
+//						"namespace" : "edit_mode",
+//						"changes" : changeList
+//					}, function (response){
+//						alert(response);
+//						optionManager.redoHistory();
+//						optionManager.setOption("editMode", false);
+//					});
+//				}.bind(this),
+//				show : false
+//			});
 			
-			//New elemets control:
-			var /**Array<{id : number, name: string, allowedOverlays: Array<boolean>}>*/ options = [];
-			for (var i = 0; i < this.editableCategories.length; i++){
-				if(categoryManager.categoryAllowsNewElements(this.editableCategories[i]) !== false){
-					options.push({
-						"id" : this.editableCategories[i], 
-						"name" : categoryManager.getCategoryName(this.editableCategories[i]),
-						"allowedOverlays" : categoryManager.getOverlayTypes(this.editableCategories[i])});
-				}
-			}
-			if(options.length > 0)
-				mapInterface.addNewOverlaysComponent(options, this.overlayFinished.bind(this));
+			
+			let div = jQuery('.leaflet-control-container');
+			optionManager.editor = new polygonEditor(mapInterface.pixioverlay, div);
+			//append('<div class="edit_info_div"> <div class="edit_section">Click on polygon to edit</div> <div class="ctrlkey edit_section"> <span class="ctrl">CTRL</span> to add / delete points</div></div>');
 			
 			jQuery(document).trigger("im_edit_mode_started"); //TODO document
 			jQuery("#IM_Syn_Map_Selection").chosen("destroy");
-			
-			//Commit changes button that also calls zling() resp. zgeo and reloads all data also Community-Id, Alpine Convention and Position!!
-			//TODO make polygons changable
 		}
 		else{
-			mapInterface.removeUndoComponent();
-			mapInterface.removeNewOverlaysComponent();
-			mapInterface.addOptionElement(this.optionsElement);
+			//mapInterface.removeUndoComponent();
+			//mapInterface.addOptionElement(this.optionsElement);
 			
-			this.categoryForAdding = -1;
-			jQuery("#IM_OptionsPane").toggle(false);
-			for (var i = 0; i < legend.getLength(); i++){
-				legend.getElement(i).visible(true);
-			}
+//			this.categoryForAdding = -1;
+//			jQuery("#IM_OptionsPane").toggle(false);
+//			for (var i = 0; i < legend.getLength(); i++){
+//				legend.getElement(i).visible(true);
+//			}
 			jQuery("#IM_Syn_Map_Selection").chosen({allow_single_deselect: true});
 			jQuery(document).trigger("im_edit_mode_stopped"); //TODO document
 
-			jQuery('.im_loc_nav').css('bottom','127px');
-
-
+			optionManager.editor.destroy();
+			jQuery('.edit_info_div').remove();
+			delete optionManager.editor;
 		}
 		this.editMode = activate;
-		legend.reloadOverlays();
+		//legend.reloadOverlays();
 	};
 	
 
@@ -439,6 +425,7 @@ function OptionManager (){
 		jQuery(document).trigger("im_show_edit_mode", [paramObject]); //TODO document
 		
 		if(paramObject.result && PATH["userCanEditMapData"] == "1" && this.editableCategories.length > 0){
+			//TODO add mapInterface.supportsEditing or similar
 			this.addOption ("editMode", new BoolOption(false, TRANSLATIONS["EDIT_MODE"], this.setEditMode, false));
 		}
 

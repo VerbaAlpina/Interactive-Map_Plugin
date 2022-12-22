@@ -415,9 +415,36 @@ function Legend() {
 		for (var i = 0; i < data.length; i++){
 			var /** Object */ currElement = data[i];
 			
-			categoryManager.loadData(currElement["category"] * 1, currElement["key"], "stateChange", currElement["filter"], currElement["fixedColors"]);
+			categoryManager.loadData(currElement["category"] * 1, currElement["key"], "stateChange", currElement["filter"], currElement["fixedColors"], undefined, false);
 		}
 	}
+	
+	/**
+	 * 
+	 * @return {undefined}
+	 */
+	this.switchToDefaultState = function (){
+		const queryString = window.location.search;
+		const urlParams = new URLSearchParams(queryString);
+		
+		if (urlParams.get("layer")){
+			mapInterface.setLayer(urlParams.get("layer"));
+		}
+		else {
+			mapInterface.setLayer(0);
+		}
+
+		
+		if (urlParams.get("tk")){
+			categoryManager.loadSynopticMap(urlParams.get("tk") * 1, "URL");
+		}
+		else {
+			legend.removeAll();
+			
+			jQuery(document).trigger("im_default_map_state"); //TODO document
+		}
+	}
+	
 	
 	/**
 	 *  @param {Object<string, ?>} filterData

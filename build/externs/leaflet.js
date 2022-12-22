@@ -151,8 +151,8 @@ L.Marker.prototype.remove = function (){};
 L.Marker.prototype.bindPopup = function (popup){};
 
 /**
- * @typedef {{minZoom: number, maxZoom: number, subdomains: (string|Array<string>), errorTileUrl: string, zoomOffset: number, tms: boolean, 
- * 				zoomReverse: boolean, detectRetina: boolean, crossOrigin: (boolean|string)}}
+ * @typedef {{minZoom: number, maxZoom: number, subdomains: (string|Array<string>|undefined), errorTileUrl: (string|undefined), zoomOffset: (number|undefined), tms: (boolean|undefined), 
+ * 				zoomReverse: (boolean|undefined), detectRetina: (boolean|undefined), crossOrigin: (boolean|string|undefined)}}
  */
 var TileLayerOptions;
 

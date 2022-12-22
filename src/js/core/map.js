@@ -255,9 +255,12 @@ function initCallback (clustererOptions){
 		 */
 		function (newLayerIndex){ // Map base layer changed
 			mapState.currentMapLayer = newLayerIndex;
-			var /** {layer: number}*/ state = {"layer" : newLayerIndex};
-			history.pushState(state, "", addParamToUrl(window.location.href, "layer", newLayerIndex + ""));
-			jQuery(document).trigger("im_url_changed", state);
+			
+			if (!mapState.inPopState){
+				var /** {layer: number}*/ state = {"layer" : newLayerIndex};
+				history.pushState(state, "", addParamToUrl(window.location.href, "layer", newLayerIndex + ""));
+				jQuery(document).trigger("im_url_changed", state);
+			}
 		}
 	);
 	
@@ -301,7 +304,12 @@ function initCallback (clustererOptions){
 	}
 	else if (PATH["single"] != undefined){
 		var /** number */ catNum = categoryManager.getCategoryFromPrefix(PATH["single"][0]);
-		if(catNum != -1)
-			categoryManager.loadData(catNum, PATH["single"], "custom");
+		if(catNum != -1){
+			let prefix = PATH["single"][0];
+			let ids = PATH["single"].substring(1).split(" ");
+			for (let i = 0; i < ids.length; i++){
+				categoryManager.loadData(catNum, prefix + ids[i], "custom");
+			}
+		}
 	}
 }

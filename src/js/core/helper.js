@@ -26,6 +26,8 @@ function mapSQL(id, args, callback) {
 		"_wpnonce" : jQuery("#_wpnonce").val()
 	}, args), function(response) {
 		callback(response);
+	}).fail(function (){
+		callback(-1);
 	});
 }
 

@@ -857,10 +857,15 @@ function MapShape (infoWindowContent, owner, index){
  		if(this.infoWindow)
  			mapInterface.destroyInfoWindow(this.infoWindow); //To avoid multiple info windows for one polygon
  		
+ 		var html = this.infoWindowContent.getHtml(0);
+ 		if (!html){
+			return;
+		}
+ 		
 		this.infoWindow = mapInterface.createInfoWindow(
 			this.mapInterfaceElement,
 			[{"url" : undefined, "size" : undefined}], 
-			[this.infoWindowContent.getHtml(0)],
+			[html],
 			this
 		);
 		
@@ -1142,6 +1147,10 @@ function MapSymbol (infoWindowContents, owner, markingColorIndex, elementIndex){
 				
 				for (let j = 0; j < part.infoWindows.length; j++){
 					var /** Element|string*/ html = part.infoWindows[j].getHtml(j);
+					
+					if (!html){
+						return;
+					}
 					
 					var /** Element*/ newChild;
 					if(typeof html === "string"){

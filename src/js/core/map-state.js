@@ -6,6 +6,13 @@ function MapState (){
 	/**
 	 * @public
 	 *
+	 * @type{boolean}
+	 */
+	this.inPopState = false;
+	
+	/**
+	 * @public
+	 *
 	 * @type{number|undefined}
 	 */
 	this.currentMapLayer = undefined;
@@ -73,8 +80,10 @@ function MapState (){
 		for (var i = 0; i < this.currentInfowindowOwners.length; i++){
 			var /** MapShape|MapSymbol */ element = this.currentInfowindowOwners[i];
 			
-			var /** LegendElement */ legendElement = element.getLegendElement(element.currentTabIndex);
+			
+			var /** LegendElement */ legendElement;
 			if(element instanceof MapShape){
+				legendElement = element.owner;
 				var /** {lat: number, lng: number} */ latlng = mapInterface.getInfoWindowPosition(element.infoWindow);
 				let /** {elementIndex: number, lat: number, lng: number} */ data = {"elementIndex" : element.index, "lat" : latlng["lat"], "lng" : latlng["lng"]};
 				data["key"] = element.owner.key;
@@ -84,6 +93,7 @@ function MapState (){
 				result.push(/** @type{{legendIndex: number, elementIndex: number, lat: number, lng: number}} */ (data));
 			}
 			else {
+				legendElement = element.getLegendElement(element.currentTabIndex);
 				let /** {lat: number, lng : number}*/ data = mapInterface.getMarkerPosition(element.getMarker());
 				data["key"] = legendElement.key;
 				data["category"] = legendElement.category;

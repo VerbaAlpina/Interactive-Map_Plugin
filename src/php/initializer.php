@@ -163,7 +163,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 		wp_register_style('im_qtip_style', IM_PLUGIN_URL . '/lib/js/qtip/jquery.qtip.min.css');
 		
 		//Font Awesome
-		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/fontawesome-free-5.1.0-web/css/all.css');
+		wp_register_style('im_font_awesome', IM_PLUGIN_URL . '/lib/css/fontawesome/css/all.css');
 
 		//jqColorPicker
 		wp_register_script('im_colors', IM_PLUGIN_URL . '/lib/js/colorpicker/colors.js');
@@ -191,7 +191,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	
 	private function add_map_type ($file){
 		$parts = parse_url($file);
-		return $parts['scheme'] . '://' .  $parts['host'] . substr($parts['path'], 0, -3) . '_' . $this->map_type . '.js' . ($parts['query']? '?' . $parts['query']: '');
+		return $parts['scheme'] . '://' .  $parts['host'] . substr($parts['path'], 0, -3) . '_' . $this->map_type . '.js' . (isset($parts['query']) && $parts['query']? '?' . $parts['query']: '');
 	}
 	
 	private function gm_function ($dependencies){
@@ -296,7 +296,7 @@ class IM_Initializer_Implementation extends IM_Initializer {
 	public function enqueue_gui_elements (){
 		wp_dequeue_style('wp-jquery-ui-dialog');
 		
-		wp_enqueue_script('im_js_single', IM_PLUGIN_URL . 'src/js/core/gui-elements.js', array('jquery-ui-dialog'));
+		wp_enqueue_script('im_js_single', IM_PLUGIN_URL . 'src/js/core/gui-elements.js?v=2', array('jquery-ui-dialog'));
 		$this->add_translations('im_js_single');
 		wp_enqueue_style('im_css_single', IM_PLUGIN_URL . 'src/css/gui-elements.css');
 		wp_enqueue_style("im_jquery-ui-style");

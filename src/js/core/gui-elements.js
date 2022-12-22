@@ -117,6 +117,8 @@ function initGuiElements (){
 		categoryManager.loadSynopticMap(synMap.val() * 1, "USER");
 		jQuery(document).trigger("im_load_syn_map");
 		synMap.val("").trigger("chosen:updated");
+
+
 	});
 	
 	jQuery("#IM_Save_Syn_Map_Button").click(function (){
@@ -143,22 +145,26 @@ function initGuiElements (){
 
 	initCanvasMenu();
 	createLocNavigationDiv();
+	createAddLayerDiv();
 	addSelect2ToSearchField();
 
 	window.onpopstate = function (event){
+		mapState.inPopState = true;
+				
 		if(event.state && event.state["tk"]){
 			categoryManager.loadSynopticMap(event.state["tk"], "URL");
 		}
 		else if(event.state && event.state["content"]){
-			legend.switchToState(event.state["content"])
+			legend.switchToState(event.state["content"]);
 		}
-		else if(event.state && event.state["layer"]){
+		else if(event.state && (event.state["layer"] || event.state["layer"] === 0)){
 			mapInterface.setLayer(event.state["layer"]);
 		}
 		else {
-			legend.switchToState([]);
-			mapInterface.setLayer(0);
+			legend.switchToDefaultState();
 		}
+		
+		mapState.inPopState = false;
 	}
 
 	jQuery('.leafletcustom').on('click',function(e){
@@ -280,8 +286,9 @@ function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserN
 
 	var /** Object<string, string>? */ data = getJSONDataFromInputWindow(elementArray, table, suppressUserName, primaryKeyField, updateId);
 	
-	if(data == null)
+	if(data == null){
 		return;
+	}
 		
 	data["_wpnonce"] = nonce;
 	
@@ -292,6 +299,9 @@ function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserN
 	jQuery.post(ajaxurl, data, function (response){
 		if(response == "-1"){
 			jQuery("#error" + selectId).html("Not allowed!");
+		}
+		else if (!response){
+			jQuery("#error" + selectId).html("No server response!");
 		}
 		else if(response.indexOf("Error: ") === 0){
 			jQuery("#error" + selectId).html(response);
@@ -323,6 +333,8 @@ function addEntryToTable (table, selectId, callback, mode, dbName, suppressUserN
 				/** @type{function(Object<string, *>)} */ (callback)(paramData);
 
 		}
+	}).fail(function (){
+		jQuery("#error" + selectId).html("Server error! Request failed!");
 	});
 	
 }
@@ -561,6 +573,125 @@ function updateSelect(element, value, mode){
 	 });
 }
 
+
+/**
+ * @returns {undefined}
+ */
+ function createAddLayerDiv (){
+	 mapInterface.addAddLayerDiv(
+	 	function(e){
+
+		 jQuery('#IM_add_overlay_popup').modal({backdrop:false});
+	 }, 
+	  function (){
+
+	      	 jQuery('#IM_add_overlay_popup').one('shown.bs.modal',function(){
+
+	      	 		var mayr = L.tileLayer('https://www.verba-alpina.gwi.uni-muenchen.de/tiles/mayr/{z}/{x}/{y}.png', {
+					  attribution: 'Map tiles based on scan by <a href="https://www.davidrumsey.com/">David Rumsey</a> CC BY-NC-SA 3.0',
+			          minZoom: 0, maxZoom: 12,
+			          noWrap: true,
+			          tms: false,
+			          zIndex: 1000
+			 		});
+
+		 			var czoernig = L.tileLayer('https://www.verba-alpina.gwi.uni-muenchen.de/tiles/czoernig/{z}/{x}/{y}.png', {
+					  attribution: 'Map tiles based on scan by <a href="https://opacplus.bsb-muenchen.de/title/BV012651353">Bsb Muenchen</a> CC BY-NC-SA 3.0',
+			          minZoom: 0, maxZoom: 12,
+			          noWrap: true,
+			          tms: false,
+			          zIndex: 1000
+			 		});
+
+		 			var kirchenprovinzen = L.tileLayer('https://www.verba-alpina.gwi.uni-muenchen.de/tiles/kirchenprovinzen/{z}/{x}/{y}.png', {
+					  attribution: 'Map tiles based on scan by <a href="https://www.digitale-bibliothek-mv.de/viewer/image/PPN636492214/36/LOG_0031/">Digitale Bibliothek MV</a> CC BY-NC-SA 3.0',
+			          minZoom: 0, maxZoom: 11,
+			          noWrap: true,
+			          tms: false,
+			          zIndex: 1000
+			 		});
+
+					var ald_blue_layer = L.tileLayer('https://www.ald.gwi.uni-muenchen.de/tiles/{z}/{x}/{y}.png', {
+				    minZoom: 0, maxZoom: 12,
+					noWrap: true,
+					tms: false,
+				     zIndex: 1000
+					});
+
+
+					var Stamen_Labels = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/terrain-labels/{z}/{x}/{y}{r}.{ext}', {
+						attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+						subdomains: 'abcd',
+						minZoom: 0,
+						maxZoom: 20,
+						ext: 'png',
+						opacity: 0.9,
+						tms:false,
+						zIndex: 1000
+					});
+
+
+	      	 		jQuery('.map_overlay_group span').on('click',function(){
+	      	 			 jQuery(this).parent().find('input').click();
+	      	 		})
+
+
+	      	 		jQuery('#czoernig').on('change',function(){
+	      	 			toggleOverlay(this,czoernig);
+	      	 		});
+
+      	 			jQuery('#kirchenprovizen').on('change',function(){
+	      	 			toggleOverlay(this,kirchenprovinzen);
+	      	 		});
+
+	      	 		jQuery('#mayr_overlay').on('change',function(){
+	      	 			toggleOverlay(this,mayr);
+	      	 		});
+
+  	 				jQuery('#ald_overlay').on('change',function(){
+	      	 			toggleOverlay(this,ald_blue_layer);
+	      	 		});
+
+  	 				jQuery('#stamen_labels').on('change',function(){
+	      	 			toggleOverlay(this,Stamen_Labels);
+	      	 		});
+					
+  	 				jQuery('.map_overlay_group').each(function(){
+  	 						var that = jQuery(this);
+  	 						addBiblioQTips(that);
+  	 				})
+					
+
+	      	 })
+	 })
+}
+
+
+/**
+ * @returns {undefined}
+ */
+function toggleOverlay(_this,overlay){
+
+	var slider = jQuery(_this).parent().find('.overlay_slider').find('input');
+
+		if(jQuery(_this).is(':checked')){
+		 	overlay.addTo(mapInterface.map);
+
+			slider.prop("disabled", false);
+
+				slider[0].oninput = function() {
+				  overlay.setOpacity(this.value/100);
+				}
+			
+			 //jQuery(_this).parent().parent().prepend(jQuery(_this).parent()); //sort layers not intuitive
+		}
+		else{
+		  overlay.remove(mapInterface.map);
+		  	slider.prop("disabled", true);
+		  		// jQuery(_this).parent().parent().append(jQuery(_this).parent());
+		}
+
+}
 
 
  function addSelect2ToSearchField(){
